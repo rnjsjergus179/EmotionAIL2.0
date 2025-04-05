@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -51,18 +52,18 @@
       left: 1%;
       width: 20%;
       padding: 1%;
-      background: rgba(0, 0, 0, 0.7); /* 디지털 느낌의 반투명 검정 배경 */
-      border: 2px solid #00ffcc; /* 네온 청록색 테두리 */
+      background: rgba(0, 0, 0, 0.7);
+      border: 2px solid #00ffcc;
       border-radius: 10px;
-      box-shadow: 0 0 15px rgba(0, 255, 204, 0.5); /* 네온 글로우 효과 */
+      box-shadow: 0 0 15px rgba(0, 255, 204, 0.5);
       z-index: 20;
       max-height: 80vh;
       overflow-y: auto;
-      color: #00ffcc; /* 텍스트 색상도 네온 청록색 */
+      color: #00ffcc;
     }
     #left-hud h3 { 
       margin-bottom: 5px; 
-      text-shadow: 0 0 5px #00ffcc; /* 텍스트에 네온 글로우 */
+      text-shadow: 0 0 5px #00ffcc;
     }
     #calendar-container { margin-top: 10px; }
     #calendar-header {
@@ -126,8 +127,8 @@
       gap: 2px;
     }
     #calendar-grid div {
-      background: rgba(255, 255, 255, 0.1); /* 반투명 흰색 배경 */
-      border: 1px solid #00ffcc; /* 네온 테두리 */
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid #00ffcc;
       border-radius: 4px;
       min-height: 25px;
       font-size: 10px;
@@ -137,7 +138,7 @@
       transition: all 0.3s;
     }
     #calendar-grid div:hover { 
-      background: rgba(0, 255, 204, 0.3); /* 호버 시 네온 효과 */
+      background: rgba(0, 255, 204, 0.3);
       box-shadow: 0 0 5px #00ffcc; 
     }
     .day-number {
@@ -243,7 +244,7 @@
     document.addEventListener("contextmenu", event => event.preventDefault());
     let blockUntil = 0;
     let danceInterval;
-    let currentCity = "서울"; // 한국어 지역명
+    let currentCity = "서울";
     let currentWeather = "";
     
     document.addEventListener("copy", function(e) {
@@ -299,12 +300,15 @@
     function saveCalendar() {
       const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
       const calendarData = {};
-      for (let d = 1; d <= daysInMonth; d++){
+      for (let d = 1; d <= daysInMonth; d++) {
         const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${d}`);
         if (eventDiv && eventDiv.textContent.trim() !== "") {
           calendarData[`${currentYear}-${currentMonth+1}-${d}`] = eventDiv.textContent;
         }
       }
+      // localStorage에 저장
+      localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+      // 파일로 다운로드
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(calendarData, null, 2));
       const dlAnchorElem = document.createElement("a");
       dlAnchorElem.setAttribute("href", dataStr);
@@ -319,9 +323,43 @@
       const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${day}`);
       if (eventDiv) {
         eventDiv.textContent = "";
+        // localStorage에서도 삭제
+        const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+        delete calendarData[`${currentYear}-${currentMonth+1}-${day}`];
+        localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
         return `${currentYear}-${currentMonth+1}-${day} 일정이 삭제되었습니다.`;
       } else {
         return "해당 날짜에 일정이 없습니다.";
+      }
+    }
+    
+    function getCalendarEvents(dateStr = null) {
+      const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+      if (!Object.keys(calendarData).length) {
+        return "저장된 일정이 없습니다. 먼저 캘린더를 저장해주세요.";
+      }
+      
+      if (dateStr) {
+        // 특정 날짜의 일정 조회 (형식: YYYY-MM-DD)
+        if (calendarData[dateStr]) {
+          return `${dateStr}의 일정: ${calendarData[dateStr]}`;
+        } else {
+          return `${dateStr}에는 일정이 없습니다.`;
+        }
+      } else {
+        // 현재 월의 모든 일정 조회
+        const currentMonthStr = `${currentYear}-${currentMonth+1}`;
+        let events = [];
+        for (let key in calendarData) {
+          if (key.startsWith(currentMonthStr)) {
+            events.push(`${key}: ${calendarData[key]}`);
+          }
+        }
+        if (events.length) {
+          return `현재 월(${currentMonthStr})의 일정:\n${events.join("\n")}`;
+        } else {
+          return `현재 월(${currentMonthStr})에는 일정이 없습니다.`;
+        }
       }
     }
     
@@ -424,6 +462,18 @@
             response = "날짜를 입력하지 않았습니다.";
           }
         }
+        else if (lowerInput.includes("일정 알려줘") || 
+                 lowerInput.includes("일정 알려") || 
+                 lowerInput.includes("일정 확인")) {
+          // 날짜 형식 (YYYY-MM-DD) 추출
+          const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
+          if (dateMatch) {
+            const dateStr = dateMatch[0];
+            response = getCalendarEvents(dateStr);
+          } else {
+            response = getCalendarEvents(); // 날짜 미입력 시 현재 월의 모든 일정
+          }
+        }
         else if (lowerInput.includes("기분") && lowerInput.includes("좋아")) {
           response = "정말요!? 저도 정말 기분좋아요😁";
           const originalEyeColor = leftEye.material.color.getHex();
@@ -515,13 +565,13 @@
       if (!currentWeather) return;
       if (currentWeather.indexOf("비") !== -1 || currentWeather.indexOf("소나기") !== -1) {
         rainGroup.visible = true;
-        houseCloudGroup.visible = false; // 비가 올 때는 구름 숨김
+        houseCloudGroup.visible = false;
       } else if (currentWeather.indexOf("구름") !== -1 || currentWeather.indexOf("흐림") !== -1) {
         rainGroup.visible = false;
         houseCloudGroup.visible = true;
       } else {
         rainGroup.visible = false;
-        houseCloudGroup.visible = false; // 맑을 때는 구름과 비 모두 숨김
+        houseCloudGroup.visible = false;
       }
     }
     
@@ -559,7 +609,6 @@
         if (e.key === "Enter") sendChat();
       });
       
-      // 드롭다운 메뉴 초기화
       const regionSelect = document.getElementById("region-select");
       regionList.forEach(region => {
         const option = document.createElement("option");
@@ -635,7 +684,8 @@
         <strong>채팅창:</strong> 상단 드롭다운 메뉴에서 지역을 선택하면 지도와 날씨가 즉시 업데이트됩니다.<br>
         또는 "지역 [지역명]" (예: "지역 인천" 또는 "인천") 입력으로도 변경 가능합니다.<br>
         "날씨 알려줘"로 현재 지역의 날씨를 다시 확인할 수 있습니다.<br>
-        "일정 삭제" 또는 "하루일정 삭제"를 입력해 캘린더 일정을 삭제할 수 있습니다.
+        "일정 삭제" 또는 "하루일정 삭제"를 입력해 캘린더 일정을 삭제할 수 있습니다.<br>
+        "일정 알려줘"를 입력해 저장된 일정을 확인할 수 있습니다 (예: "2025-4-15 일정 알려줘").
       </p>
       <p><strong>캘린더:</strong> 왼쪽에서 날짜 클릭해 일정을 추가하거나, 버튼으로 저장/삭제하세요.</p>
       <p><strong>버전 선택:</strong> 하단 드롭다운에서 "구버전 1.3" 또는 "최신 버전 (1.7)"을 선택해 해당 페이지로 이동하세요.</p>
@@ -807,7 +857,7 @@
     function createHouseCloud() {
       const cloud = new THREE.Group();
       const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
-      const sphere1 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), cloudMat); // 구름 크기 축소
+      const sphere1 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), cloudMat);
       sphere1.position.set(0, 0, 0);
       const sphere2 = new THREE.Mesh(new THREE.SphereGeometry(0.4, 32, 32), cloudMat);
       sphere2.position.set(0.6, 0.2, 0);
@@ -819,15 +869,13 @@
     }
     const singleCloud = createHouseCloud();
     houseCloudGroup.add(singleCloud);
-    // 구름을 캐릭터 머리 위로 이동 (초기 위치 설정)
-    houseCloudGroup.position.set(0, 2, 0); // 캐릭터 머리 위로 설정 (y=2)
+    houseCloudGroup.position.set(0, 2, 0);
     scene.add(houseCloudGroup);
     function updateHouseClouds() {
-      // 캐릭터 머리 위에서 좌우로 움직이도록 설정
       const headWorldPos = new THREE.Vector3();
       head.getWorldPosition(headWorldPos);
-      houseCloudGroup.position.x = headWorldPos.x + Math.sin(Date.now() * 0.001) * 1; // 좌우 이동
-      houseCloudGroup.position.y = headWorldPos.y + 1; // 머리 위 1 유닛
+      houseCloudGroup.position.x = headWorldPos.x + Math.sin(Date.now() * 0.001) * 1;
+      houseCloudGroup.position.y = headWorldPos.y + 1;
       houseCloudGroup.position.z = headWorldPos.z;
     }
     
