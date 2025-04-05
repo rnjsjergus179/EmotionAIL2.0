@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -44,6 +45,8 @@
       padding: 5px;
       font-size: 14px;
     }
+    
+    /* 파일 업로드 관련 기능은 삭제됨 → 파일 업로드 입력란도 제거 */
     
     #left-hud {
       position: fixed;
@@ -377,104 +380,7 @@
       showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
     
-    // ML 파이프라인: 텍스트 파일 업로드 시 CSV("문장,레이블" 형식)의 데이터를 처리하는 파이프라인
-    async function trainModelWithFileData(texts, labels) {
-      // 1. 데이터 전처리: 소문자화, 특수문자 제거
-      const preprocessedTexts = texts.map(text => 
-        text.toLowerCase().replace(/[^0-9a-z가-힣\s]/g, "").trim()
-      );
-      
-      // 2. 토큰화 및 벡터화: 단어 사전 구축
-      const vocab = {"<PAD>": 0, "<UNK>": 1};
-      let vocabSize = 2;
-      preprocessedTexts.forEach(text => {
-        const tokens = text.split(/\s+/);
-        tokens.forEach(token => {
-          if (token && !(token in vocab)) {
-            vocab[token] = vocabSize++;
-          }
-        });
-      });
-      
-      // 최대 길이 결정
-      const maxLen = Math.max(...preprocessedTexts.map(t => t.split(/\s+/).length));
-      const sequences = preprocessedTexts.map(text => {
-        const tokens = text.split(/\s+/);
-        let seq = tokens.map(token => vocab[token] || vocab["<UNK>"]);
-        if (seq.length < maxLen) {
-          seq = seq.concat(Array(maxLen - seq.length).fill(vocab["<PAD>"]));
-        } else {
-          seq = seq.slice(0, maxLen);
-        }
-        return seq;
-      });
-      
-      // 3. 배치 처리: 텐서 생성
-      const xsTensor = tf.tensor2d(sequences, [sequences.length, maxLen], 'int32');
-      const numClasses = Math.max(...labels) + 1;
-      const ysTensor = tf.tensor1d(labels, 'int32');
-      const ysOneHot = tf.oneHot(ysTensor, numClasses);
-      
-      // 4. 학습률 조정: 초기 학습률 및 옵티마이저
-      const initialLearningRate = 0.001;
-      const optimizer = tf.train.adam(initialLearningRate);
-      
-      // 5. 모델 구성: 임베딩 → LSTM(with dropout) → Dropout → Dense(softmax)
-      const model = tf.sequential();
-      model.add(tf.layers.embedding({inputDim: vocabSize, outputDim: 16, inputLength: maxLen}));
-      model.add(tf.layers.lstm({units: 32, dropout: 0.2, recurrentDropout: 0.2}));
-      model.add(tf.layers.dropout({ rate: 0.2 }));
-      model.add(tf.layers.dense({units: numClasses, activation: 'softmax'}));
-      
-      model.compile({
-        optimizer: optimizer,
-        loss: 'categoricalCrossentropy',
-        metrics: ['accuracy']
-      });
-      
-      // 6. 훈련 & 평가: 학습률 스케줄러 (매 에폭마다 0.9 감쇠)
-      const lrCallback = {
-        onEpochEnd: async (epoch, logs) => {
-          const newLR = initialLearningRate * Math.pow(0.9, epoch+1);
-          optimizer.setLearningRate(newLR);
-          const msg = `Epoch ${epoch+1}: loss=${logs.loss.toFixed(3)}, acc=${logs.acc.toFixed(3)}, lr=${newLR.toFixed(5)}`;
-          console.log(msg);
-          showSpeechBubbleInChunks(msg, 2000);
-        }
-      };
-      
-      await model.fit(xsTensor, ysOneHot, {
-        epochs: 5,
-        batchSize: 2,
-        callbacks: lrCallback
-      });
-      
-      showSpeechBubbleInChunks("모델 훈련 완료!", 3000);
-    }
-    
-    // 파일 업로드 이벤트: CSV 또는 텍스트 파일("문장,레이블" 형식) 처리
-    function handleFileUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = async function(e) {
-        const content = e.target.result;
-        const lines = content.split("\n").filter(line => line.trim() !== "");
-        const texts = [];
-        const labels = [];
-        lines.forEach(line => {
-          const parts = line.split(",");
-          if (parts.length >= 2) {
-            texts.push(parts[0].trim());
-            labels.push(parseInt(parts[1].trim()));
-          }
-        });
-        await trainModelWithFileData(texts, labels);
-      };
-      reader.readAsText(file);
-    }
-    
-    // 채팅 입력 처리 (감정 표현: 입력한 감정 단어에 따라 다양하고 방대한 응답을 캐릭터가 표현)
+    // 채팅 입력 처리 – ML 파이프라인 관련 기능은 삭제되고, 감정 표현 응답이 방대하게 구성됨
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -515,50 +421,70 @@
         }
       }
       
-      // 감정 표현 처리: 입력에 감정 관련 단어가 포함되면 미리 정의된 다양한 응답 중 선택
+      // 감정 표현 처리: 입력한 감정 단어에 따라 다양한 응답 무작위 선택 (대폭 증가)
       if (!response) {
-        if (lowerInput.includes("학습 시작") || lowerInput.includes("모델 학습") || lowerInput.includes("학습해줘")) {
-          response = "모델 학습 시작합니다.";
-          showSpeechBubbleInChunks(response, 2000);
-          const dummyData = [
-            {text: "오늘 너무 기분이 좋아", label: 0},
-            {text: "정말 슬픈 일이 있었어", label: 1},
-            {text: "짜증나는 하루였어", label: 2},
-            {text: "놀라운 소식이야", label: 3},
-            {text: "행복한 날이야", label: 0},
-            {text: "불안하고 초조해", label: 1}
-          ];
-          const texts = dummyData.map(d => d.text);
-          const labels = dummyData.map(d => d.label);
-          await trainModelWithFileData(texts, labels);
-        }
-        else if (lowerInput.includes("기분") || 
-                 lowerInput.includes("슬프") || 
-                 lowerInput.includes("기쁘") || 
-                 lowerInput.includes("화난") || 
-                 lowerInput.includes("분노") || 
-                 lowerInput.includes("우울") || 
-                 lowerInput.includes("행복") || 
-                 lowerInput.includes("짜증") || 
-                 lowerInput.includes("놀라")) {
+        if (lowerInput.includes("기분") || 
+            lowerInput.includes("슬프") || 
+            lowerInput.includes("기쁘") || 
+            lowerInput.includes("행복") || 
+            lowerInput.includes("화난") || 
+            lowerInput.includes("분노") || 
+            lowerInput.includes("우울") || 
+            lowerInput.includes("짜증") || 
+            lowerInput.includes("놀라") ||
+            lowerInput.includes("잘자")) {
           let emotionResponses = [];
           if (lowerInput.includes("슬프")) {
-            emotionResponses.push("정말 슬퍼요... 눈물이 나네요.", "마음이 아파요...", "슬픔이 깊게 느껴져요.");
+            emotionResponses.push(
+              "정말 슬퍼요... 눈물이 나네요.", 
+              "마음이 아파요...", 
+              "슬픔이 깊게 느껴져요.", 
+              "그 슬픔을 이겨내실 수 있을 거예요.", 
+              "슬픈 기분, 저도 함께 느껴요."
+            );
           }
           if (lowerInput.includes("기쁘") || lowerInput.includes("행복")) {
-            emotionResponses.push("정말 기쁘고 행복해요!", "마음이 환하게 빛나요.", "너무 즐거워요!");
+            emotionResponses.push(
+              "정말 기쁘고 행복해요!", 
+              "마음이 환하게 빛나요.", 
+              "너무 즐거워요!", 
+              "오늘도 행복한 하루 보내세요.", 
+              "기쁨이 넘치는 하루가 되길 바라요!"
+            );
           }
           if (lowerInput.includes("화난") || lowerInput.includes("분노") || lowerInput.includes("짜증")) {
-            emotionResponses.push("정말 화가 나요. 진정이 필요해요.", "분노가 치밀어요!", "짜증이 나네요...");
+            emotionResponses.push(
+              "화가 나셨군요. 잠시 진정해보세요.", 
+              "분노가 치밀어요. 조금 숨 고르세요.", 
+              "짜증이 나네요... 차분해지길 바랍니다.", 
+              "화내지 마세요. 모든 게 잘 될 거예요."
+            );
           }
           if (lowerInput.includes("우울")) {
-            emotionResponses.push("정말 우울해요... 힘내세요.", "마음이 무겁네요.", "우울한 기분이 오래 가네요.");
+            emotionResponses.push(
+              "우울한 기분이시군요. 조금만 더 힘내세요.", 
+              "마음이 무거워 보이네요. 따뜻한 위로를 보냅니다.", 
+              "우울한 순간도 지나가리라 믿어요.", 
+              "잘 주무시고, 좋은 꿈 꾸세요."
+            );
           }
           if (lowerInput.includes("놀라")) {
-            emotionResponses.push("정말 놀라워요!", "깜짝 놀랐어요!", "놀라움이 가득해요!");
+            emotionResponses.push(
+              "정말 놀라워요!", 
+              "깜짝 놀랐어요!", 
+              "놀라움이 가득하네요.", 
+              "이런 일이! 놀라움은 때로 축복이죠."
+            );
+          }
+          if (lowerInput.includes("잘자")) {
+            emotionResponses.push(
+              "잘 주무세요. 좋은 꿈 꾸시길 바랍니다.", 
+              "편안한 밤 되세요.", 
+              "내일도 화이팅! 달콤한 꿈 꾸세요."
+            );
           }
           if (emotionResponses.length === 0) {
-            emotionResponses.push("감정을 잘 표현해주셨네요.");
+            emotionResponses.push("당신의 감정이 느껴집니다.");
           }
           response = emotionResponses[Math.floor(Math.random() * emotionResponses.length)];
         }
@@ -723,7 +649,6 @@
       document.getElementById("chat-input").addEventListener("keydown", function(e) {
         if (e.key === "Enter") sendChat();
       });
-      document.getElementById("file-upload").addEventListener("change", handleFileUpload);
       
       const regionSelect = document.getElementById("region-select");
       regionList.forEach(region => {
@@ -767,8 +692,7 @@
     <div id="chat-input-area">
       <input type="text" id="chat-input" placeholder="채팅 입력..." />
     </div>
-    <!-- 파일 업로드: CSV 또는 텍스트 파일 업로드 시 ML 파이프라인 실행 -->
-    <input type="file" id="file-upload" accept=".txt,.csv" />
+    <!-- 파일 업로드 관련 요소는 제거되었습니다 -->
   </div>
   
   <div id="hud-3">
