@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -380,7 +379,7 @@
       showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
     
-    // 채팅 입력 처리 – GPT 관련 코드는 제거하고, 감정 표현과 대화 흐름을 보다 풍부하게 처리
+    // 채팅 입력 처리 – 감정 표현 및 상황별 응답 추가, "반갑" 키워드와 "유튜브 보여줘" 분기 추가
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -420,12 +419,19 @@
         await updateWeatherAndEffects();
       }
       
-      // 반가움 관련 키워드 처리
-      if (!response && lowerInput.includes("반가")) {
+      // 유튜브 보여줘 처리 – 지도 iframe 대신 유튜브 페이지 표시
+      if (!response && lowerInput.includes("유튜브 보여줘")) {
+        document.getElementById("map-iframe").src = "https://www.youtube.com/";
+        response = "유튜브를 보여드릴게요~";
+      }
+      
+      // 반갑 관련 키워드 처리 (반갑라는 단어 자체가 나오면)
+      if (!response && lowerInput.indexOf("반갑") !== -1) {
         response = "반가워요~😉";
       }
-      // 감정 표현 및 다양한 대화 응답
-      else if (!response) {
+      
+      // 감정 표현 및 일반 대화 처리
+      if (!response) {
         if (lowerInput.includes("기분") || 
             lowerInput.includes("슬프") || 
             lowerInput.includes("우울") || 
