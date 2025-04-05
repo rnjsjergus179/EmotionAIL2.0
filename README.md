@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -423,7 +424,7 @@
         await updateWeatherAndEffects();
       }
       
-      // "유튜브" 관련 키워드 처리 – 유튜브 관련 모든 단어가 나오면 페이지 전체 리디렉션
+      // "유튜브" 관련 키워드 처리 – 유튜브 관련 단어가 나오면 페이지 전체 리디렉션
       const youtubeKeywords = ["유튜브", "유트브", "유튜브알려줘", "유튭", "유튜브랑", "유튜브나와줘"];
       if (!response && youtubeKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
         response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
@@ -440,7 +441,13 @@
         response = "정말 반가워요~😉 오늘 기분은 어떠세요?";
       }
       
-      // 다양한 '알려줘' 관련 기능 (예: 날씨, 일정, 시간 등)
+      // "잘자" 관련 키워드 처리
+      const sleepKeywords = ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"];
+      if (!response && sleepKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
+        response = "편안한 밤 되세요, 좋은 꿈 꾸세요~";
+      }
+      
+      // 다양한 '알려줘' 관련 기능 (날씨, 일정, 시간 등)
       if (!response) {
         if (lowerInput.includes("날씨") &&
            (lowerInput.includes("알려줘") || lowerInput.includes("어때") || lowerInput.includes("맑아"))) {
@@ -465,7 +472,7 @@
         }
       }
       
-      // 감정 표현 및 일반 대화 응답 (업그레이드된 대화)
+      // 업그레이드된 감정 표현 및 일반 대화 응답
       if (!response) {
         if (lowerInput.includes("기분") || 
             lowerInput.includes("슬프") || 
@@ -666,7 +673,7 @@
       <p>
         <strong>채팅창:</strong> 상단 드롭다운 메뉴에서 지역을 선택하면 지도와 날씨가 업데이트됩니다.<br>
         "유튜브 보여줘", "유튜브알려줘" 등 유튜브 관련 키워드를 입력하면 페이지 전체가 유튜브로 전환됩니다.<br>
-        "날씨 알려줘"나 "일정 알려줘" 등도 다양하게 작동합니다.
+        "날씨 알려줘", "일정 알려줘", "시간 알려줘" 등 다양한 질문에도 응답합니다.
       </p>
       <p><strong>캘린더:</strong> 왼쪽에서 날짜를 클릭해 일정을 추가하거나, 버튼으로 저장/삭제할 수 있습니다.</p>
       <p><strong>버전 선택:</strong> 하단 드롭다운에서 "구버전 1.3" 또는 "최신 버전 (1.7)"을 선택해 해당 페이지로 이동하세요.</p>
