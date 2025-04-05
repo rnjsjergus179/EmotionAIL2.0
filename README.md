@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -45,7 +46,7 @@
       font-size: 14px;
     }
     
-    /* 파일 업로드 관련 요소는 제거되었습니다. */
+    /* ML 파이프라인 관련 기능은 제거되었습니다 */
     
     #left-hud {
       position: fixed;
@@ -242,50 +243,77 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
   
   <script>
-    document.addEventListener("contextmenu", event => event.preventDefault());
-    let blockUntil = 0;
-    let danceInterval;
-    let currentCity = "서울";
-    let currentWeather = "";
-    
-    document.addEventListener("copy", function(e) {
-      e.preventDefault();
-      let selectedText = window.getSelection().toString();
-      selectedText = selectedText.replace(/2caa7fa4a66f2f8d150f1da93d306261/g, "HIDDEN");
-      e.clipboardData.setData("text/plain", selectedText);
-      if (Date.now() < blockUntil) return;
-      blockUntil = Date.now() + 3600000;
-      showSpeechBubbleInChunks("1시간동안 차단됩니다.");
-    });
-    
-    const weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
-    const regionMap = {
-      "서울": "Seoul",
-      "인천": "Incheon",
-      "수원": "Suwon",
-      "고양": "Goyang",
-      "성남": "Seongnam",
-      "용인": "Yongin",
-      "부천": "Bucheon",
-      "안양": "Anyang",
-      "의정부": "Uijeongbu",
-      "광명": "Gwangmyeong",
-      "안산": "Ansan",
-      "파주": "Paju",
-      "부산": "Busan",
-      "대구": "Daegu",
-      "광주": "Gwangju",
-      "대전": "Daejeon",
-      "울산": "Ulsan",
-      "제주": "Jeju",
-      "전주": "Jeonju",
-      "청주": "Cheongju",
-      "포항": "Pohang",
-      "여수": "Yeosu",
-      "김해": "Gimhae"
+    // 감정 키워드 및 응답 배열
+    const emotionKeywords = {
+      "슬픔": ["슬프", "구슬픔", "구슬퍼", "구픔", "눈물", "우울"],
+      "미안": ["미안", "미안했", "몰랏", "모르겠"],
+      "기쁨": ["기쁘", "행복", "웃", "기분좋아"],
+      "분노": ["화난", "분노", "짜증"],
+      "놀람": ["놀라", "깜짝", "신기", "대박"],
+      "인사": ["안녕", "인사", "반가워"],
+      "잘자": ["잘자", "편안한 밤"]
     };
-    const regionList = Object.keys(regionMap);
+
+    const emotionResponses = {
+      "슬픔": [
+        "정말로 슬퍼... 😢 눈물이 절로 나네요.",
+        "마음이 너무 아파요... 😭",
+        "슬픔이 깊게 느껴져요... 😔",
+        "그 슬픔, 함께 나누고 싶어요... 😢"
+      ],
+      "미안": [
+        "정말 미안해요... 🙇‍♀️ 진심으로 사과드립니다.",
+        "미안했어요... 🙇‍♂️",
+        "내 잘못이에요... 정말 죄송해요. 😞",
+        "미안하다는 말로는 부족하지만, 정말 죄송합니다. 🙏"
+      ],
+      "기쁨": [
+        "기분 좋아~ 😄 정말 행복해요!",
+        "웃음이 절로 나네요! 😊",
+        "오늘은 너무 즐거워요! 😆",
+        "행복한 하루 보내세요! 😁"
+      ],
+      "분노": [
+        "정말 화가 나네요... 😡 잠시 진정해보세요.",
+        "분노가 치밀어요! 😠 조금 숨 고르세요.",
+        "짜증이 가득해요... 😤 마음을 진정시키세요."
+      ],
+      "놀람": [
+        "정말 놀라워요! 😲",
+        "깜짝 놀랐어요! 😮",
+        "세상이 참 신기하네요! 😳",
+        "놀라움이 가득해요! 😯"
+      ],
+      "인사": [
+        "안녕하세요, 주인님! 오늘 기분은 어떠세요? 😊",
+        "반갑습니다, 주인님! 언제나 환영해요~ 😊",
+        "안녕하십니까? 항상 곁에 있겠습니다. 🙂"
+      ],
+      "잘자": [
+        "잘 자요, 좋은 꿈 꾸세요! 😴",
+        "편안한 밤 되세요... 😌",
+        "내일도 멋진 하루 되길 바랍니다! 🌙",
+        "달콤한 꿈 꾸세요! 😴"
+      ]
+    };
+
+    // 감정 키워드 분석 함수: 입력된 문장에서 각 감정 키워드가 포함되면 해당 감정을 반환
+    function detectEmotion(input) {
+      const detected = [];
+      const lower = input.toLowerCase();
+      for (const [emotion, keywords] of Object.entries(emotionKeywords)) {
+        for (const word of keywords) {
+          if (lower.includes(word)) {
+            detected.push(emotion);
+            break;
+          }
+        }
+      }
+      return detected;
+    }
     
+    // 기존 캘린더, 지도, 날씨 관련 함수는 그대로 유지됨
+
     function saveFile() {
       const content = "파일 저장 완료";
       const filename = "saved_file.txt";
@@ -379,7 +407,7 @@
       showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
     
-    // 채팅 입력 처리 – ML 파이프라인 관련 기능은 삭제하고, 감정 표현 응답을 방대하고 능동적으로 처리함
+    // 채팅창 감정 반응 처리 (키워드 기반)
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -389,15 +417,15 @@
         inputEl.value = "";
         return;
       }
-      
       if (!input) return;
       
       let response = "";
       const lowerInput = input.toLowerCase();
       
+      // 지역 변경 관련 처리 (기존 기능)
       if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
-        if(newCity) {
+        if (newCity) {
           if (regionList.includes(newCity)) {
             currentCity = newCity;
             document.getElementById("region-select").value = newCity;
@@ -410,81 +438,30 @@
         } else {
           response = "변경할 지역을 입력해주세요.";
         }
-      } else {
-        if (regionList.includes(input)) {
-          currentCity = input;
-          document.getElementById("region-select").value = input;
-          response = `지역이 ${input}(으)로 변경되었습니다.`;
-          updateMap();
-          await updateWeatherAndEffects();
+      } else if (regionList.includes(input)) {
+        currentCity = input;
+        document.getElementById("region-select").value = input;
+        response = `지역이 ${input}(으)로 변경되었습니다.`;
+        updateMap();
+        await updateWeatherAndEffects();
+      }
+      
+      // 감정 키워드 분석 시스템 적용
+      const detectedEmotions = detectEmotion(input);
+      if (detectedEmotions.length > 0) {
+        // 여러 감정이 감지되면 첫번째 감정에 대한 응답 선택 (추후 조합도 가능)
+        const emotion = detectedEmotions[0];
+        const responses = emotionResponses[emotion];
+        if (responses && responses.length > 0) {
+          response = responses[Math.floor(Math.random() * responses.length)];
         }
       }
       
-      // 감정 표현 처리: 입력한 감정 단어에 따라 다양한 응답 무작위 선택 (능동적이고 임티 포함)
+      // 감정 관련 단어가 감지되지 않을 경우, 다른 기본 처리 (날씨, 시간, 캘린더 등)
       if (!response) {
-        if (
-          lowerInput.includes("기분") ||
-          lowerInput.includes("슬프") || 
-          lowerInput.includes("우울") || 
-          lowerInput.includes("눈물") ||
-          lowerInput.includes("기쁘") || 
-          lowerInput.includes("행복") ||
-          lowerInput.includes("웃") ||
-          lowerInput.includes("화난") || 
-          lowerInput.includes("분노") || 
-          lowerInput.includes("짜증") ||
-          lowerInput.includes("놀라") ||
-          lowerInput.includes("잘자")
-        ) {
-          let emotionResponses = [];
-          if (lowerInput.includes("슬프") || lowerInput.includes("눈물") || lowerInput.includes("우울")) {
-            emotionResponses.push(
-              "정말로 슬퍼... 😢 눈물이 절로 나네요.",
-              "마음이 너무 아파요... 😭",
-              "슬픔이 깊게 느껴져요... 😔",
-              "이 아픈 마음을 어루만져 드릴게요... 😢"
-            );
-          }
-          if (lowerInput.includes("기쁘") || lowerInput.includes("행복") || lowerInput.includes("웃")) {
-            emotionResponses.push(
-              "기분 좋아~ 😄 정말 행복해요!",
-              "웃음이 절로 나네요! 😊",
-              "오늘은 너무 즐거워요! 😆",
-              "행복한 하루 보내세요! 😁"
-            );
-          }
-          if (lowerInput.includes("화난") || lowerInput.includes("분노") || lowerInput.includes("짜증")) {
-            emotionResponses.push(
-              "정말 화가 나네요... 😡",
-              "분노가 치밀어요! 😠",
-              "짜증이 나요... 😤",
-              "잠시 진정해보세요... 😤"
-            );
-          }
-          if (lowerInput.includes("놀라")) {
-            emotionResponses.push(
-              "정말 놀라워요! 😲",
-              "깜짝 놀랐어요! 😮",
-              "세상이 참 신기하네요! 😳",
-              "놀라움이 가득해요! 😯"
-            );
-          }
-          if (lowerInput.includes("잘자")) {
-            emotionResponses.push(
-              "잘 자요, 좋은 꿈 꾸세요! 😴",
-              "편안한 밤 되세요... 😌",
-              "내일도 멋진 하루 되길 바랍니다! 🌙",
-              "달콤한 꿈 꾸세요! 😴"
-            );
-          }
-          if (emotionResponses.length === 0) {
-            emotionResponses.push("당신의 감정이 솔직하게 느껴집니다.");
-          }
-          response = emotionResponses[Math.floor(Math.random() * emotionResponses.length)];
-        }
-        else if (lowerInput.includes("날씨") &&
-                 (lowerInput.includes("알려") || lowerInput.includes("어때") ||
-                  lowerInput.includes("뭐야") || lowerInput.includes("어떻게") || lowerInput.includes("맑아"))) {
+        if (lowerInput.includes("날씨") &&
+            (lowerInput.includes("알려") || lowerInput.includes("어때") ||
+             lowerInput.includes("뭐야") || lowerInput.includes("어떻게") || lowerInput.includes("맑아"))) {
           await updateWeatherAndEffects();
           return;
         }
@@ -537,7 +514,7 @@
           setTimeout(() => { characterGroup.children[7].rotation.z = 0; }, 1000);
         }
         else if (lowerInput.includes("캐릭터 넌 누구야")) {
-          response = "저는 당신의 개인 비서입니다.";
+          response = "저는 당신의 부드럽고 다정한 비서입니다.";
         }
         else if (lowerInput.includes("일정")) {
           response = "캘린더는 왼쪽에서 확인하세요.";
