@@ -6,10 +6,242 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>3D 캐릭터 HUD, 달력 & 말풍선 채팅</title>
   <style>
-    /* (기존 스타일 코드 생략 - 위에 작성한 것과 동일) */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidden; }
-    /* ... (우측 채팅창, 좌측 캘린더, 캔버스 등 기존 CSS 그대로) ... */
+    
+    /* 우측 채팅창 */
+    #right-hud {
+      position: fixed;
+      top: 10%;
+      right: 1%;
+      width: 20%;
+      padding: 1%;
+      background: rgba(255,255,255,0.8);
+      border-radius: 5px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      z-index: 20;
+    }
+    #region-select {
+      width: 100%;
+      padding: 5px;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    #chat-log {
+      display: none;
+      height: 100px;
+      overflow-y: scroll;
+      border: 1px solid #ccc;
+      padding: 5px;
+      margin-top: 10px;
+      border-radius: 3px;
+      background: #fff;
+    }
+    #chat-input-area {
+      display: flex;
+      margin-top: 10px;
+    }
+    #chat-input {
+      flex: 1;
+      padding: 5px;
+      font-size: 14px;
+    }
+    
+    /* 좌측 캘린더 HUD */
+    #left-hud {
+      position: fixed;
+      top: 10%;
+      left: 1%;
+      width: 20%;
+      padding: 1%;
+      background: rgba(0,0,0,0.7);
+      border: 2px solid #00ffcc;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0,255,204,0.5);
+      z-index: 20;
+      max-height: 80vh;
+      overflow-y: auto;
+      color: #00ffcc;
+    }
+    #left-hud h3 {
+      margin-bottom: 5px;
+      text-shadow: 0 0 5px #00ffcc;
+    }
+    #calendar-container { margin-top: 10px; }
+    #calendar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+    #calendar-header button {
+      padding: 2px 6px;
+      font-size: 12px;
+      cursor: pointer;
+      background: #00ffcc;
+      color: #000;
+      border: none;
+      border-radius: 3px;
+      box-shadow: 0 0 5px #00ffcc;
+      transition: all 0.3s;
+    }
+    #calendar-header button:hover {
+      background: #00cc99;
+      box-shadow: 0 0 10px #00ffcc;
+    }
+    #month-year-label {
+      font-weight: bold;
+      font-size: 14px;
+      text-shadow: 0 0 5px #00ffcc;
+    }
+    #year-select {
+      font-size: 12px;
+      padding: 2px;
+      margin-left: 5px;
+      background: #333;
+      color: #00ffcc;
+      border: 1px solid #00ffcc;
+      border-radius: 3px;
+    }
+    #calendar-actions {
+      margin-top: 5px;
+      text-align: center;
+    }
+    #calendar-actions button {
+      margin: 2px;
+      padding: 5px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      background: #00ffcc;
+      color: #000;
+      border: none;
+      border-radius: 3px;
+      box-shadow: 0 0 5px #00ffcc;
+      transition: all 0.3s;
+    }
+    #calendar-actions button:hover {
+      background: #00cc99;
+      box-shadow: 0 0 10px #00ffcc;
+    }
+    #calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+    #calendar-grid div {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid #00ffcc;
+      border-radius: 4px;
+      min-height: 25px;
+      font-size: 10px;
+      padding: 2px;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    #calendar-grid div:hover {
+      background: rgba(0,255,204,0.3);
+      box-shadow: 0 0 5px #00ffcc;
+    }
+    .day-number {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      font-weight: bold;
+      font-size: 10px;
+      color: #00ffcc;
+      text-shadow: 0 0 3px #00ffcc;
+    }
+    .event {
+      margin-top: 14px;
+      font-size: 8px;
+      color: #00ffcc;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-shadow: 0 0 3px #00ffcc;
+    }
+    
+    /* 캔버스와 말풍선 */
+    #canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+    }
+    #speech-bubble {
+      position: fixed;
+      background: white;
+      padding: 5px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      display: none;
+      z-index: 30;
+      white-space: pre-line;
+      pointer-events: none;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    
+    /* 우측 지도 HUD */
+    #hud-3 {
+      position: fixed;
+      top: 70%;
+      right: 1%;
+      width: 20%;
+      height: 20%;
+      padding: 1%;
+      background: rgba(255,255,255,0.9);
+      border-radius: 5px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      z-index: 20;
+      overflow: hidden;
+    }
+    
+    /* 튜토리얼 오버레이 */
+    #tutorial-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 1s ease-in-out;
+      pointer-events: none;
+    }
+    #tutorial-content {
+      text-align: center;
+      padding: 20px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      max-width: 600px;
+    }
+    #tutorial-content h2 { margin-bottom: 15px; }
+    #tutorial-content p { margin: 10px 0; font-size: 14px; }
+    
+    /* 버전 선택 드롭다운 */
+    #version-select {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      z-index: 50;
+    }
+    #version-select select {
+      padding: 5px;
+      font-size: 12px;
+    }
+    
+    @media (max-width: 480px) {
+      #right-hud, #left-hud, #hud-3 { width: 90%; left: 5%; right: 5%; top: 5%; }
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
   <script>
@@ -69,23 +301,6 @@
     };
     
     // ==============================
-    // detectEmotion 함수
-    // 입력 텍스트에서 미리 정의한 감정 키워드를 검색하여 해당 감정을 배열로 반환합니다.
-    function detectEmotion(text) {
-      const found = [];
-      const lowerText = text.toLowerCase();
-      for (const [emotion, keywords] of Object.entries(emotionKeywords)) {
-        for (const keyword of keywords) {
-          if (lowerText.includes(keyword)) {
-            found.push(emotion);
-            break;
-          }
-        }
-      }
-      return found;
-    }
-    
-    // ==============================
     // 자모 조합 처리 함수
     // 입력된 문자열에서 각 단어별로 마침표(.)가 있으면 제거하여 완성된 단어로 결합합니다.
     function combineJamo(text) {
@@ -95,25 +310,21 @@
     }
     
     // ==============================
-    // 단어 학습 관련 기능 (웹사이트 내용을 학습)
+    // 단어 학습 기능 – 웹사이트 내용을 학습
     // ==============================
-    // 웹사이트 내용을 코드에 직접 붙여넣어 학습할 텍스트로 사용합니다.
+    // 아래 attachedContent에 웹사이트(또는 검색 결과)에서 복사한 텍스트를 붙여넣으면 학습 데이터로 활용됩니다.
     const attachedContent = `
-다정한 사람의 말투는 부드럽고 따뜻해요.
-그들은 언제나 진심 어린 미소와 함께, "안녕하세요, 오늘 기분 어떠세요?" 라고 인사해요.
-또한 슬플 때는 "정말 속이 후련하지 않아요..." 라고 말하면서도, 작은 위로의 말도 잊지 않아요.
-편안한 밤 되세요, 좋은 꿈 꾸세요 등 따뜻한 응원의 말도 자주 사용해요.
-`; // 여기에 웹사이트에서 긍정적이거나 다정한 말투의 텍스트를 붙여넣습니다.
-
-    // 간단한 토큰화 함수 (공백 및 특수문자 기준)
+다정한 사람의 말투는 부드럽고 따뜻합니다.
+그들은 "안녕하세요, 오늘 기분 어떠세요?" 라고 인사하며, 슬플 때는 "정말 속이 후련하지 않아요..."라고 말합니다.
+또한 "편안한 밤 되세요, 좋은 꿈 꾸세요"와 같은 따뜻한 응원의 말도 잊지 않습니다.
+`;
+    // 간단한 토큰화 함수 (특수문자 제거, 소문자 변환 후 공백 기준 분리)
     function tokenize(text) {
       return text.replace(/[^\w가-힣\s]/g, "").toLowerCase().split(/\s+/);
     }
-    
     // 단어 빈도를 저장할 객체
     const wordFrequencies = {};
-    
-    // 텍스트를 학습하는 함수: 단어를 토큰화해서 빈도수를 업데이트
+    // 텍스트를 학습하는 함수: 단어를 토큰화하여 빈도수를 업데이트
     function learnFromText(text) {
       const tokens = tokenize(text);
       tokens.forEach(token => {
@@ -123,8 +334,7 @@
       });
       console.log("학습된 단어 빈도:", wordFrequencies);
     }
-    
-    // attachedContent를 학습 데이터로 활용
+    // 웹사이트 텍스트 학습
     learnFromText(attachedContent);
     
     // ==============================
@@ -251,7 +461,7 @@
     }
     
     // ==============================
-    // 채팅 입력 처리 – 감정 키워드 및 자모 조합 처리
+    // 채팅 입력 처리 – 감정 키워드 및 자모 조합 처리, 단어 학습 활용
     // ==============================
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
@@ -294,10 +504,10 @@
         await updateWeatherAndEffects();
       }
       
-      // 감정 키워드 분석 – detectEmotion() 함수 사용
+      // 감정 키워드 분석
       const detectedEmotions = detectEmotion(input);
       if (detectedEmotions.length > 0) {
-        const emotion = detectedEmotions[0]; // 첫번째 감정만 처리
+        const emotion = detectedEmotions[0]; // 첫번째 감정만 처리 (복합 감정은 추후 확장 가능)
         const responses = emotionResponses[emotion];
         if (responses && responses.length > 0) {
           response = responses[Math.floor(Math.random() * responses.length)];
@@ -477,6 +687,398 @@
       updateMap();
       await updateWeatherAndEffects();
     });
+    
+    function changeVersion(version) {
+      if (version === "1.3") {
+        window.location.href = "https://aipersonalassistant.neocities.org/";
+      } else if (version === "latest") {
+        window.location.reload();
+      }
+    }
+    
+    // ==============================
+    // 3D 씬 및 캐릭터 초기화 (Three.js)
+    // ==============================
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas"), alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.position.set(5, 5, 10);
+    camera.lookAt(0, 0, 0);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(5, 10, 7).normalize();
+    scene.add(directionalLight);
+    scene.add(new THREE.AmbientLight(0x333333));
+    
+    const sunMaterial = new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0xff9900, transparent: true, opacity: 0 });
+    const sun = new THREE.Mesh(new THREE.SphereGeometry(1.5, 64, 64), sunMaterial);
+    scene.add(sun);
+    
+    const moonMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc, emissive: 0x222222, transparent: true, opacity: 1 });
+    const moon = new THREE.Mesh(new THREE.SphereGeometry(1.2, 64, 64), moonMaterial);
+    scene.add(moon);
+    
+    const stars = [], fireflies = [];
+    for (let i = 0; i < 200; i++) {
+      const star = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      star.position.set((Math.random()-0.5)*100, (Math.random()-0.5)*60, -20);
+      scene.add(star);
+      stars.push(star);
+    }
+    for (let i = 0; i < 60; i++) {
+      const firefly = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffff99 }));
+      firefly.position.set((Math.random()-0.5)*40, (Math.random()-0.5)*20, -10);
+      scene.add(firefly);
+      fireflies.push(firefly);
+    }
+    
+    const floorGeometry = new THREE.PlaneGeometry(400, 400, 128, 128);
+    const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x808080, roughness: 1, metalness: 0 });
+    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.rotation.x = -Math.PI/2;
+    floor.position.y = -2;
+    scene.add(floor);
+    
+    const backgroundGroup = new THREE.Group();
+    scene.add(backgroundGroup);
+    function createBuilding(width, height, depth, color) {
+      const buildingGroup = new THREE.Group();
+      const geometry = new THREE.BoxGeometry(width, height, depth);
+      const material = new THREE.MeshStandardMaterial({ color: color, roughness: 0.7, metalness: 0.1 });
+      const building = new THREE.Mesh(geometry, material);
+      buildingGroup.add(building);
+      const windowMat = new THREE.MeshStandardMaterial({ color: 0x87CEEB });
+      for (let y = 3; y < height - 1; y += 2) {
+        for (let x = -width/2 + 0.5; x < width/2; x += 1) {
+          const windowMesh = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.8, 0.1), windowMat);
+          windowMesh.position.set(x, y - height/2, depth/2 + 0.01);
+          buildingGroup.add(windowMesh);
+        }
+      }
+      const doorMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+      const door = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 0.1), doorMat);
+      door.position.set(0, -height/2 + 1, depth/2 + 0.01);
+      buildingGroup.add(door);
+      return buildingGroup;
+    }
+    function createHouse(width, height, depth, baseColor, roofColor) {
+      const houseGroup = new THREE.Group();
+      const base = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth),
+                                  new THREE.MeshStandardMaterial({ color: baseColor, roughness: 0.8 }));
+      base.position.y = -2 + height/2;
+      houseGroup.add(base);
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(width * 0.8, height * 0.6, 4),
+                                  new THREE.MeshStandardMaterial({ color: roofColor, roughness: 0.8 }));
+      roof.position.y = -2 + height + (height * 0.6)/2;
+      roof.rotation.y = Math.PI/4;
+      houseGroup.add(roof);
+      const windowMat = new THREE.MeshStandardMaterial({ color: 0xFFFFE0 });
+      const window1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.1), windowMat);
+      window1.position.set(-width/4, -2 + height/2, depth/2 + 0.01);
+      const window2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.1), windowMat);
+      window2.position.set(width/4, -2 + height/2, depth/2 + 0.01);
+      houseGroup.add(window1, window2);
+      const doorMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+      const door = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.1), doorMat);
+      door.position.set(0, -2 + height/4, depth/2 + 0.01);
+      houseGroup.add(door);
+      return houseGroup;
+    }
+    for (let i = 0; i < 20; i++) {
+      const width = Math.random() * 4 + 4;
+      const height = Math.random() * 20 + 20;
+      const depth = Math.random() * 4 + 4;
+      const building = createBuilding(width, height, depth, 0x555555);
+      const col = i % 10;
+      const row = Math.floor(i / 10);
+      const x = -50 + col * 10;
+      const z = -30 - row * 20;
+      building.position.set(x, -2 + height/2, z);
+      backgroundGroup.add(building);
+    }
+    for (let i = 0; i < 10; i++) {
+      const width = Math.random() * 4 + 6;
+      const height = Math.random() * 4 + 6;
+      const depth = Math.random() * 4 + 6;
+      const house = createHouse(width, height, depth, 0xa0522d, 0x8b0000);
+      const x = -40 + i * 10;
+      const z = -10;
+      house.position.set(x, 0, z);
+      backgroundGroup.add(house);
+    }
+    function createStreetlight() {
+      const lightGroup = new THREE.Group();
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 4, 8),
+                                    new THREE.MeshBasicMaterial({ color: 0x333333 }));
+      pole.position.y = 2;
+      lightGroup.add(pole);
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8),
+                                    new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
+      lamp.position.y = 4.2;
+      lightGroup.add(lamp);
+      const lampLight = new THREE.PointLight(0xffcc00, 1, 10);
+      lampLight.position.set(0, 4.2, 0);
+      lightGroup.add(lampLight);
+      return lightGroup;
+    }
+    const characterStreetlight = createStreetlight();
+    characterStreetlight.position.set(1, -2, 0);
+    scene.add(characterStreetlight);
+    
+    let rainGroup = new THREE.Group();
+    scene.add(rainGroup);
+    function initRain() {
+      const rainCount = 2000;
+      const rainGeometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(rainCount * 3);
+      for (let i = 0; i < rainCount; i++) {
+        positions[i * 3] = Math.random() * 200 - 100;
+        positions[i * 3 + 1] = Math.random() * 100;
+        positions[i * 3 + 2] = Math.random() * 200 - 100;
+      }
+      rainGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      const rainMaterial = new THREE.PointsMaterial({ color: 0xaaaaee, size: 0.1, transparent: true, opacity: 0.6 });
+      const rainParticles = new THREE.Points(rainGeometry, rainMaterial);
+      rainGroup.add(rainParticles);
+    }
+    initRain();
+    rainGroup.visible = false;
+    
+    let houseCloudGroup = new THREE.Group();
+    function createHouseCloud() {
+      const cloud = new THREE.Group();
+      const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
+      const sphere1 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), cloudMat);
+      sphere1.position.set(0, 0, 0);
+      const sphere2 = new THREE.Mesh(new THREE.SphereGeometry(0.4, 32, 32), cloudMat);
+      sphere2.position.set(0.6, 0.2, 0);
+      const sphere3 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), cloudMat);
+      sphere3.position.set(-0.6, 0.1, 0);
+      cloud.add(sphere1, sphere2, sphere3);
+      cloud.userData.initialPos = cloud.position.clone();
+      return cloud;
+    }
+    const singleCloud = createHouseCloud();
+    houseCloudGroup.add(singleCloud);
+    houseCloudGroup.position.set(0, 2, 0);
+    scene.add(houseCloudGroup);
+    function updateHouseClouds() {
+      const headWorldPos = new THREE.Vector3();
+      head.getWorldPosition(headWorldPos);
+      houseCloudGroup.position.x = headWorldPos.x + Math.sin(Date.now() * 0.001) * 1;
+      houseCloudGroup.position.y = headWorldPos.y + 1;
+      houseCloudGroup.position.z = headWorldPos.z;
+    }
+    
+    let lightningLight = new THREE.PointLight(0xffffff, 0, 500);
+    lightningLight.position.set(0, 50, 0);
+    scene.add(lightningLight);
+    
+    const characterGroup = new THREE.Group();
+    const charBody = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.5),
+                                    new THREE.MeshStandardMaterial({ color: 0x00cc66 }));
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32),
+                                new THREE.MeshStandardMaterial({ color: 0xffcc66 }));
+    head.position.y = 1.2;
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), eyeMat);
+    const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), eyeMat);
+    leftEye.position.set(-0.2, 1.3, 0.45);
+    rightEye.position.set(0.2, 1.3, 0.45);
+    const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.05),
+                                 new THREE.MeshStandardMaterial({ color: 0xff3366 }));
+    mouth.position.set(0, 1.1, 0.51);
+    const leftBrow = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 0.05), eyeMat);
+    const rightBrow = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 0.05), eyeMat);
+    leftBrow.position.set(-0.2, 1.45, 0.45);
+    rightBrow.position.set(0.2, 1.45, 0.45);
+    const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1, 0.2), charBody.material);
+    const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1, 0.2), charBody.material);
+    leftArm.position.set(-0.7, 0.4, 0);
+    rightArm.position.set(0.7, 0.4, 0);
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x3366cc });
+    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1, 0.3), legMat);
+    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1, 0.3), legMat);
+    leftLeg.position.set(-0.35, -1, 0);
+    rightLeg.position.set(0.35, -1, 0);
+    characterGroup.add(charBody, head, leftEye, rightEye, mouth, leftBrow, rightBrow, leftArm, rightArm, leftLeg, rightLeg);
+    characterGroup.position.y = -1;
+    scene.add(characterGroup);
+    const characterLight = new THREE.PointLight(0xffee88, 1, 15);
+    scene.add(characterLight);
+    
+    function createTree() {
+      const treeGroup = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2, 16),
+                                   new THREE.MeshStandardMaterial({ color: 0x8B4513 }));
+      trunk.position.y = -1;
+      const foliage = new THREE.Mesh(new THREE.ConeGeometry(1, 3, 16),
+                                     new THREE.MeshStandardMaterial({ color: 0x228B22 }));
+      foliage.position.y = 0.5;
+      treeGroup.add(trunk, foliage);
+      return treeGroup;
+    }
+    for (let i = 0; i < 10; i++) {
+      const tree = createTree();
+      tree.position.set(-50 + i * 10, -2, -15);
+      scene.add(tree);
+    }
+    
+    function animate() {
+      requestAnimationFrame(animate);
+      const now = new Date();
+      const headWorldPos = new THREE.Vector3();
+      head.getWorldPosition(headWorldPos);
+      const totalMin = now.getHours() * 60 + now.getMinutes();
+      const angle = (totalMin / 1440) * Math.PI * 2;
+      const radius = 3;
+      const sunPos = new THREE.Vector3(
+        headWorldPos.x + Math.cos(angle) * radius,
+        headWorldPos.y + Math.sin(angle) * radius,
+        headWorldPos.z
+      );
+      sun.position.copy(sunPos);
+      const moonAngle = angle + Math.PI;
+      const moonPos = new THREE.Vector3(
+        headWorldPos.x + Math.cos(moonAngle) * radius,
+        headWorldPos.y + Math.sin(moonAngle) * radius,
+        headWorldPos.z
+      );
+      moon.position.copy(moonPos);
+      const t = now.getHours() + now.getMinutes() / 60;
+      let sunOpacity = 0, moonOpacity = 0;
+      if (t < 6) { sunOpacity = 0; moonOpacity = 1; }
+      else if (t < 7) { let factor = (t - 6); sunOpacity = factor; moonOpacity = 1 - factor; }
+      else if (t < 17) { sunOpacity = 1; moonOpacity = 0; }
+      else if (t < 18) { let factor = (t - 17); sunOpacity = 1 - factor; moonOpacity = factor; }
+      else { sunOpacity = 0; moonOpacity = 1; }
+      sun.material.opacity = sunOpacity;
+      moon.material.opacity = moonOpacity;
+      const isDay = (t >= 7 && t < 17);
+      scene.background = new THREE.Color(isDay ? 0x87CEEB : 0x000033);
+      stars.forEach(s => s.visible = !isDay);
+      fireflies.forEach(f => f.visible = !isDay);
+      characterStreetlight.traverse(child => {
+        if (child instanceof THREE.PointLight) { child.intensity = isDay ? 0 : 1; }
+      });
+      characterLight.position.copy(characterGroup.position).add(new THREE.Vector3(0, 5, 0));
+      characterLight.intensity = isDay ? 0 : 1;
+      characterGroup.position.y = -1;
+      characterGroup.rotation.x = 0;
+      updateWeatherEffects();
+      updateHouseClouds();
+      updateLightning();
+      characterStreetlight.position.set(characterGroup.position.x + 1, -2, characterGroup.position.z);
+      updateBubblePosition();
+      renderer.render(scene, camera);
+    }
+    animate();
+    
+    let currentYear, currentMonth;
+    function initCalendar() {
+      const now = new Date();
+      currentYear = now.getFullYear();
+      currentMonth = now.getMonth();
+      populateYearSelect();
+      renderCalendar(currentYear, currentMonth);
+      document.getElementById("prev-month").addEventListener("click", () => {
+        currentMonth--;
+        if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+        renderCalendar(currentYear, currentMonth);
+      });
+      document.getElementById("next-month").addEventListener("click", () => {
+        currentMonth++;
+        if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+        renderCalendar(currentYear, currentMonth);
+      });
+      document.getElementById("year-select").addEventListener("change", (e) => {
+        currentYear = parseInt(e.target.value);
+        renderCalendar(currentYear, currentMonth);
+      });
+      document.getElementById("delete-day-event").addEventListener("click", () => {
+        const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
+        if (dayStr) {
+          const dayNum = parseInt(dayStr);
+          const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${dayNum}`);
+          if (eventDiv) {
+            eventDiv.textContent = "";
+            alert(`${currentYear}-${currentMonth+1}-${dayNum} 일정이 삭제되었습니다. 다시 입력할 수 있습니다.`);
+          }
+        }
+      });
+      document.getElementById("save-calendar").addEventListener("click", () => {
+        saveCalendar();
+      });
+    }
+    function populateYearSelect() {
+      const yearSelect = document.getElementById("year-select");
+      yearSelect.innerHTML = "";
+      for (let y = 2020; y <= 2070; y++) {
+        const option = document.createElement("option");
+        option.value = y;
+        option.textContent = y;
+        if (y === currentYear) option.selected = true;
+        yearSelect.appendChild(option);
+      }
+    }
+    function renderCalendar(year, month) {
+      const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+      document.getElementById("month-year-label").textContent = `${year}년 ${monthNames[month]}`;
+      const grid = document.getElementById("calendar-grid");
+      grid.innerHTML = "";
+      const daysOfWeek = ["일","월","화","수","목","금","토"];
+      daysOfWeek.forEach((day) => {
+        const th = document.createElement("div");
+        th.style.fontWeight = "bold";
+        th.style.textAlign = "center";
+        th.textContent = day;
+        th.style.color = "#00ffcc";
+        th.style.textShadow = "0 0 3px #00ffcc";
+        grid.appendChild(th);
+      });
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month+1, 0).getDate();
+      for (let i = 0; i < firstDay; i++) {
+        grid.appendChild(document.createElement("div"));
+      }
+      for (let d = 1; d <= daysInMonth; d++) {
+        const cell = document.createElement("div");
+        cell.innerHTML = `<div class="day-number">${d}</div>
+                          <div class="event" id="event-${year}-${month+1}-${d}"></div>`;
+        cell.addEventListener("click", () => {
+          const eventText = prompt(`${year}-${month+1}-${d} 일정 입력:`);
+          if (eventText) {
+            const eventDiv = document.getElementById(`event-${year}-${month+1}-${d}`);
+            if (eventDiv.textContent) {
+              eventDiv.textContent += "; " + eventText;
+            } else {
+              eventDiv.textContent = eventText;
+            }
+          }
+        });
+        grid.appendChild(cell);
+      }
+    }
+    
+    function updateBubblePosition() {
+      const bubble = document.getElementById("speech-bubble");
+      const headWorldPos = new THREE.Vector3();
+      head.getWorldPosition(headWorldPos);
+      const screenPos = headWorldPos.project(camera);
+      bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
+      bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
+    }
+    
+    function showTutorial() {
+      const overlay = document.getElementById("tutorial-overlay");
+      overlay.style.display = "flex";
+      setTimeout(() => { overlay.style.opacity = "1"; }, 10);
+      setTimeout(() => {
+        overlay.style.opacity = "0";
+        setTimeout(() => { overlay.style.display = "none"; }, 1000);
+      }, 4000);
+    }
     
     function changeVersion(version) {
       if (version === "1.3") {
