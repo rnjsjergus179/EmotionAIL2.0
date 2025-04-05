@@ -380,29 +380,7 @@
       showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
     
-    // GPT-3.5 터보 API 호출 함수 (변경된 API 키 사용)
-    async function callGPTTurbo(userMessage) {
-      const apiKey = "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";
-      try {
-        const res = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + apiKey,
-          },
-          body: JSON.stringify({
-            model: "gpt-3.5-turbo",
-            messages: [{ role: "user", content: userMessage }],
-          }),
-        });
-        const data = await res.json();
-        return data.choices[0].message.content;
-      } catch (err) {
-        return "죄송합니다, 답변을 받아올 수 없습니다.";
-      }
-    }
-    
-    // 채팅 입력 처리 – 감정 표현 및 GPT-3.5 터보 API 연동
+    // 채팅 입력 처리 – GPT 관련 코드를 제거하고, 감정 표현 및 상황별 응답을 풍부하게 추가
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -418,6 +396,7 @@
       let response = "";
       const lowerInput = input.toLowerCase();
       
+      // 지역 변경 처리
       if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
         if(newCity) {
@@ -433,82 +412,56 @@
         } else {
           response = "변경할 지역을 입력해주세요.";
         }
-      } else {
-        if (regionList.includes(input)) {
-          currentCity = input;
-          document.getElementById("region-select").value = input;
-          response = `지역이 ${input}(으)로 변경되었습니다.`;
-          updateMap();
-          await updateWeatherAndEffects();
-        }
+      } else if (regionList.includes(input)) {
+        currentCity = input;
+        document.getElementById("region-select").value = input;
+        response = `지역이 ${input}(으)로 변경되었습니다.`;
+        updateMap();
+        await updateWeatherAndEffects();
       }
       
-      // 감정 표현 처리
+      // 감정 표현 및 다양한 대화 응답
       if (!response) {
         if (lowerInput.includes("기분") || 
             lowerInput.includes("슬프") || 
-            lowerInput.includes("기쁘") || 
-            lowerInput.includes("행복") || 
-            lowerInput.includes("화난") || 
-            lowerInput.includes("분노") || 
             lowerInput.includes("우울") || 
             lowerInput.includes("짜증") || 
-            lowerInput.includes("놀라") ||
-            lowerInput.includes("잘자")) {
-          let emotionResponses = [];
-          if (lowerInput.includes("슬프")) {
-            emotionResponses.push(
-              "정말 슬퍼요... 눈물이 나네요.", 
-              "마음이 아파요...", 
-              "슬픔이 깊게 느껴져요.", 
-              "그 슬픔을 이겨내실 수 있을 거예요.", 
-              "슬픈 기분, 저도 함께 느껴요."
-            );
+            lowerInput.includes("화난") ||
+            lowerInput.includes("분노")) {
+          const sadResponses = [
+            "정말 슬프네요. 마음이 많이 아프실 것 같아요.",
+            "힘들어 보이시네요. 제가 조금이나마 위로가 될 수 있으면 좋겠어요.",
+            "이런 날도 있죠. 괜찮으실 거예요.",
+            "마음이 아프실 때는 충분히 쉬어가세요. 응원할게요."
+          ];
+          const happyResponses = [
+            "정말 기쁘고 행복해 보이세요! 오늘 좋은 일이 많으시길 바랍니다.",
+            "당신의 미소가 주변을 환하게 만드네요.",
+            "행복한 기분을 함께 나눌 수 있어 저도 기뻐요!",
+            "오늘 하루도 즐겁게 보내세요. 당신은 소중한 존재입니다."
+          ];
+          const angryResponses = [
+            "화가 나셨군요. 잠시 심호흡을 해보세요.",
+            "분노가 느껴지네요. 조금 진정하고 다시 시작해보세요.",
+            "당신의 감정이 전달되네요. 괜찮으실 거예요.",
+            "화날 때는 잠깐 쉬어가는 것도 좋습니다."
+          ];
+          const neutralResponses = [
+            "당신의 감정이 조금씩 느껴지네요.",
+            "무슨 말씀을 하시는지 잘 알 것 같아요.",
+            "그렇군요. 좀 더 자세히 말씀해 주실 수 있을까요?"
+          ];
+          
+          // 상황에 따른 선택
+          if (lowerInput.includes("슬프") || lowerInput.includes("우울")) {
+            response = sadResponses[Math.floor(Math.random() * sadResponses.length)];
+          } else if (lowerInput.includes("기쁘") || lowerInput.includes("행복")) {
+            response = happyResponses[Math.floor(Math.random() * happyResponses.length)];
+          } else if (lowerInput.includes("화난") || lowerInput.includes("분노") || lowerInput.includes("짜증")) {
+            response = angryResponses[Math.floor(Math.random() * angryResponses.length)];
+          } else {
+            response = neutralResponses[Math.floor(Math.random() * neutralResponses.length)];
           }
-          if (lowerInput.includes("기쁘") || lowerInput.includes("행복")) {
-            emotionResponses.push(
-              "정말 기쁘고 행복해요!", 
-              "마음이 환하게 빛나요.", 
-              "너무 즐거워요!", 
-              "오늘도 행복한 하루 보내세요.", 
-              "기쁨이 넘치는 하루가 되길 바라요!"
-            );
-          }
-          if (lowerInput.includes("화난") || lowerInput.includes("분노") || lowerInput.includes("짜증")) {
-            emotionResponses.push(
-              "화가 나셨군요. 잠시 진정해보세요.", 
-              "분노가 치밀어요. 조금 숨 고르세요.", 
-              "짜증이 나네요... 차분해지길 바랍니다.", 
-              "화내지 마세요. 모든 게 잘 될 거예요."
-            );
-          }
-          if (lowerInput.includes("우울")) {
-            emotionResponses.push(
-              "우울한 기분이시군요. 조금만 더 힘내세요.", 
-              "마음이 무거워 보이네요. 따뜻한 위로를 보냅니다.", 
-              "우울한 순간도 지나가리라 믿어요.", 
-              "잘 주무시고, 좋은 꿈 꾸세요."
-            );
-          }
-          if (lowerInput.includes("놀라")) {
-            emotionResponses.push(
-              "정말 놀라워요!", 
-              "깜짝 놀랐어요!", 
-              "놀라움이 가득하네요.", 
-              "이런 일이! 놀라움은 때로 축복이죠."
-            );
-          }
-          if (lowerInput.includes("잘자")) {
-            emotionResponses.push(
-              "잘 주무세요. 좋은 꿈 꾸시길 바랍니다.", 
-              "편안한 밤 되세요.", 
-              "내일도 화이팅! 달콤한 꿈 꾸세요."
-            );
-          }
-          if (emotionResponses.length === 0) {
-            emotionResponses.push("당신의 감정이 느껴집니다.");
-          }
-          response = emotionResponses[Math.floor(Math.random() * emotionResponses.length)];
         }
         else if (lowerInput.includes("날씨") &&
                  (lowerInput.includes("알려") || lowerInput.includes("어때") ||
@@ -561,15 +514,16 @@
           }
         }
         else if (lowerInput.includes("안녕")) {
-          response = "안녕하세요, 주인님! 오늘 기분은 어떠세요?";
+          response = "안녕하세요, 주인님! 오늘 하루 어땠나요?";
+          // 캐릭터가 미소 짓는 효과 (약간의 회전)
           characterGroup.children[7].rotation.z = Math.PI / 4;
           setTimeout(() => { characterGroup.children[7].rotation.z = 0; }, 1000);
         }
         else if (lowerInput.includes("캐릭터 넌 누구야")) {
-          response = "저는 당신의 개인 비서입니다.";
+          response = "저는 당신의 개인 비서이자 친구입니다. 언제든 대화해드릴게요.";
         }
         else if (lowerInput.includes("일정")) {
-          response = "캘린더는 왼쪽에서 확인하세요.";
+          response = "캘린더는 왼쪽에서 확인하실 수 있습니다.";
         }
         else if (lowerInput.includes("캐릭터 춤춰줘") ||
                  lowerInput.includes("춤") ||
@@ -589,11 +543,18 @@
             head.rotation.y = 0;
           }, 3000);
         }
-      }
-      
-      // 위 처리에 해당하지 않는 경우 GPT-3.5 터보 API 호출
-      if (!response) {
-        response = await callGPTTurbo(input);
+        // 추가로 일반 대화에 대한 반응 (상황별, 공감, 격려 등)
+        else {
+          const generalResponses = [
+            "그렇군요. 자세히 말씀해 주실 수 있나요?",
+            "정말 흥미로운 이야기네요. 계속 이야기해 주세요.",
+            "저도 그 부분에 대해 생각해 본 적이 있어요.",
+            "어떤 점이 가장 고민되시나요?",
+            "당신의 이야기를 듣고 있으니 저도 마음이 놓이네요.",
+            "그렇게 느끼실 수 있겠어요. 함께 해결해봐요."
+          ];
+          response = generalResponses[Math.floor(Math.random() * generalResponses.length)];
+        }
       }
       
       showSpeechBubbleInChunks(response);
