@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>3D 캐릭터 HUD, 달력 & 말풍선 채팅</title>
+  <title>3D 캐릭터 HUD, 달력 & 학습 파이프라인</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidden; }
@@ -43,6 +43,10 @@
     #chat-input {
       flex: 1;
       padding: 5px;
+      font-size: 14px;
+    }
+    #file-upload {
+      margin-top: 10px;
       font-size: 14px;
     }
     
@@ -246,7 +250,8 @@
     let danceInterval;
     let currentCity = "서울";
     let currentWeather = "";
-    
+    let wordFrequencies = {}; // 학습 결과 (단어 빈도)
+
     document.addEventListener("copy", function(e) {
       e.preventDefault();
       let selectedText = window.getSelection().toString();
@@ -285,6 +290,64 @@
     };
     const regionList = Object.keys(regionMap);
     
+    // 데이터 전처리: 토큰화 및 정제
+    function tokenizeAndClean(text) {
+      // 소문자 변환, 특수문자 제거, 공백 정규화
+      text = text.toLowerCase()
+                 .replace(/[^\w\s가-힣]/g, '') // 특수문자 제거
+                 .replace(/\s+/g, ' ') // 연속 공백을 단일 공백으로
+                 .trim();
+      // 단어 단위로 토큰화
+      const tokens = text.split(' ');
+      return tokens.filter(token => token.length > 0); // 빈 토큰 제거
+    }
+
+    // 학습 파이프라인
+    function trainModel(data, batchSize = 10, initialLearningRate = 0.01, epochs = 3) {
+      let learningRate = initialLearningRate;
+      wordFrequencies = {}; // 단어 빈도 초기화
+
+      // 데이터 전처리
+      let tokens = [];
+      if (typeof data === 'string') {
+        tokens = tokenizeAndClean(data);
+      } else if (typeof data === 'object') {
+        // JSON 객체인 경우 (calendar_events.json)
+        for (let date in data) {
+          const eventText = data[date];
+          tokens = tokens.concat(tokenizeAndClean(eventText));
+        }
+      }
+
+      if (tokens.length === 0) {
+        return "학습할 데이터가 없습니다.";
+      }
+
+      // 배치 처리
+      for (let epoch = 0; epoch < epochs; epoch++) {
+        // 학습률 감소
+        learningRate = initialLearningRate * (1 - epoch / epochs);
+
+        for (let i = 0; i < tokens.length; i += batchSize) {
+          const batch = tokens.slice(i, i + batchSize);
+          // 간단한 학습: 단어 빈도 카운트
+          batch.forEach(token => {
+            wordFrequencies[token] = (wordFrequencies[token] || 0) + learningRate;
+          });
+        }
+        console.log(`Epoch ${epoch + 1}/${epochs}, Learning Rate: ${learningRate.toFixed(4)}`);
+      }
+
+      // 학습 결과 정리
+      let result = "학습 완료! 단어 빈도:\n";
+      const sortedWords = Object.keys(wordFrequencies).sort((a, b) => wordFrequencies[b] - wordFrequencies[a]);
+      for (let i = 0; i < Math.min(5, sortedWords.length); i++) {
+        const word = sortedWords[i];
+        result += `${word}: ${wordFrequencies[word].toFixed(2)}\n`;
+      }
+      return result;
+    }
+
     function saveFile() {
       const content = "파일 저장 완료";
       const filename = "saved_file.txt";
@@ -306,9 +369,7 @@
           calendarData[`${currentYear}-${currentMonth+1}-${d}`] = eventDiv.textContent;
         }
       }
-      // localStorage에 저장
       localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
-      // 파일로 다운로드
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(calendarData, null, 2));
       const dlAnchorElem = document.createElement("a");
       dlAnchorElem.setAttribute("href", dataStr);
@@ -323,7 +384,6 @@
       const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${day}`);
       if (eventDiv) {
         eventDiv.textContent = "";
-        // localStorage에서도 삭제
         const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
         delete calendarData[`${currentYear}-${currentMonth+1}-${day}`];
         localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
@@ -340,14 +400,12 @@
       }
       
       if (dateStr) {
-        // 특정 날짜의 일정 조회 (형식: YYYY-MM-DD)
         if (calendarData[dateStr]) {
           return `${dateStr}의 일정: ${calendarData[dateStr]}`;
         } else {
           return `${dateStr}에는 일정이 없습니다.`;
         }
       } else {
-        // 현재 월의 모든 일정 조회
         const currentMonthStr = `${currentYear}-${currentMonth+1}`;
         let events = [];
         for (let key in calendarData) {
@@ -465,13 +523,25 @@
         else if (lowerInput.includes("일정 알려줘") || 
                  lowerInput.includes("일정 알려") || 
                  lowerInput.includes("일정 확인")) {
-          // 날짜 형식 (YYYY-MM-DD) 추출
           const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
           if (dateMatch) {
             const dateStr = dateMatch[0];
             response = getCalendarEvents(dateStr);
           } else {
-            response = getCalendarEvents(); // 날짜 미입력 시 현재 월의 모든 일정
+            response = getCalendarEvents();
+          }
+        }
+        else if (lowerInput.includes("학습 결과")) {
+          if (Object.keys(wordFrequencies).length === 0) {
+            response = "아직 학습이 진행되지 않았습니다. 파일을 업로드하고 학습을 시작해주세요.";
+          } else {
+            let result = "학습 결과 (상위 5개 단어):\n";
+            const sortedWords = Object.keys(wordFrequencies).sort((a, b) => wordFrequencies[b] - wordFrequencies[a]);
+            for (let i = 0; i < Math.min(5, sortedWords.length); i++) {
+              const word = sortedWords[i];
+              result += `${word}: ${wordFrequencies[word].toFixed(2)}\n`;
+            }
+            response = result;
           }
         }
         else if (lowerInput.includes("기분") && lowerInput.includes("좋아")) {
@@ -532,6 +602,32 @@
       
       showSpeechBubbleInChunks(response);
       inputEl.value = "";
+    }
+    
+    // 파일 업로드 처리
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const content = e.target.result;
+        let data;
+        try {
+          // JSON 파일인지 확인
+          if (file.name.endsWith('.json')) {
+            data = JSON.parse(content);
+          } else {
+            data = content;
+          }
+          // 학습 시작
+          const result = trainModel(data);
+          showSpeechBubbleInChunks(result);
+        } catch (err) {
+          showSpeechBubbleInChunks("파일을 처리하는 중 오류가 발생했습니다: " + err.message);
+        }
+      };
+      reader.readAsText(file);
     }
     
     async function getWeather() {
@@ -617,6 +713,9 @@
         if (region === currentCity) option.selected = true;
         regionSelect.appendChild(option);
       });
+
+      // 파일 업로드 이벤트 리스너 추가
+      document.getElementById("file-upload").addEventListener("change", handleFileUpload);
     });
     
     window.addEventListener("resize", function(){
@@ -651,6 +750,7 @@
     <div id="chat-input-area">
       <input type="text" id="chat-input" placeholder="채팅 입력..." />
     </div>
+    <input type="file" id="file-upload" accept=".txt,.json" />
   </div>
   
   <div id="hud-3">
@@ -685,7 +785,9 @@
         또는 "지역 [지역명]" (예: "지역 인천" 또는 "인천") 입력으로도 변경 가능합니다.<br>
         "날씨 알려줘"로 현재 지역의 날씨를 다시 확인할 수 있습니다.<br>
         "일정 삭제" 또는 "하루일정 삭제"를 입력해 캘린더 일정을 삭제할 수 있습니다.<br>
-        "일정 알려줘"를 입력해 저장된 일정을 확인할 수 있습니다 (예: "2025-4-15 일정 알려줘").
+        "일정 알려줘"를 입력해 저장된 일정을 확인할 수 있습니다 (예: "2025-4-15 일정 알려줘").<br>
+        파일 업로드로 다운로드 폴더의 텍스트 파일(예: calendar_events.json)을 학습 데이터로 사용할 수 있습니다.<br>
+        "학습 결과"를 입력해 학습 결과를 확인하세요.
       </p>
       <p><strong>캘린더:</strong> 왼쪽에서 날짜 클릭해 일정을 추가하거나, 버튼으로 저장/삭제하세요.</p>
       <p><strong>버전 선택:</strong> 하단 드롭다운에서 "구버전 1.3" 또는 "최신 버전 (1.7)"을 선택해 해당 페이지로 이동하세요.</p>
@@ -1101,4 +1203,4 @@
     }
   </script>
 </body>
-</html>
+</html
