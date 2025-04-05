@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -46,7 +45,7 @@
       font-size: 14px;
     }
     
-    /* 파일 업로드 관련 기능은 삭제됨 → 파일 업로드 입력란도 제거 */
+    /* 파일 업로드 관련 요소는 제거되었습니다. */
     
     #left-hud {
       position: fixed;
@@ -380,7 +379,7 @@
       showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
     
-    // 채팅 입력 처리 – ML 파이프라인 관련 기능은 삭제되고, 감정 표현 응답이 방대하게 구성됨
+    // 채팅 입력 처리 – ML 파이프라인 관련 기능은 삭제하고, 감정 표현 응답을 방대하고 능동적으로 처리함
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -421,70 +420,65 @@
         }
       }
       
-      // 감정 표현 처리: 입력한 감정 단어에 따라 다양한 응답 무작위 선택 (대폭 증가)
+      // 감정 표현 처리: 입력한 감정 단어에 따라 다양한 응답 무작위 선택 (능동적이고 임티 포함)
       if (!response) {
-        if (lowerInput.includes("기분") || 
-            lowerInput.includes("슬프") || 
-            lowerInput.includes("기쁘") || 
-            lowerInput.includes("행복") || 
-            lowerInput.includes("화난") || 
-            lowerInput.includes("분노") || 
-            lowerInput.includes("우울") || 
-            lowerInput.includes("짜증") || 
-            lowerInput.includes("놀라") ||
-            lowerInput.includes("잘자")) {
+        if (
+          lowerInput.includes("기분") ||
+          lowerInput.includes("슬프") || 
+          lowerInput.includes("우울") || 
+          lowerInput.includes("눈물") ||
+          lowerInput.includes("기쁘") || 
+          lowerInput.includes("행복") ||
+          lowerInput.includes("웃") ||
+          lowerInput.includes("화난") || 
+          lowerInput.includes("분노") || 
+          lowerInput.includes("짜증") ||
+          lowerInput.includes("놀라") ||
+          lowerInput.includes("잘자")
+        ) {
           let emotionResponses = [];
-          if (lowerInput.includes("슬프")) {
+          if (lowerInput.includes("슬프") || lowerInput.includes("눈물") || lowerInput.includes("우울")) {
             emotionResponses.push(
-              "정말 슬퍼요... 눈물이 나네요.", 
-              "마음이 아파요...", 
-              "슬픔이 깊게 느껴져요.", 
-              "그 슬픔을 이겨내실 수 있을 거예요.", 
-              "슬픈 기분, 저도 함께 느껴요."
+              "정말로 슬퍼... 😢 눈물이 절로 나네요.",
+              "마음이 너무 아파요... 😭",
+              "슬픔이 깊게 느껴져요... 😔",
+              "이 아픈 마음을 어루만져 드릴게요... 😢"
             );
           }
-          if (lowerInput.includes("기쁘") || lowerInput.includes("행복")) {
+          if (lowerInput.includes("기쁘") || lowerInput.includes("행복") || lowerInput.includes("웃")) {
             emotionResponses.push(
-              "정말 기쁘고 행복해요!", 
-              "마음이 환하게 빛나요.", 
-              "너무 즐거워요!", 
-              "오늘도 행복한 하루 보내세요.", 
-              "기쁨이 넘치는 하루가 되길 바라요!"
+              "기분 좋아~ 😄 정말 행복해요!",
+              "웃음이 절로 나네요! 😊",
+              "오늘은 너무 즐거워요! 😆",
+              "행복한 하루 보내세요! 😁"
             );
           }
           if (lowerInput.includes("화난") || lowerInput.includes("분노") || lowerInput.includes("짜증")) {
             emotionResponses.push(
-              "화가 나셨군요. 잠시 진정해보세요.", 
-              "분노가 치밀어요. 조금 숨 고르세요.", 
-              "짜증이 나네요... 차분해지길 바랍니다.", 
-              "화내지 마세요. 모든 게 잘 될 거예요."
-            );
-          }
-          if (lowerInput.includes("우울")) {
-            emotionResponses.push(
-              "우울한 기분이시군요. 조금만 더 힘내세요.", 
-              "마음이 무거워 보이네요. 따뜻한 위로를 보냅니다.", 
-              "우울한 순간도 지나가리라 믿어요.", 
-              "잘 주무시고, 좋은 꿈 꾸세요."
+              "정말 화가 나네요... 😡",
+              "분노가 치밀어요! 😠",
+              "짜증이 나요... 😤",
+              "잠시 진정해보세요... 😤"
             );
           }
           if (lowerInput.includes("놀라")) {
             emotionResponses.push(
-              "정말 놀라워요!", 
-              "깜짝 놀랐어요!", 
-              "놀라움이 가득하네요.", 
-              "이런 일이! 놀라움은 때로 축복이죠."
+              "정말 놀라워요! 😲",
+              "깜짝 놀랐어요! 😮",
+              "세상이 참 신기하네요! 😳",
+              "놀라움이 가득해요! 😯"
             );
           }
           if (lowerInput.includes("잘자")) {
             emotionResponses.push(
-              "잘 주무세요. 좋은 꿈 꾸시길 바랍니다.", 
-              "편안한 밤 되세요.", 
-              "내일도 화이팅! 달콤한 꿈 꾸세요."
+              "잘 자요, 좋은 꿈 꾸세요! 😴",
+              "편안한 밤 되세요... 😌",
+              "내일도 멋진 하루 되길 바랍니다! 🌙",
+              "달콤한 꿈 꾸세요! 😴"
             );
           }
           if (emotionResponses.length === 0) {
-            emotionResponses.push("당신의 감정이 느껴집니다.");
+            emotionResponses.push("당신의 감정이 솔직하게 느껴집니다.");
           }
           response = emotionResponses[Math.floor(Math.random() * emotionResponses.length)];
         }
