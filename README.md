@@ -383,7 +383,7 @@
       showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
     
-    // 채팅 입력 처리 – 감정 표현, 반갑고 유튜브 관련 키워드 처리
+    // 업그레이드된 캐릭터 대화 처리 함수
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -406,27 +406,27 @@
           if (regionList.includes(newCity)) {
             currentCity = newCity;
             document.getElementById("region-select").value = newCity;
-            response = `지역이 ${newCity}(으)로 변경되었습니다.`;
+            response = `좋아요, 지역을 ${newCity}(으)로 변경할게요!`;
             updateMap();
             await updateWeatherAndEffects();
           } else {
-            response = "지원하지 않는 지역입니다. 드롭다운 메뉴에서 선택해주세요.";
+            response = "죄송해요, 그 지역은 지원하지 않아요. 드롭다운 메뉴에서 선택해주세요.";
           }
         } else {
-          response = "변경할 지역을 입력해주세요.";
+          response = "변경할 지역을 입력해 주세요.";
         }
       } else if (regionList.includes(input)) {
         currentCity = input;
         document.getElementById("region-select").value = input;
-        response = `지역이 ${input}(으)로 변경되었습니다.`;
+        response = `좋아요, 지역을 ${input}(으)로 변경할게요!`;
         updateMap();
         await updateWeatherAndEffects();
       }
       
-      // "유튜브" 관련 키워드 처리 – 유튜브 관련 모든 단어가 포함되면 페이지 전체 리디렉션
+      // "유튜브" 관련 키워드 처리 – 유튜브 관련 모든 단어가 나오면 페이지 전체 리디렉션
       const youtubeKeywords = ["유튜브", "유트브", "유튜브알려줘", "유튭", "유튜브랑", "유튜브나와줘"];
       if (!response && youtubeKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
-        response = "유튜브를 보여드릴게요.";
+        response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
         setTimeout(() => {
           window.location.href = "https://www.youtube.com/";
@@ -435,41 +435,62 @@
         return;
       }
       
-      // 반갑 관련 키워드 처리 (입력 내용에 "반갑"이라는 글자가 나오면)
+      // 반갑 관련 키워드 처리
       if (!response && lowerInput.indexOf("반갑") !== -1) {
-        response = "반가워요~😉";
+        response = "정말 반가워요~😉 오늘 기분은 어떠세요?";
       }
       
-      // 감정 표현 및 일반 대화 처리
+      // 다양한 '알려줘' 관련 기능 (예: 날씨, 일정, 시간 등)
+      if (!response) {
+        if (lowerInput.includes("날씨") &&
+           (lowerInput.includes("알려줘") || lowerInput.includes("어때") || lowerInput.includes("맑아"))) {
+          await updateWeatherAndEffects();
+          inputEl.value = "";
+          return;
+        }
+        if (lowerInput.includes("일정") && lowerInput.includes("알려줘")) {
+          const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
+          if (dateMatch) {
+            const dateStr = dateMatch[0];
+            response = getCalendarEvents(dateStr);
+          } else {
+            response = getCalendarEvents();
+          }
+        }
+        if (lowerInput.includes("시간") || lowerInput.includes("몇시") || lowerInput.includes("현재시간")) {
+          const now = new Date();
+          const hours = now.getHours();
+          const minutes = now.getMinutes();
+          response = `현재 시간은 ${hours}시 ${minutes}분입니다.`;
+        }
+      }
+      
+      // 감정 표현 및 일반 대화 응답 (업그레이드된 대화)
       if (!response) {
         if (lowerInput.includes("기분") || 
             lowerInput.includes("슬프") || 
             lowerInput.includes("우울") || 
             lowerInput.includes("짜증") || 
-            lowerInput.includes("화난") ||
-            lowerInput.includes("분노")) {
+            lowerInput.includes("화난") || lowerInput.includes("분노")) {
           const sadResponses = [
-            "정말 슬프네요. 마음이 많이 아프실 것 같아요.",
-            "힘들어 보이시네요. 제가 조금이나마 위로가 될 수 있으면 좋겠어요.",
-            "이런 날도 있죠. 괜찮으실 거예요.",
-            "마음이 아프실 때는 충분히 쉬어가세요. 응원할게요."
+            "정말 마음이 아프시네요. 제가 도와드릴 수 있다면 좋겠어요.",
+            "그런 날도 있죠. 힘내시고 천천히 쉬어가세요.",
+            "마음이 많이 힘들어 보이네요. 꼭 회복되시길 바랄게요."
           ];
           const happyResponses = [
-            "정말 기쁘고 행복해 보이세요! 오늘 좋은 일이 많으시길 바랍니다.",
-            "당신의 미소가 주변을 환하게 만드네요.",
-            "행복한 기분을 함께 나눌 수 있어 저도 기뻐요!",
-            "오늘 하루도 즐겁게 보내세요. 당신은 소중한 존재입니다."
+            "오늘 정말 즐거워 보이세요! 기분 좋은 일이 가득하길 바랍니다.",
+            "당신의 미소가 전해지네요. 행복한 하루 보내세요!",
+            "기쁨이 넘치는 하루, 함께 기뻐요!"
           ];
           const angryResponses = [
-            "화가 나셨군요. 잠시 심호흡을 해보세요.",
-            "분노가 느껴지네요. 조금 진정하고 다시 시작해보세요.",
-            "당신의 감정이 전달되네요. 괜찮으실 거예요.",
-            "화날 때는 잠깐 쉬어가는 것도 좋습니다."
+            "화가 치밀어 오시네요. 잠시 심호흡을 해보세요.",
+            "분노를 조금 내려놓고, 잠깐의 휴식 어떠세요?",
+            "감정이 많이 격해지신 것 같아요. 차분해지시길 바랄게요."
           ];
           const neutralResponses = [
-            "당신의 감정이 조금씩 느껴지네요.",
-            "무슨 말씀을 하시는지 잘 알 것 같아요.",
-            "그렇군요. 좀 더 자세히 말씀해 주실 수 있을까요?"
+            "그렇군요, 좀 더 자세히 말씀해 주실 수 있을까요?",
+            "알겠습니다. 추가로 궁금한 점이 있으신가요?",
+            "흥미로운 이야기네요. 더 이야기해 주세요!"
           ];
           
           if (lowerInput.includes("슬프") || lowerInput.includes("우울")) {
@@ -481,94 +502,12 @@
           } else {
             response = neutralResponses[Math.floor(Math.random() * neutralResponses.length)];
           }
-        }
-        else if (lowerInput.includes("날씨") &&
-                 (lowerInput.includes("알려") || lowerInput.includes("어때") ||
-                  lowerInput.includes("뭐야") || lowerInput.includes("어떻게") || lowerInput.includes("맑아"))) {
-          await updateWeatherAndEffects();
-          inputEl.value = "";
-          return;
-        }
-        else if (lowerInput.includes("시간") || lowerInput.includes("몇시") || lowerInput.includes("현재시간")) {
-          const now = new Date();
-          const hours = now.getHours();
-          const minutes = now.getMinutes();
-          response = `현재 시간은 ${hours}시 ${minutes}분입니다.`;
-        }
-        else if (lowerInput.includes("파일 저장해줘")) {
-          response = "파일 저장하겠습니다.";
-          saveFile();
-        }
-        else if ((lowerInput.includes("캘린더") && lowerInput.includes("저장")) ||
-                 lowerInput.includes("일정저장") ||
-                 lowerInput.includes("하루일과저장")) {
-          response = "캘린더 저장하겠습니다.";
-          saveCalendar();
-        }
-        else if (lowerInput.includes("일정 삭제") || 
-                 lowerInput.includes("하루일정 삭제") || 
-                 lowerInput.includes("일정 삭제해줘") || 
-                 lowerInput.includes("하루 일정 삭제")) {
-          const dayStr = prompt("삭제할 일정의 날짜(일)를 입력하세요 (예: 15):");
-          if (dayStr) {
-            const dayNum = parseInt(dayStr);
-            if (dayNum >= 1 && dayNum <= new Date(currentYear, currentMonth+1, 0).getDate()) {
-              response = deleteCalendarEvent(dayNum);
-            } else {
-              response = "유효한 날짜를 입력해주세요.";
-            }
-          } else {
-            response = "날짜를 입력하지 않으셨습니다.";
-          }
-        }
-        else if (lowerInput.includes("일정 알려줘") || 
-                 lowerInput.includes("일정 알려") || 
-                 lowerInput.includes("일정 확인")) {
-          const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
-          if (dateMatch) {
-            const dateStr = dateMatch[0];
-            response = getCalendarEvents(dateStr);
-          } else {
-            response = getCalendarEvents();
-          }
-        }
-        else if (lowerInput.includes("안녕")) {
-          response = "안녕하세요, 주인님! 오늘 하루 어땠나요?";
-          characterGroup.children[7].rotation.z = Math.PI / 4;
-          setTimeout(() => { characterGroup.children[7].rotation.z = 0; }, 1000);
-        }
-        else if (lowerInput.includes("캐릭터 넌 누구야")) {
-          response = "저는 당신의 개인 비서이자 친구입니다. 언제든 대화해드릴게요.";
-        }
-        else if (lowerInput.includes("일정")) {
-          response = "캘린더는 왼쪽에서 확인하실 수 있습니다.";
-        }
-        else if (lowerInput.includes("캐릭터 춤춰줘") ||
-                 lowerInput.includes("춤") ||
-                 lowerInput.includes("춤춰") ||
-                 lowerInput.includes("춤춰줘") ||
-                 lowerInput.includes("춤춰봐") ||
-                 lowerInput.includes("춤사위")) {
-          response = "춤추겠습니다! 잠시만 기다려 주세요.";
-          if (danceInterval) clearInterval(danceInterval);
-          danceInterval = setInterval(() => {
-            characterGroup.children[7].rotation.z = Math.sin(Date.now() * 0.01) * Math.PI / 4;
-            head.rotation.y = Math.sin(Date.now() * 0.01) * Math.PI / 8;
-          }, 50);
-          setTimeout(() => {
-            clearInterval(danceInterval);
-            characterGroup.children[7].rotation.z = 0;
-            head.rotation.y = 0;
-          }, 3000);
-        }
-        else {
+        } else {
           const generalResponses = [
-            "그렇군요. 자세히 말씀해 주실 수 있나요?",
-            "정말 흥미로운 이야기네요. 계속 이야기해 주세요.",
-            "저도 그 부분에 대해 생각해 본 적이 있어요.",
-            "어떤 점이 가장 고민되시나요?",
-            "당신의 이야기를 듣고 있으니 저도 마음이 놓이네요.",
-            "그렇게 느끼실 수 있겠어요. 함께 해결해봐요."
+            "정말 흥미로운 이야기네요. 더 들려주세요!",
+            "알겠습니다. 혹시 다른 궁금한 점은 없으신가요?",
+            "그렇군요. 당신의 의견을 듣고 있으니 저도 많이 배워요.",
+            "그렇게 느끼실 수 있겠네요. 함께 이야기 나눠봐요!"
           ];
           response = generalResponses[Math.floor(Math.random() * generalResponses.length)];
         }
@@ -601,7 +540,7 @@
         };
       } catch (err) {
         currentWeather = "";
-        return { message: `날씨 정보를 가져오지 못했습니다: ${currentCity}` };
+        return { message: `죄송합니다, ${currentCity}의 날씨 정보를 가져오지 못했어요.` };
       }
     }
     
@@ -695,7 +634,6 @@
     <div id="chat-input-area">
       <input type="text" id="chat-input" placeholder="채팅 입력..." />
     </div>
-    <!-- 파일 업로드 관련 요소는 제거되었습니다 -->
   </div>
   
   <div id="hud-3">
@@ -726,13 +664,11 @@
       <h2>사용법 안내</h2>
       <p><strong>캐릭터:</strong> 채팅창에 "안녕", "캐릭터 춤춰줘" 등 입력해 보세요.</p>
       <p>
-        <strong>채팅창:</strong> 상단 드롭다운 메뉴에서 지역을 선택하면 지도와 날씨가 즉시 업데이트됩니다.<br>
-        또는 "지역 [지역명]" (예: "지역 인천" 또는 "인천") 입력으로도 변경 가능합니다.<br>
-        "날씨 알려줘"로 현재 지역의 날씨를 다시 확인할 수 있습니다.<br>
-        "일정 삭제" 또는 "하루일정 삭제"를 입력해 캘린더 일정을 삭제할 수 있습니다.<br>
-        "일정 알려줘"를 입력해 저장된 일정을 확인할 수 있습니다 (예: "2025-4-15 일정 알려줘").
+        <strong>채팅창:</strong> 상단 드롭다운 메뉴에서 지역을 선택하면 지도와 날씨가 업데이트됩니다.<br>
+        "유튜브 보여줘", "유튜브알려줘" 등 유튜브 관련 키워드를 입력하면 페이지 전체가 유튜브로 전환됩니다.<br>
+        "날씨 알려줘"나 "일정 알려줘" 등도 다양하게 작동합니다.
       </p>
-      <p><strong>캘린더:</strong> 왼쪽에서 날짜 클릭해 일정을 추가하거나, 버튼으로 저장/삭제하세요.</p>
+      <p><strong>캘린더:</strong> 왼쪽에서 날짜를 클릭해 일정을 추가하거나, 버튼으로 저장/삭제할 수 있습니다.</p>
       <p><strong>버전 선택:</strong> 하단 드롭다운에서 "구버전 1.3" 또는 "최신 버전 (1.7)"을 선택해 해당 페이지로 이동하세요.</p>
     </div>
   </div>
