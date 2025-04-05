@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -6,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>3D 캐릭터 HUD, 캘린더, 음성 채팅 & 말풍선</title>
   <style>
+    /* 기본 스타일 */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidden; }
     
@@ -90,7 +90,10 @@
       overflow-y: auto;
       color: #00ffcc;
     }
-    #left-hud h3 { margin-bottom: 5px; text-shadow: 0 0 5px #00ffcc; }
+    #left-hud h3 { 
+      margin-bottom: 5px; 
+      text-shadow: 0 0 5px #00ffcc;
+    }
     #calendar-container { margin-top: 10px; }
     #calendar-header {
       display: flex;
@@ -409,7 +412,7 @@
       showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
     
-    // 수동 음성 인식 기능 (HUD-6 버튼으로 실행)
+    // 수동 음성 인식 기능 (HUD-6 버튼을 통한 실행)
     function startSpeechRecognition() {
       if (!('webkitSpeechRecognition' in window)) {
         alert("이 브라우저는 음성 인식을 지원하지 않습니다.");
@@ -467,7 +470,7 @@
       }
     }
     
-    // 업그레이드된 캐릭터 대화 처리 함수 (감정, 인삿말, '잘자', '알려줘', 트위터 관련 처리)
+    // 업그레이드된 캐릭터 대화 처리 함수 (감정, 인삿말, '잘자', '알려줘', 유튜브, 트위터, 인삿말 등)
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -519,8 +522,8 @@
         return;
       }
       
-      // "트위터" 또는 "X" 관련 키워드 처리 – 페이지 전체를 트위터 로그인 페이지로 리디렉션
-      const twitterKeywords = ["트위터", "x 보여줘", "x 알려줘", "x 나와줘"];
+      // "트위터" 관련 키워드 처리 – 확장된 키워드가 감지되면 페이지 전체를 트위터(현재 X) 로그인 페이지로 리디렉션
+      const twitterKeywords = ["트위터", "트위터 보여주게", "트위터 틔위터검색", "트위터보여", "트위터보여줘봐"];
       if (!response && twitterKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
         response = "트위터(현재 X)를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
@@ -783,10 +786,10 @@
       <p>
         <strong>채팅창:</strong> 상단 드롭다운 메뉴에서 지역을 선택하면 지도와 날씨가 업데이트됩니다.<br>
         "유튜브 보여줘", "유튜브알려줘" 등 유튜브 관련 키워드를 입력하면 페이지 전체가 유튜브로 전환됩니다.<br>
-        "트위터 보여줘" 또는 "X 보여줘" 등 키워드가 입력되면 트위터 로그인 페이지(https://x.com/login?lang=ko)로 전환됩니다.<br>
+        "트위터 보여주게", "트위터 틔위터검색", "트위터보여", "트위터보여줘봐" 등의 키워드가 입력되면 트위터(현재 X) 로그인 페이지(https://x.com/login?lang=ko)로 전환됩니다.<br>
         "날씨 알려줘", "일정 알려줘", "시간 알려줘" 등 다양한 질문에도 응답하며,<br>
         "잘자", "좋은꿈" 등 잘자 관련, "안녕", "안녕하세요" 등 인삿말에 따른 풍부한 응답을 제공합니다.<br>
-        또한, HUD‑6의 음성 입력 버튼을 눌러 음성 입력도 할 수 있고, "비서", "비서야", "비서~~" 등의 웨이크워드가 실제로 말해지면(자동 기능은 제거됨) 해당 단어에 맞는 텍스트 입력은 직접 하셔야 합니다.
+        또한, HUD‑6의 음성 입력 버튼을 눌러 음성 입력도 할 수 있습니다.
       </p>
       <p><strong>캘린더:</strong> 왼쪽에서 날짜를 클릭해 일정을 추가하거나, 버튼으로 저장/삭제할 수 있습니다.</p>
       <p><strong>버전 선택:</strong> 하단 드롭다운에서 "구버전 1.3" 또는 "최신 버전 (1.7)"을 선택해 해당 페이지로 이동하세요.</p>
