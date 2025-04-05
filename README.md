@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>3D 캐릭터 HUD, 캘린더, 음성 채팅 & 말풍선</title>
   <style>
-    /* 기본 스타일 */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidden; }
     
@@ -99,30 +98,34 @@
       justify-content: space-between;
       margin-bottom: 5px;
     }
-    #calendar-header button {
-      padding: 2px 6px;
-      font-size: 12px;
-      cursor: pointer;
-      background: #00ffcc;
-      color: #000;
-      border: none;
-      border-radius: 3px;
-      box-shadow: 0 0 5px #00ffcc;
-      transition: all 0.3s;
+    #calendar-header button { 
+      padding: 2px 6px; 
+      font-size: 12px; 
+      cursor: pointer; 
+      background: #00ffcc; 
+      color: #000; 
+      border: none; 
+      border-radius: 3px; 
+      box-shadow: 0 0 5px #00ffcc; 
+      transition: all 0.3s; 
     }
-    #calendar-header button:hover {
-      background: #00cc99;
-      box-shadow: 0 0 10px #00ffcc;
+    #calendar-header button:hover { 
+      background: #00cc99; 
+      box-shadow: 0 0 10px #00ffcc; 
     }
-    #month-year-label { font-weight: bold; font-size: 14px; text-shadow: 0 0 5px #00ffcc; }
-    #year-select {
-      font-size: 12px;
-      padding: 2px;
-      margin-left: 5px;
-      background: #333;
-      color: #00ffcc;
-      border: 1px solid #00ffcc;
-      border-radius: 3px;
+    #month-year-label { 
+      font-weight: bold; 
+      font-size: 14px; 
+      text-shadow: 0 0 5px #00ffcc; 
+    }
+    #year-select { 
+      font-size: 12px; 
+      padding: 2px; 
+      margin-left: 5px; 
+      background: #333; 
+      color: #00ffcc; 
+      border: 1px solid #00ffcc; 
+      border-radius: 3px; 
     }
     #calendar-actions {
       margin-top: 5px;
@@ -160,7 +163,7 @@
       cursor: pointer;
       transition: all 0.3s;
     }
-    #calendar-grid div:hover {
+    #calendar-grid div:hover { 
       background: rgba(0,255,204,0.3);
       box-shadow: 0 0 5px #00ffcc;
     }
@@ -406,37 +409,7 @@
       showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
     
-    // 음성 인식 기능 (자동 연속 인식)
-    let continuousRecognition;
-    function initContinuousRecognition() {
-      if (!('webkitSpeechRecognition' in window)) {
-        console.log("이 브라우저는 음성 인식을 지원하지 않습니다.");
-        return;
-      }
-      continuousRecognition = new webkitSpeechRecognition();
-      continuousRecognition.lang = "ko-KR";
-      continuousRecognition.continuous = true;
-      continuousRecognition.interimResults = false;
-      continuousRecognition.onresult = function(event) {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            const transcript = event.results[i][0].transcript.trim().toLowerCase();
-            console.log("연속 인식 결과:", transcript);
-            // "비서"와 관련된 웨이크워드가 감지되면 자동으로 음성 인식을 재시작하도록 함
-            if (transcript.includes("비서") && transcript.length < 8) {
-              // 짧은 단어로만 "비서"가 인식되면 음성 인식을 다시 시작하여 상세 내용을 받아옴
-              startSpeechRecognition();
-            }
-          }
-        }
-      };
-      continuousRecognition.onerror = function(event) {
-        console.error("연속 음성 인식 오류:", event.error);
-      };
-      continuousRecognition.start();
-    }
-    
-    // 수동 음성 인식: HUD-6 버튼을 클릭하면 실행 (자동 음성 인식과 별개)
+    // 수동 음성 인식 기능 (HUD-6 버튼으로 실행)
     function startSpeechRecognition() {
       if (!('webkitSpeechRecognition' in window)) {
         alert("이 브라우저는 음성 인식을 지원하지 않습니다.");
@@ -451,7 +424,6 @@
       recognition.onresult = function(event) {
         const transcript = event.results[0][0].transcript.trim();
         document.getElementById("chat-input").value = transcript;
-        // 자동 전송하고 싶으면 sendChat(); 호출 가능
       };
       
       recognition.onerror = function(event) {
@@ -459,7 +431,43 @@
       };
     }
     
-    // 업그레이드된 캐릭터 대화 처리 함수 (감정, 인삿말 등)
+    window.addEventListener("DOMContentLoaded", function() {
+      document.getElementById("chat-input").addEventListener("keydown", function(e) {
+        if (e.key === "Enter") sendChat();
+      });
+      
+      const regionSelect = document.getElementById("region-select");
+      regionList.forEach(region => {
+        const option = document.createElement("option");
+        option.value = region;
+        option.textContent = `${region} (${regionMap[region]})`;
+        if (region === currentCity) option.selected = true;
+        regionSelect.appendChild(option);
+      });
+    });
+    
+    window.addEventListener("resize", function(){
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+    
+    window.addEventListener("load", async () => {
+      initCalendar();
+      showTutorial();
+      updateMap();
+      await updateWeatherAndEffects();
+    });
+    
+    function changeVersion(version) {
+      if (version === "1.3") {
+        window.location.href = "https://aipersonalassistant.neocities.org/";
+      } else if (version === "latest") {
+        window.location.reload();
+      }
+    }
+    
+    // 업그레이드된 캐릭터 대화 처리 함수 (감정, 인삿말, '잘자', '알려줘', 트위터 관련 처리)
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -499,13 +507,25 @@
         await updateWeatherAndEffects();
       }
       
-      // "유튜브" 관련 키워드 처리 – 관련 키워드가 감지되면 페이지 전체를 유튜브로 리디렉션
+      // "유튜브" 관련 키워드 처리 – 페이지 전체를 유튜브로 리디렉션
       const youtubeKeywords = ["유튜브", "유트브", "유튜브알려줘", "유튭", "유튜브랑", "유튜브나와줘"];
       if (!response && youtubeKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
         response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
         setTimeout(() => {
           window.location.href = "https://www.youtube.com/";
+        }, 2000);
+        inputEl.value = "";
+        return;
+      }
+      
+      // "트위터" 또는 "X" 관련 키워드 처리 – 페이지 전체를 트위터 로그인 페이지로 리디렉션
+      const twitterKeywords = ["트위터", "x 보여줘", "x 알려줘", "x 나와줘"];
+      if (!response && twitterKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
+        response = "트위터(현재 X)를 보여드릴게요! 잠시만 기다려 주세요.";
+        showSpeechBubbleInChunks(response);
+        setTimeout(() => {
+          window.location.href = "https://x.com/login?lang=ko";
         }, 2000);
         inputEl.value = "";
         return;
@@ -679,59 +699,6 @@
       showNextChunk();
     }
     
-    // 음성 인식 기능: HUD-6 버튼을 통한 수동 인식 + 항상 켜져있는 연속 인식
-    let continuousRecognition;
-    function initContinuousRecognition() {
-      if (!('webkitSpeechRecognition' in window)) {
-        console.log("이 브라우저는 음성 인식을 지원하지 않습니다.");
-        return;
-      }
-      continuousRecognition = new webkitSpeechRecognition();
-      continuousRecognition.lang = "ko-KR";
-      continuousRecognition.continuous = true;
-      continuousRecognition.interimResults = false;
-      continuousRecognition.onresult = function(event) {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            const transcript = event.results[i][0].transcript.trim().toLowerCase();
-            console.log("연속 인식 결과:", transcript);
-            // "비서" 관련 웨이크워드가 감지되면 자동 음성 인식을 수동 모드로 전환하여 상세 입력 받기
-            const wakeKeywords = ["비서", "비서야", "비서~~"];
-            if (wakeKeywords.some(word => transcript.indexOf(word) !== -1)) {
-              // 수동 인식 시작 (이미 수동 인식이 실행 중이면 건너뛰기)
-              startSpeechRecognition();
-            }
-          }
-        }
-      };
-      continuousRecognition.onerror = function(event) {
-        console.error("연속 음성 인식 오류:", event.error);
-      };
-      continuousRecognition.start();
-    }
-    
-    function startSpeechRecognition() {
-      if (!('webkitSpeechRecognition' in window)) {
-        alert("이 브라우저는 음성 인식을 지원하지 않습니다.");
-        return;
-      }
-      const recognition = new webkitSpeechRecognition();
-      recognition.lang = "ko-KR";
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-      recognition.start();
-      
-      recognition.onresult = function(event) {
-        const transcript = event.results[0][0].transcript.trim();
-        document.getElementById("chat-input").value = transcript;
-        // 원한다면 자동 전송: sendChat();
-      };
-      
-      recognition.onerror = function(event) {
-        console.error("수동 음성 인식 오류:", event.error);
-      };
-    }
-    
     window.addEventListener("DOMContentLoaded", function() {
       document.getElementById("chat-input").addEventListener("keydown", function(e) {
         if (e.key === "Enter") sendChat();
@@ -745,9 +712,6 @@
         if (region === currentCity) option.selected = true;
         regionSelect.appendChild(option);
       });
-      
-      // 초기 연속 음성 인식 시작 (사용자 허가 필요)
-      initContinuousRecognition();
     });
     
     window.addEventListener("resize", function(){
@@ -819,9 +783,10 @@
       <p>
         <strong>채팅창:</strong> 상단 드롭다운 메뉴에서 지역을 선택하면 지도와 날씨가 업데이트됩니다.<br>
         "유튜브 보여줘", "유튜브알려줘" 등 유튜브 관련 키워드를 입력하면 페이지 전체가 유튜브로 전환됩니다.<br>
-        "날씨 알려줘", "일정 알려줘", "시간 알려줘" 등 다양한 질문에도 응답합니다.<br>
-        "잘자", "좋은꿈" 등 잘자 관련 키워드도 상황에 맞게 응답합니다.<br>
-        "안녕", "안녕하세요" 등 인삿말과 "비서", "비서야", "비서~~" 같은 웨이크워드가 실제로 말해지면 자동 음성 인식이 시작됩니다.
+        "트위터 보여줘" 또는 "X 보여줘" 등 키워드가 입력되면 트위터 로그인 페이지(https://x.com/login?lang=ko)로 전환됩니다.<br>
+        "날씨 알려줘", "일정 알려줘", "시간 알려줘" 등 다양한 질문에도 응답하며,<br>
+        "잘자", "좋은꿈" 등 잘자 관련, "안녕", "안녕하세요" 등 인삿말에 따른 풍부한 응답을 제공합니다.<br>
+        또한, HUD‑6의 음성 입력 버튼을 눌러 음성 입력도 할 수 있고, "비서", "비서야", "비서~~" 등의 웨이크워드가 실제로 말해지면(자동 기능은 제거됨) 해당 단어에 맞는 텍스트 입력은 직접 하셔야 합니다.
       </p>
       <p><strong>캘린더:</strong> 왼쪽에서 날짜를 클릭해 일정을 추가하거나, 버튼으로 저장/삭제할 수 있습니다.</p>
       <p><strong>버전 선택:</strong> 하단 드롭다운에서 "구버전 1.3" 또는 "최신 버전 (1.7)"을 선택해 해당 페이지로 이동하세요.</p>
