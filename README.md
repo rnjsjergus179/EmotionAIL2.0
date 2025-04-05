@@ -46,7 +46,7 @@
       font-size: 14px;
     }
     
-    /* ML 파이프라인 관련 기능은 제거되었습니다 */
+    /* 파일 업로드 관련 기능은 삭제됨 → 파일 업로드 입력란도 제거 */
     
     #left-hud {
       position: fixed;
@@ -141,7 +141,7 @@
     }
     #calendar-grid div:hover { 
       background: rgba(0, 255, 204, 0.3);
-      box-shadow: 0 0 5px #00ffcc; 
+      box-shadow: 0 0 5px #00ffcc;
     }
     .day-number {
       position: absolute;
@@ -236,153 +236,57 @@
     }
 
     @media (max-width: 480px) {
-      #right-hud, #left-hud, #hud-3 {
-        width: 90%; left: 5%; right: 5%; top: 5%;
-      }
+      #right-hud, #left-hud, #hud-3 { width: 90%; left: 5%; right: 5%; top: 5%; }
     }
   </style>
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-
+  
   <script>
-    /************************************************
-     * 1) 사용자님이 주신 GPT o1고급이성 API 키 정보
-     ************************************************/
-    const GPT_O1_KEY = "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";
-    const GPT_O1_PROJECT_ID = "proj_NKo9nvSzpGrxCfHnJcQO1qSw";
-
-    /************************************************
-     * 2) o1고급이성 API로 메시지 보낼 함수 (임의 예시)
-     ************************************************/
-    async function callGptO1Api(userMessage) {
-      try {
-        // 실제 API 엔드포인트 & Body 형식은 꼭 문서 확인 후 맞추세요!
-        const res = await fetch("https://api.gpt-o1.com/v1/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            // 임의 헤더 예시 (API 문서에 따라 달라집니다)
-            "Authorization": `Bearer ${GPT_O1_KEY}`,
-            "X-Project-ID": GPT_O1_PROJECT_ID
-          },
-          body: JSON.stringify({
-            // 예시 payload (model, prompt 형식 등은 실제 API 문서에 맞춰 수정)
-            model: "o1-advanced",
-            prompt: userMessage,
-            // 혹은 대화형이면 messages: [...]
-          })
-        });
-
-        if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(`o1고급이성 API 호출 실패: ${res.status} / ${errorText}`);
-        }
-
-        // 실제 응답 구조에 맞춰 파싱 (가정)
-        const data = await res.json();
-        // 예: data.result, data.text 등
-        // 여기는 "답변 문자열"만 있다고 가정
-        return data.text || "(GPT API 응답 형식을 문서에 맞춰 수정해주세요)";
-      } catch (err) {
-        console.error("GPT o1 API error:", err);
-        return "GPT o1고급이성 API 호출 중 오류가 발생했습니다.";
-      }
-    }
-  </script>
-
-  <script>
-    // -------------------- 감정 키워드 및 응답 --------------------
-    const emotionKeywords = {
-      "슬픔": ["슬프", "구슬픔", "구슬퍼", "구픔", "눈물", "우울"],
-      "미안": ["미안", "미안했", "몰랏", "모르겠"],
-      "기쁨": ["기쁘", "행복", "웃", "기분좋아"],
-      "분노": ["화난", "분노", "짜증"],
-      "놀람": ["놀라", "깜짝", "신기", "대박"],
-      "인사": ["안녕", "인사", "반가워"],
-      "잘자": ["잘자", "편안한 밤"]
-    };
-
-    const emotionResponses = {
-      "슬픔": [
-        "정말로 슬퍼... 😢 눈물이 절로 나네요.",
-        "마음이 너무 아파요... 😭",
-        "슬픔이 깊게 느껴져요... 😔",
-        "그 슬픔, 함께 나누고 싶어요... 😢"
-      ],
-      "미안": [
-        "정말 미안해요... 🙇‍♀️ 진심으로 사과드립니다.",
-        "미안했어요... 🙇‍♂️",
-        "내 잘못이에요... 정말 죄송해요. 😞",
-        "미안하다는 말로는 부족하지만, 정말 죄송합니다. 🙏"
-      ],
-      "기쁨": [
-        "기분 좋아~ 😄 정말 행복해요!",
-        "웃음이 절로 나네요! 😊",
-        "오늘은 너무 즐거워요! 😆",
-        "행복한 하루 보내세요! 😁"
-      ],
-      "분노": [
-        "정말 화가 나네요... 😡 잠시 진정해보세요.",
-        "분노가 치밀어요! 😠 조금 숨 고르세요.",
-        "짜증이 가득해요... 😤 마음을 진정시키세요."
-      ],
-      "놀람": [
-        "정말 놀라워요! 😲",
-        "깜짝 놀랐어요! 😮",
-        "세상이 참 신기하네요! 😳",
-        "놀라움이 가득해요! 😯"
-      ],
-      "인사": [
-        "안녕하세요, 주인님! 오늘 기분은 어떠세요? 😊",
-        "반갑습니다, 주인님! 언제나 환영해요~ 😊",
-        "안녕하십니까? 항상 곁에 있겠습니다. 🙂"
-      ],
-      "잘자": [
-        "잘 자요, 좋은 꿈 꾸세요! 😴",
-        "편안한 밤 되세요... 😌",
-        "내일도 멋진 하루 되길 바랍니다! 🌙",
-        "달콤한 꿈 꾸세요! 😴"
-      ]
-    };
-
-    // ------------------------------------------------------------
-    // 감정 감지 함수
-    // ------------------------------------------------------------
-    function detectEmotion(input) {
-      const detected = [];
-      const lower = input.toLowerCase();
-      for (const [emotion, keywords] of Object.entries(emotionKeywords)) {
-        for (const word of keywords) {
-          if (lower.includes(word)) {
-            detected.push(emotion);
-            break;
-          }
-        }
-      }
-      return detected;
-    }
-
-    // ------------------------------------------------------------
-    // 기존 달력, 지도, 날씨 관련 변수 & 함수
-    // ------------------------------------------------------------
+    document.addEventListener("contextmenu", event => event.preventDefault());
+    let blockUntil = 0;
+    let danceInterval;
     let currentCity = "서울";
     let currentWeather = "";
-    let danceInterval = null;
-    let blockUntil = 0;
-    const weatherKey = "YOUR_OPENWEATHERMAP_API_KEY"; // 날씨 API 키
+    
+    document.addEventListener("copy", function(e) {
+      e.preventDefault();
+      let selectedText = window.getSelection().toString();
+      selectedText = selectedText.replace(/2caa7fa4a66f2f8d150f1da93d306261/g, "HIDDEN");
+      e.clipboardData.setData("text/plain", selectedText);
+      if (Date.now() < blockUntil) return;
+      blockUntil = Date.now() + 3600000;
+      showSpeechBubbleInChunks("1시간동안 차단됩니다.");
+    });
+    
+    const weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
     const regionMap = {
       "서울": "Seoul",
       "인천": "Incheon",
+      "수원": "Suwon",
+      "고양": "Goyang",
+      "성남": "Seongnam",
+      "용인": "Yongin",
+      "부천": "Bucheon",
+      "안양": "Anyang",
+      "의정부": "Uijeongbu",
+      "광명": "Gwangmyeong",
+      "안산": "Ansan",
+      "파주": "Paju",
       "부산": "Busan",
       "대구": "Daegu",
       "광주": "Gwangju",
       "대전": "Daejeon",
       "울산": "Ulsan",
-      "세종": "Sejong",
-      "제주": "Jeju"
+      "제주": "Jeju",
+      "전주": "Jeonju",
+      "청주": "Cheongju",
+      "포항": "Pohang",
+      "여수": "Yeosu",
+      "김해": "Gimhae"
     };
     const regionList = Object.keys(regionMap);
-
+    
     function saveFile() {
       const content = "파일 저장 완료";
       const filename = "saved_file.txt";
@@ -395,13 +299,72 @@
       document.body.removeChild(link);
     }
     
-    // ... (saveCalendar, deleteCalendarEvent, getCalendarEvents, etc. 유지)
+    function saveCalendar() {
+      const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+      const calendarData = {};
+      for (let d = 1; d <= daysInMonth; d++) {
+        const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${d}`);
+        if (eventDiv && eventDiv.textContent.trim() !== "") {
+          calendarData[`${currentYear}-${currentMonth+1}-${d}`] = eventDiv.textContent;
+        }
+      }
+      localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(calendarData, null, 2));
+      const dlAnchorElem = document.createElement("a");
+      dlAnchorElem.setAttribute("href", dataStr);
+      dlAnchorElem.setAttribute("download", "calendar_events.json");
+      dlAnchorElem.style.display = "none";
+      document.body.appendChild(dlAnchorElem);
+      dlAnchorElem.click();
+      document.body.removeChild(dlAnchorElem);
+    }
+    
+    function deleteCalendarEvent(day) {
+      const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${day}`);
+      if (eventDiv) {
+        eventDiv.textContent = "";
+        const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+        delete calendarData[`${currentYear}-${currentMonth+1}-${day}`];
+        localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+        return `${currentYear}-${currentMonth+1}-${day} 일정이 삭제되었습니다.`;
+      } else {
+        return "해당 날짜에 일정이 없습니다.";
+      }
+    }
+    
+    function getCalendarEvents(dateStr = null) {
+      const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+      if (!Object.keys(calendarData).length) {
+        return "저장된 일정이 없습니다. 먼저 캘린더를 저장해주세요.";
+      }
+      
+      if (dateStr) {
+        if (calendarData[dateStr]) {
+          return `${dateStr}의 일정: ${calendarData[dateStr]}`;
+        } else {
+          return `${dateStr}에는 일정이 없습니다.`;
+        }
+      } else {
+        const currentMonthStr = `${currentYear}-${currentMonth+1}`;
+        let events = [];
+        for (let key in calendarData) {
+          if (key.startsWith(currentMonthStr)) {
+            events.push(`${key}: ${calendarData[key]}`);
+          }
+        }
+        if (events.length) {
+          return `현재 월(${currentMonthStr})의 일정:\n${events.join("\n")}`;
+        } else {
+          return `현재 월(${currentMonthStr})에는 일정이 없습니다.`;
+        }
+      }
+    }
     
     function updateMap() {
       const englishCity = regionMap[currentCity] || "Seoul";
       document.getElementById("map-iframe").src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
     }
-
+    
     async function updateWeatherAndEffects(sendMessage = true) {
       const weatherData = await getWeather();
       if (sendMessage) {
@@ -409,36 +372,55 @@
       }
       updateWeatherEffects();
     }
-
+    
     function changeRegion(value) {
       currentCity = value;
       updateMap();
       updateWeatherAndEffects();
       showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
-
-    // ------------------------------------------------------------
-    // 3) 채팅창 처리: 감정 분석 후 GPT API도 호출
-    // ------------------------------------------------------------
+    
+    // GPT-3.5 터보 API 호출 함수 추가 (주의: 클라이언트 사이드에서 API키를 노출하는 것은 보안상 위험합니다)
+    async function callGPTTurbo(userMessage) {
+      const apiKey = "proj_NKo9nvSzpGrxCfHnJcQO1qSwsk-proj-7DGmoV308qAdLvq-2OYz138Y9bxB-yQ20wbsnQ896RmS0ByFxPjT7Y9UrUkyIlD0QFEZZzM8y6T3BlbkFJEXGMSW57tQqmvwHqlOLIM8wGZ82Y0-FPL2SPqmo8IkiGGOmQ-uoB9FLd7GzqN5X7rxgxxH4QwA";
+      try {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + apiKey,
+          },
+          body: JSON.stringify({
+            model: "gpt-3.5-turbo",
+            messages: [{ role: "user", content: userMessage }],
+          }),
+        });
+        const data = await res.json();
+        return data.choices[0].message.content;
+      } catch (err) {
+        return "죄송합니다, 답변을 받아올 수 없습니다.";
+      }
+    }
+    
+    // 채팅 입력 처리 – ML 파이프라인 관련 기능은 삭제되고, 감정 표현 응답이 방대하게 구성됨
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
       
-      // 블락 처리
       if (Date.now() < blockUntil) {
         showSpeechBubbleInChunks("1시간동안 차단됩니다.");
         inputEl.value = "";
         return;
       }
+      
       if (!input) return;
       
       let response = "";
       const lowerInput = input.toLowerCase();
       
-      // ---- (1) 지역 변경 등 기존 기능 ----
       if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
-        if (newCity) {
+        if(newCity) {
           if (regionList.includes(newCity)) {
             currentCity = newCity;
             document.getElementById("region-select").value = newCity;
@@ -451,54 +433,106 @@
         } else {
           response = "변경할 지역을 입력해주세요.";
         }
-      } else if (regionList.includes(input)) {
-        currentCity = input;
-        document.getElementById("region-select").value = input;
-        response = `지역이 ${input}(으)로 변경되었습니다.`;
-        updateMap();
-        await updateWeatherAndEffects();
-      }
-      
-      // ---- (2) 감정 키워드 분석 ----
-      if (!response) {
-        const detectedEmotions = detectEmotion(input);
-        if (detectedEmotions.length > 0) {
-          const emotion = detectedEmotions[0];
-          const responses = emotionResponses[emotion];
-          if (responses && responses.length > 0) {
-            response = responses[Math.floor(Math.random() * responses.length)];
-          }
+      } else {
+        if (regionList.includes(input)) {
+          currentCity = input;
+          document.getElementById("region-select").value = input;
+          response = `지역이 ${input}(으)로 변경되었습니다.`;
+          updateMap();
+          await updateWeatherAndEffects();
         }
       }
-
-      // ---- (3) 감정도 없고, 지역 변경/캘린더 등 명령도 없는 경우 → 기타 처리 ----
+      
+      // 감정 표현 처리: 입력한 감정 단어에 따라 다양한 응답 무작위 선택 (대폭 증가)
       if (!response) {
-        // 날씨
-        if (lowerInput.includes("날씨") &&
-            (lowerInput.includes("알려") || lowerInput.includes("어때") ||
-             lowerInput.includes("뭐야") || lowerInput.includes("어떻게") || lowerInput.includes("맑아"))) {
+        if (lowerInput.includes("기분") || 
+            lowerInput.includes("슬프") || 
+            lowerInput.includes("기쁘") || 
+            lowerInput.includes("행복") || 
+            lowerInput.includes("화난") || 
+            lowerInput.includes("분노") || 
+            lowerInput.includes("우울") || 
+            lowerInput.includes("짜증") || 
+            lowerInput.includes("놀라") ||
+            lowerInput.includes("잘자")) {
+          let emotionResponses = [];
+          if (lowerInput.includes("슬프")) {
+            emotionResponses.push(
+              "정말 슬퍼요... 눈물이 나네요.", 
+              "마음이 아파요...", 
+              "슬픔이 깊게 느껴져요.", 
+              "그 슬픔을 이겨내실 수 있을 거예요.", 
+              "슬픈 기분, 저도 함께 느껴요."
+            );
+          }
+          if (lowerInput.includes("기쁘") || lowerInput.includes("행복")) {
+            emotionResponses.push(
+              "정말 기쁘고 행복해요!", 
+              "마음이 환하게 빛나요.", 
+              "너무 즐거워요!", 
+              "오늘도 행복한 하루 보내세요.", 
+              "기쁨이 넘치는 하루가 되길 바라요!"
+            );
+          }
+          if (lowerInput.includes("화난") || lowerInput.includes("분노") || lowerInput.includes("짜증")) {
+            emotionResponses.push(
+              "화가 나셨군요. 잠시 진정해보세요.", 
+              "분노가 치밀어요. 조금 숨 고르세요.", 
+              "짜증이 나네요... 차분해지길 바랍니다.", 
+              "화내지 마세요. 모든 게 잘 될 거예요."
+            );
+          }
+          if (lowerInput.includes("우울")) {
+            emotionResponses.push(
+              "우울한 기분이시군요. 조금만 더 힘내세요.", 
+              "마음이 무거워 보이네요. 따뜻한 위로를 보냅니다.", 
+              "우울한 순간도 지나가리라 믿어요.", 
+              "잘 주무시고, 좋은 꿈 꾸세요."
+            );
+          }
+          if (lowerInput.includes("놀라")) {
+            emotionResponses.push(
+              "정말 놀라워요!", 
+              "깜짝 놀랐어요!", 
+              "놀라움이 가득하네요.", 
+              "이런 일이! 놀라움은 때로 축복이죠."
+            );
+          }
+          if (lowerInput.includes("잘자")) {
+            emotionResponses.push(
+              "잘 주무세요. 좋은 꿈 꾸시길 바랍니다.", 
+              "편안한 밤 되세요.", 
+              "내일도 화이팅! 달콤한 꿈 꾸세요."
+            );
+          }
+          if (emotionResponses.length === 0) {
+            emotionResponses.push("당신의 감정이 느껴집니다.");
+          }
+          response = emotionResponses[Math.floor(Math.random() * emotionResponses.length)];
+        }
+        else if (lowerInput.includes("날씨") &&
+                 (lowerInput.includes("알려") || lowerInput.includes("어때") ||
+                  lowerInput.includes("뭐야") || lowerInput.includes("어떻게") || lowerInput.includes("맑아"))) {
           await updateWeatherAndEffects();
           inputEl.value = "";
           return;
         }
-        // 시간
         else if (lowerInput.includes("시간") || lowerInput.includes("몇시") || lowerInput.includes("현재시간")) {
           const now = new Date();
-          response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
+          const hours = now.getHours();
+          const minutes = now.getMinutes();
+          response = `현재 시간은 ${hours}시 ${minutes}분입니다.`;
         }
-        // 파일 저장
         else if (lowerInput.includes("파일 저장해줘")) {
           response = "파일 저장하겠습니다.";
           saveFile();
         }
-        // 일정 저장
         else if ((lowerInput.includes("캘린더") && lowerInput.includes("저장")) ||
                  lowerInput.includes("일정저장") ||
                  lowerInput.includes("하루일과저장")) {
           response = "캘린더 저장하겠습니다.";
           saveCalendar();
         }
-        // 일정 삭제
         else if (lowerInput.includes("일정 삭제") || 
                  lowerInput.includes("하루일정 삭제") || 
                  lowerInput.includes("일정 삭제해줘") || 
@@ -515,7 +549,6 @@
             response = "날짜를 입력하지 않으셨습니다.";
           }
         }
-        // 일정 알려줘
         else if (lowerInput.includes("일정 알려줘") || 
                  lowerInput.includes("일정 알려") || 
                  lowerInput.includes("일정 확인")) {
@@ -527,21 +560,17 @@
             response = getCalendarEvents();
           }
         }
-        // 인사
         else if (lowerInput.includes("안녕")) {
           response = "안녕하세요, 주인님! 오늘 기분은 어떠세요?";
           characterGroup.children[7].rotation.z = Math.PI / 4;
           setTimeout(() => { characterGroup.children[7].rotation.z = 0; }, 1000);
         }
-        // 캐릭터 누구?
         else if (lowerInput.includes("캐릭터 넌 누구야")) {
-          response = "저는 당신의 부드럽고 다정한 비서입니다.";
+          response = "저는 당신의 개인 비서입니다.";
         }
-        // 일정
         else if (lowerInput.includes("일정")) {
           response = "캘린더는 왼쪽에서 확인하세요.";
         }
-        // 캐릭터 춤
         else if (lowerInput.includes("캐릭터 춤춰줘") ||
                  lowerInput.includes("춤") ||
                  lowerInput.includes("춤춰") ||
@@ -560,21 +589,17 @@
             head.rotation.y = 0;
           }, 3000);
         }
-        else {
-          // ---> (4) 여기까지도 해당 안 되면 GPT o1 API 호출 <---
-          const gptReply = await callGptO1Api(input);
-          response = gptReply;
-        }
       }
-
-      // 최종 응답 출력
+      
+      // 만약 위에서 처리된 내용이 없다면 GPT-3.5 터보 API를 호출합니다.
+      if (!response) {
+        response = await callGPTTurbo(input);
+      }
+      
       showSpeechBubbleInChunks(response);
       inputEl.value = "";
     }
-
-    // ------------------------------------------------------------
-    // 날씨/효과
-    // ------------------------------------------------------------
+    
     async function getWeather() {
       try {
         const englishCity = regionMap[currentCity] || "Seoul";
@@ -601,7 +626,7 @@
         return { message: `날씨 정보를 가져오지 못했습니다: ${currentCity}` };
       }
     }
-
+    
     function updateWeatherEffects() {
       if (!currentWeather) return;
       if (currentWeather.indexOf("비") !== -1 || currentWeather.indexOf("소나기") !== -1) {
@@ -615,7 +640,7 @@
         houseCloudGroup.visible = false;
       }
     }
-
+    
     function updateLightning() {
       if (currentWeather.indexOf("번개") !== -1 || currentWeather.indexOf("뇌우") !== -1) {
         if (Math.random() < 0.001) {
@@ -624,7 +649,7 @@
         }
       }
     }
-
+    
     function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 3000) {
       const bubble = document.getElementById("speech-bubble");
       const chunks = [];
@@ -639,21 +664,17 @@
           index++;
           setTimeout(showNextChunk, delay);
         } else {
-          setTimeout(() => {
-            bubble.style.display = "none";
-          }, 3000);
+          setTimeout(() => { bubble.style.display = "none"; }, 3000);
         }
       }
       showNextChunk();
     }
-
-    // ------------------------------------------------------------
-    // DOMContentLoaded
-    // ------------------------------------------------------------
+    
     window.addEventListener("DOMContentLoaded", function() {
       document.getElementById("chat-input").addEventListener("keydown", function(e) {
         if (e.key === "Enter") sendChat();
       });
+      
       const regionSelect = document.getElementById("region-select");
       regionList.forEach(region => {
         const option = document.createElement("option");
@@ -663,7 +684,7 @@
         regionSelect.appendChild(option);
       });
     });
-
+    
     window.addEventListener("resize", function(){
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
@@ -685,7 +706,6 @@
       }
     }
   </script>
-
 </head>
 <body>
   <div id="right-hud">
@@ -701,8 +721,7 @@
   </div>
   
   <div id="hud-3">
-    <iframe id="map-iframe" src="https://www.google.com/maps?q=Seoul&output=embed"
-            frameborder="0" style="width:100%; height:100%; border:0;" allowfullscreen></iframe>
+    <iframe id="map-iframe" src="https://www.google.com/maps?q=Seoul&output=embed" frameborder="0" style="width:100%; height:100%; border:0;" allowfullscreen></iframe>
   </div>
   
   <div id="left-hud">
@@ -748,11 +767,8 @@
   </div>
   
   <canvas id="canvas"></canvas>
-
+  
   <script>
-    /************************************************
-     * (기존 3D 설정 + animate, initCalendar, showTutorial 등)
-     ************************************************/
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas"), alpha: true });
@@ -815,6 +831,7 @@
       const door = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 0.1), doorMat);
       door.position.set(0, -height/2 + 1, depth/2 + 0.01);
       buildingGroup.add(door);
+      
       return buildingGroup;
     }
     function createHouse(width, height, depth, baseColor, roofColor) {
@@ -840,6 +857,7 @@
       const door = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.1), doorMat);
       door.position.set(0, -2 + height/4, depth/2 + 0.01);
       houseGroup.add(door);
+      
       return houseGroup;
     }
     for (let i = 0; i < 20; i++) {
@@ -867,11 +885,11 @@
     function createStreetlight() {
       const lightGroup = new THREE.Group();
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 4, 8),
-                                  new THREE.MeshBasicMaterial({ color: 0x333333 }));
+                                    new THREE.MeshBasicMaterial({ color: 0x333333 }));
       pole.position.y = 2;
       lightGroup.add(pole);
       const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8),
-                                  new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
+                                    new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
       lamp.position.y = 4.2;
       lightGroup.add(lamp);
       const lampLight = new THREE.PointLight(0xffcc00, 1, 10);
@@ -932,7 +950,6 @@
     lightningLight.position.set(0, 50, 0);
     scene.add(lightningLight);
     
-    // 캐릭터 생성
     const characterGroup = new THREE.Group();
     const charBody = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.5),
                                     new THREE.MeshStandardMaterial({ color: 0x00cc66 }));
@@ -963,33 +980,34 @@
     characterGroup.add(charBody, head, leftEye, rightEye, mouth, leftBrow, rightBrow, leftArm, rightArm, leftLeg, rightLeg);
     characterGroup.position.y = -1;
     scene.add(characterGroup);
-
     const characterLight = new THREE.PointLight(0xffee88, 1, 15);
     scene.add(characterLight);
     
-    // 나무 생성 (생략)
-    for (let i = 0; i < 10; i++) {
+    function createTree() {
       const treeGroup = new THREE.Group();
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2, 16), new THREE.MeshStandardMaterial({ color: 0x8B4513 }));
       trunk.position.y = -1;
       const foliage = new THREE.Mesh(new THREE.ConeGeometry(1, 3, 16), new THREE.MeshStandardMaterial({ color: 0x228B22 }));
       foliage.position.y = 0.5;
       treeGroup.add(trunk, foliage);
-      treeGroup.position.set(-50 + i * 10, -2, -15);
-      scene.add(treeGroup);
+      return treeGroup;
+    }
+    
+    for (let i = 0; i < 10; i++) {
+      const tree = createTree();
+      tree.position.set(-50 + i * 10, -2, -15);
+      scene.add(tree);
     }
     
     function animate() {
       requestAnimationFrame(animate);
       
       const now = new Date();
+      const headWorldPos = new THREE.Vector3();
+      head.getWorldPosition(headWorldPos);
       const totalMin = now.getHours() * 60 + now.getMinutes();
       const angle = (totalMin / 1440) * Math.PI * 2;
       const radius = 3;
-
-      const headWorldPos = new THREE.Vector3();
-      head.getWorldPosition(headWorldPos);
-      
       const sunPos = new THREE.Vector3(
         headWorldPos.x + Math.cos(angle) * radius,
         headWorldPos.y + Math.sin(angle) * radius,
@@ -1017,23 +1035,17 @@
       
       const isDay = (t >= 7 && t < 17);
       scene.background = new THREE.Color(isDay ? 0x87CEEB : 0x000033);
-      
-      // 별, 반딧불
       stars.forEach(s => s.visible = !isDay);
       fireflies.forEach(f => f.visible = !isDay);
       
-      // 가로등
       characterStreetlight.traverse(child => {
-        if (child instanceof THREE.PointLight) { 
-          child.intensity = isDay ? 0 : 1; 
-        }
+        if (child instanceof THREE.PointLight) { child.intensity = isDay ? 0 : 1; }
       });
       characterLight.position.copy(characterGroup.position).add(new THREE.Vector3(0, 5, 0));
       characterLight.intensity = isDay ? 0 : 1;
       characterGroup.position.y = -1;
       characterGroup.rotation.x = 0;
       
-      // 날씨 효과, 구름, 번개
       updateWeatherEffects();
       updateHouseClouds();
       updateLightning();
@@ -1044,7 +1056,6 @@
     }
     animate();
     
-    // (initCalendar, showTutorial 등 캘린더/튜토리얼 초기화 로직)
     let currentYear, currentMonth;
     function initCalendar() {
       const now = new Date();
@@ -1054,18 +1065,12 @@
       renderCalendar(currentYear, currentMonth);
       document.getElementById("prev-month").addEventListener("click", () => {
         currentMonth--;
-        if (currentMonth < 0) {
-          currentMonth = 11;
-          currentYear--;
-        }
+        if (currentMonth < 0) { currentMonth = 11; currentYear--; }
         renderCalendar(currentYear, currentMonth);
       });
       document.getElementById("next-month").addEventListener("click", () => {
         currentMonth++;
-        if (currentMonth > 11) {
-          currentMonth = 0;
-          currentYear++;
-        }
+        if (currentMonth > 11) { currentMonth = 0; currentYear++; }
         renderCalendar(currentYear, currentMonth);
       });
       document.getElementById("year-select").addEventListener("change", (e) => {
@@ -1122,10 +1127,8 @@
       }
       for(let d = 1; d <= daysInMonth; d++){
         const cell = document.createElement("div");
-        cell.innerHTML = `
-          <div class="day-number">${d}</div>
-          <div class="event" id="event-${year}-${month+1}-${d}"></div>
-        `;
+        cell.innerHTML = `<div class="day-number">${d}</div>
+                          <div class="event" id="event-${year}-${month+1}-${d}"></div>`;
         cell.addEventListener("click", () => {
           const eventText = prompt(`${year}-${month+1}-${d} 일정 입력:`);
           if(eventText) {
@@ -1147,9 +1150,7 @@
       head.getWorldPosition(headWorldPos);
       const screenPos = headWorldPos.project(camera);
       bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
-      bubble.style.top = (
-        (1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50
-      ) + "px";
+      bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
     }
     
     function showTutorial() {
