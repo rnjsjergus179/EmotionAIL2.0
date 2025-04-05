@@ -248,7 +248,7 @@
     /************************************************
      * 1) 사용자님이 주신 GPT o1고급이성 API 키 정보
      ************************************************/
-    const GPT_O1_KEY = "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";
+    const GPT_O1_KEY = "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";
     const GPT_O1_PROJECT_ID = "proj_NKo9nvSzpGrxCfHnJcQO1qSw";
 
     /************************************************
