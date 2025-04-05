@@ -300,19 +300,16 @@
       ]
     };
     
-    // 감정 키워드 분석 함수: 입력 텍스트에서 감정 키워드를 찾아 배열로 반환
-    function detectEmotion(input) {
-      const detected = [];
-      const lower = input.toLowerCase();
-      for (const [emotion, keywords] of Object.entries(emotionKeywords)) {
-        for (const word of keywords) {
-          if (lower.includes(word)) {
-            detected.push(emotion);
-            break;
-          }
+    // ==============================
+    // 자음.모음.띄어쓰기 조합 처리 함수
+    // 각 단어별로 '.'로 구분된 경우 결합하여 완성된 단어로 만듭니다.
+    function combineJamo(text) {
+      return text.split(" ").map(word => {
+        if (word.indexOf(".") !== -1) {
+          return word.replace(/\./g, "");
         }
-      }
-      return detected;
+        return word;
+      }).join(" ");
     }
     
     // ==============================
@@ -439,17 +436,23 @@
     }
     
     // ==============================
-    // 채팅 입력 처리 – 감정 키워드 분석 시스템 적용
+    // 채팅 입력 처리 – 감정 키워드 및 자모 조합 처리
     // ==============================
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
-      const input = inputEl.value.trim();
+      let input = inputEl.value.trim();
+      
       if (Date.now() < blockUntil) {
         showSpeechBubbleInChunks("1시간동안 차단됩니다.");
         inputEl.value = "";
         return;
       }
       if (!input) return;
+      
+      // 자모 조합 처리: 단어별로 '.'가 포함되어 있으면 결합하여 하나의 단어로 만듦
+      input = input.split(" ").map(word => {
+        return word.indexOf(".") !== -1 ? word.replace(/\./g, "") : word;
+      }).join(" ");
       
       let response = "";
       const lowerInput = input.toLowerCase();
@@ -470,10 +473,10 @@
         } else {
           response = "변경할 지역을 입력해주세요.";
         }
-      } else if (regionList.includes(input)) {
-        currentCity = input;
-        document.getElementById("region-select").value = input;
-        response = `지역이 ${input}(으)로 변경되었습니다.`;
+      } else if (regionList.includes(lowerInput)) {
+        currentCity = lowerInput;
+        document.getElementById("region-select").value = lowerInput;
+        response = `지역이 ${lowerInput}(으)로 변경되었습니다.`;
         updateMap();
         await updateWeatherAndEffects();
       }
@@ -681,6 +684,7 @@
     <div id="chat-input-area">
       <input type="text" id="chat-input" placeholder="채팅 입력..." />
     </div>
+    <!-- 파일 업로드 관련 요소는 제거되었습니다 -->
   </div>
   
   <div id="hud-3">
@@ -1071,7 +1075,7 @@
         grid.appendChild(th);
       });
       const firstDay = new Date(year, month, 1).getDay();
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysInMonth = new Date(year, month+1, 0).getDate();
       for (let i = 0; i < firstDay; i++) {
         grid.appendChild(document.createElement("div"));
       }
