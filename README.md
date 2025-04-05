@@ -383,7 +383,7 @@
       showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
     
-    // 채팅 입력 처리 – 감정 표현, 반갑고 "유튜브 보여줘" 등 다양한 키워드 처리
+    // 채팅 입력 처리 – 감정 표현, 반갑고 유튜브 관련 키워드 처리
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -423,8 +423,9 @@
         await updateWeatherAndEffects();
       }
       
-      // "유튜브 보여줘" 키워드 처리 – 페이지 전체 리디렉션
-      if (!response && lowerInput.includes("유튜브 보여줘")) {
+      // "유튜브" 관련 키워드 처리 – 유튜브 관련 모든 단어가 포함되면 페이지 전체 리디렉션
+      const youtubeKeywords = ["유튜브", "유트브", "유튜브알려줘", "유튭", "유튜브랑", "유튜브나와줘"];
+      if (!response && youtubeKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
         response = "유튜브를 보여드릴게요.";
         showSpeechBubbleInChunks(response);
         setTimeout(() => {
