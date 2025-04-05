@@ -9,6 +9,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidden; }
     
+    /* 우측 채팅창 */
     #right-hud {
       position: fixed;
       top: 10%;
@@ -46,25 +47,24 @@
       font-size: 14px;
     }
     
-    /* ML 파이프라인 관련 기능은 제거되었습니다 */
-    
+    /* 좌측 캘린더 HUD */
     #left-hud {
       position: fixed;
       top: 10%;
       left: 1%;
       width: 20%;
       padding: 1%;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0,0,0,0.7);
       border: 2px solid #00ffcc;
       border-radius: 10px;
-      box-shadow: 0 0 15px rgba(0, 255, 204, 0.5);
+      box-shadow: 0 0 15px rgba(0,255,204,0.5);
       z-index: 20;
       max-height: 80vh;
       overflow-y: auto;
       color: #00ffcc;
     }
-    #left-hud h3 { 
-      margin-bottom: 5px; 
+    #left-hud h3 {
+      margin-bottom: 5px;
       text-shadow: 0 0 5px #00ffcc;
     }
     #calendar-container { margin-top: 10px; }
@@ -74,34 +74,34 @@
       justify-content: space-between;
       margin-bottom: 5px;
     }
-    #calendar-header button { 
-      padding: 2px 6px; 
-      font-size: 12px; 
-      cursor: pointer; 
-      background: #00ffcc; 
-      color: #000; 
-      border: none; 
-      border-radius: 3px; 
-      box-shadow: 0 0 5px #00ffcc; 
-      transition: all 0.3s; 
+    #calendar-header button {
+      padding: 2px 6px;
+      font-size: 12px;
+      cursor: pointer;
+      background: #00ffcc;
+      color: #000;
+      border: none;
+      border-radius: 3px;
+      box-shadow: 0 0 5px #00ffcc;
+      transition: all 0.3s;
     }
-    #calendar-header button:hover { 
-      background: #00cc99; 
-      box-shadow: 0 0 10px #00ffcc; 
+    #calendar-header button:hover {
+      background: #00cc99;
+      box-shadow: 0 0 10px #00ffcc;
     }
-    #month-year-label { 
-      font-weight: bold; 
-      font-size: 14px; 
-      text-shadow: 0 0 5px #00ffcc; 
+    #month-year-label {
+      font-weight: bold;
+      font-size: 14px;
+      text-shadow: 0 0 5px #00ffcc;
     }
-    #year-select { 
-      font-size: 12px; 
-      padding: 2px; 
-      margin-left: 5px; 
-      background: #333; 
-      color: #00ffcc; 
-      border: 1px solid #00ffcc; 
-      border-radius: 3px; 
+    #year-select {
+      font-size: 12px;
+      padding: 2px;
+      margin-left: 5px;
+      background: #333;
+      color: #00ffcc;
+      border: 1px solid #00ffcc;
+      border-radius: 3px;
     }
     #calendar-actions {
       margin-top: 5px;
@@ -129,7 +129,7 @@
       gap: 2px;
     }
     #calendar-grid div {
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255,255,255,0.1);
       border: 1px solid #00ffcc;
       border-radius: 4px;
       min-height: 25px;
@@ -139,9 +139,9 @@
       cursor: pointer;
       transition: all 0.3s;
     }
-    #calendar-grid div:hover { 
-      background: rgba(0, 255, 204, 0.3);
-      box-shadow: 0 0 5px #00ffcc; 
+    #calendar-grid div:hover {
+      background: rgba(0,255,204,0.3);
+      box-shadow: 0 0 5px #00ffcc;
     }
     .day-number {
       position: absolute;
@@ -162,6 +162,7 @@
       text-shadow: 0 0 3px #00ffcc;
     }
     
+    /* 캔버스와 말풍선 */
     #canvas {
       position: fixed;
       top: 0;
@@ -184,6 +185,7 @@
       box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
     
+    /* 우측 지도 HUD */
     #hud-3 {
       position: fixed;
       top: 70%;
@@ -198,13 +200,14 @@
       overflow: hidden;
     }
     
+    /* 튜토리얼 오버레이 */
     #tutorial-overlay {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0,0,0,0.7);
       color: white;
       display: flex;
       justify-content: center;
@@ -217,13 +220,14 @@
     #tutorial-content {
       text-align: center;
       padding: 20px;
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255,255,255,0.1);
       border-radius: 10px;
       max-width: 600px;
     }
     #tutorial-content h2 { margin-bottom: 15px; }
     #tutorial-content p { margin: 10px 0; font-size: 14px; }
     
+    /* 버전 선택 드롭다운 */
     #version-select {
       position: fixed;
       bottom: 10px;
@@ -234,16 +238,16 @@
       padding: 5px;
       font-size: 12px;
     }
-
+    
     @media (max-width: 480px) {
       #right-hud, #left-hud, #hud-3 { width: 90%; left: 5%; right: 5%; top: 5%; }
     }
   </style>
-  
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-  
   <script>
-    // 감정 키워드 및 응답 배열
+    // ==============================
+    // 감정 키워드 및 응답 데이터 (부드럽고 다정한 AI 비서 스타일)
+    // ==============================
     const emotionKeywords = {
       "슬픔": ["슬프", "구슬픔", "구슬퍼", "구픔", "눈물", "우울"],
       "미안": ["미안", "미안했", "몰랏", "모르겠"],
@@ -253,10 +257,9 @@
       "인사": ["안녕", "인사", "반가워"],
       "잘자": ["잘자", "편안한 밤"]
     };
-
     const emotionResponses = {
       "슬픔": [
-        "정말로 슬퍼... 😢 눈물이 절로 나네요.",
+        "정말로 슬퍼요... 😢 눈물이 절로 나네요.",
         "마음이 너무 아파요... 😭",
         "슬픔이 깊게 느껴져요... 😔",
         "그 슬픔, 함께 나누고 싶어요... 😢"
@@ -268,7 +271,7 @@
         "미안하다는 말로는 부족하지만, 정말 죄송합니다. 🙏"
       ],
       "기쁨": [
-        "기분 좋아~ 😄 정말 행복해요!",
+        "기분 좋아요~ 😄 정말 행복해요!",
         "웃음이 절로 나네요! 😊",
         "오늘은 너무 즐거워요! 😆",
         "행복한 하루 보내세요! 😁"
@@ -296,8 +299,8 @@
         "달콤한 꿈 꾸세요! 😴"
       ]
     };
-
-    // 감정 키워드 분석 함수: 입력된 문장에서 각 감정 키워드가 포함되면 해당 감정을 반환
+    
+    // 감정 키워드 분석 함수: 입력 텍스트에서 감정 키워드를 찾아 배열로 반환
     function detectEmotion(input) {
       const detected = [];
       const lower = input.toLowerCase();
@@ -312,8 +315,40 @@
       return detected;
     }
     
-    // 기존 캘린더, 지도, 날씨 관련 함수는 그대로 유지됨
-
+    // ==============================
+    // 기본 기능: 지역, 날씨, 캘린더 등
+    // ==============================
+    const regionMap = {
+      "서울": "Seoul",
+      "인천": "Incheon",
+      "수원": "Suwon",
+      "고양": "Goyang",
+      "성남": "Seongnam",
+      "용인": "Yongin",
+      "부천": "Bucheon",
+      "안양": "Anyang",
+      "의정부": "Uijeongbu",
+      "광명": "Gwangmyeong",
+      "안산": "Ansan",
+      "파주": "Paju",
+      "부산": "Busan",
+      "대구": "Daegu",
+      "광주": "Gwangju",
+      "대전": "Daejeon",
+      "울산": "Ulsan",
+      "제주": "Jeju",
+      "전주": "Jeonju",
+      "청주": "Cheongju",
+      "포항": "Pohang",
+      "여수": "Yeosu",
+      "김해": "Gimhae"
+    };
+    const regionList = Object.keys(regionMap);
+    let currentCity = "서울";
+    let currentWeather = "";
+    let blockUntil = 0;
+    let danceInterval;
+    
     function saveFile() {
       const content = "파일 저장 완료";
       const filename = "saved_file.txt";
@@ -364,7 +399,6 @@
       if (!Object.keys(calendarData).length) {
         return "저장된 일정이 없습니다. 먼저 캘린더를 저장해주세요.";
       }
-      
       if (dateStr) {
         if (calendarData[dateStr]) {
           return `${dateStr}의 일정: ${calendarData[dateStr]}`;
@@ -379,11 +413,8 @@
             events.push(`${key}: ${calendarData[key]}`);
           }
         }
-        if (events.length) {
-          return `현재 월(${currentMonthStr})의 일정:\n${events.join("\n")}`;
-        } else {
-          return `현재 월(${currentMonthStr})에는 일정이 없습니다.`;
-        }
+        return events.length ? `현재 월(${currentMonthStr})의 일정:\n${events.join("\n")}` 
+                             : `현재 월(${currentMonthStr})에는 일정이 없습니다.`;
       }
     }
     
@@ -407,11 +438,12 @@
       showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
     
-    // 채팅창 감정 반응 처리 (키워드 기반)
+    // ==============================
+    // 채팅 입력 처리 – 감정 키워드 분석 시스템 적용
+    // ==============================
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
-      
       if (Date.now() < blockUntil) {
         showSpeechBubbleInChunks("1시간동안 차단됩니다.");
         inputEl.value = "";
@@ -422,7 +454,7 @@
       let response = "";
       const lowerInput = input.toLowerCase();
       
-      // 지역 변경 관련 처리 (기존 기능)
+      // 지역 변경 처리
       if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
         if (newCity) {
@@ -446,45 +478,40 @@
         await updateWeatherAndEffects();
       }
       
-      // 감정 키워드 분석 시스템 적용
+      // 감정 키워드 분석
       const detectedEmotions = detectEmotion(input);
       if (detectedEmotions.length > 0) {
-        // 여러 감정이 감지되면 첫번째 감정에 대한 응답 선택 (추후 조합도 가능)
-        const emotion = detectedEmotions[0];
+        const emotion = detectedEmotions[0]; // 우선 첫번째 감정만 처리 (추후 복합 감정 조합 가능)
         const responses = emotionResponses[emotion];
         if (responses && responses.length > 0) {
           response = responses[Math.floor(Math.random() * responses.length)];
         }
       }
       
-      // 감정 관련 단어가 감지되지 않을 경우, 다른 기본 처리 (날씨, 시간, 캘린더 등)
+      // 기본 처리: 날씨, 시간, 캘린더 등
       if (!response) {
         if (lowerInput.includes("날씨") &&
             (lowerInput.includes("알려") || lowerInput.includes("어때") ||
              lowerInput.includes("뭐야") || lowerInput.includes("어떻게") || lowerInput.includes("맑아"))) {
           await updateWeatherAndEffects();
           return;
-        }
-        else if (lowerInput.includes("시간") || lowerInput.includes("몇시") || lowerInput.includes("현재시간")) {
+        } else if (lowerInput.includes("시간") || lowerInput.includes("몇시") || lowerInput.includes("현재시간")) {
           const now = new Date();
           const hours = now.getHours();
           const minutes = now.getMinutes();
           response = `현재 시간은 ${hours}시 ${minutes}분입니다.`;
-        }
-        else if (lowerInput.includes("파일 저장해줘")) {
+        } else if (lowerInput.includes("파일 저장해줘")) {
           response = "파일 저장하겠습니다.";
           saveFile();
-        }
-        else if ((lowerInput.includes("캘린더") && lowerInput.includes("저장")) ||
-                 lowerInput.includes("일정저장") ||
-                 lowerInput.includes("하루일과저장")) {
+        } else if ((lowerInput.includes("캘린더") && lowerInput.includes("저장")) ||
+                   lowerInput.includes("일정저장") ||
+                   lowerInput.includes("하루일과저장")) {
           response = "캘린더 저장하겠습니다.";
           saveCalendar();
-        }
-        else if (lowerInput.includes("일정 삭제") || 
-                 lowerInput.includes("하루일정 삭제") || 
-                 lowerInput.includes("일정 삭제해줘") || 
-                 lowerInput.includes("하루 일정 삭제")) {
+        } else if (lowerInput.includes("일정 삭제") || 
+                   lowerInput.includes("하루일정 삭제") || 
+                   lowerInput.includes("일정 삭제해줘") || 
+                   lowerInput.includes("하루 일정 삭제")) {
           const dayStr = prompt("삭제할 일정의 날짜(일)를 입력하세요 (예: 15):");
           if (dayStr) {
             const dayNum = parseInt(dayStr);
@@ -496,10 +523,9 @@
           } else {
             response = "날짜를 입력하지 않으셨습니다.";
           }
-        }
-        else if (lowerInput.includes("일정 알려줘") || 
-                 lowerInput.includes("일정 알려") || 
-                 lowerInput.includes("일정 확인")) {
+        } else if (lowerInput.includes("일정 알려줘") || 
+                   lowerInput.includes("일정 알려") || 
+                   lowerInput.includes("일정 확인")) {
           const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
           if (dateMatch) {
             const dateStr = dateMatch[0];
@@ -507,24 +533,20 @@
           } else {
             response = getCalendarEvents();
           }
-        }
-        else if (lowerInput.includes("안녕")) {
+        } else if (lowerInput.includes("안녕")) {
           response = "안녕하세요, 주인님! 오늘 기분은 어떠세요?";
           characterGroup.children[7].rotation.z = Math.PI / 4;
           setTimeout(() => { characterGroup.children[7].rotation.z = 0; }, 1000);
-        }
-        else if (lowerInput.includes("캐릭터 넌 누구야")) {
+        } else if (lowerInput.includes("캐릭터 넌 누구야")) {
           response = "저는 당신의 부드럽고 다정한 비서입니다.";
-        }
-        else if (lowerInput.includes("일정")) {
+        } else if (lowerInput.includes("일정")) {
           response = "캘린더는 왼쪽에서 확인하세요.";
-        }
-        else if (lowerInput.includes("캐릭터 춤춰줘") ||
-                 lowerInput.includes("춤") ||
-                 lowerInput.includes("춤춰") ||
-                 lowerInput.includes("춤춰줘") ||
-                 lowerInput.includes("춤춰봐") ||
-                 lowerInput.includes("춤사위")) {
+        } else if (lowerInput.includes("캐릭터 춤춰줘") ||
+                   lowerInput.includes("춤") ||
+                   lowerInput.includes("춤춰") ||
+                   lowerInput.includes("춤춰줘") ||
+                   lowerInput.includes("춤춰봐") ||
+                   lowerInput.includes("춤사위")) {
           response = "춤추겠습니다! 잠시만 기다려 주세요.";
           if (danceInterval) clearInterval(danceInterval);
           danceInterval = setInterval(() => {
@@ -536,8 +558,7 @@
             characterGroup.children[7].rotation.z = 0;
             head.rotation.y = 0;
           }, 3000);
-        }
-        else {
+        } else {
           response = "죄송합니다. 잘 이해하지 못했습니다. 다시 말씀해주시겠어요?";
         }
       }
@@ -564,9 +585,7 @@
         } else if (description.indexOf("비") !== -1 || description.indexOf("소나기") !== -1) {
           extraComment = " 오늘은 비가 오네요 ☔";
         }
-        return {
-          message: `오늘 ${currentCity}의 날씨는 ${description}이며, 온도는 ${temp}°C입니다.${extraComment}`
-        };
+        return { message: `오늘 ${currentCity}의 날씨는 ${description}이며, 온도는 ${temp}°C입니다.${extraComment}` };
       } catch (err) {
         currentWeather = "";
         return { message: `날씨 정보를 가져오지 못했습니다: ${currentCity}` };
@@ -620,7 +639,6 @@
       document.getElementById("chat-input").addEventListener("keydown", function(e) {
         if (e.key === "Enter") sendChat();
       });
-      
       const regionSelect = document.getElementById("region-select");
       regionList.forEach(region => {
         const option = document.createElement("option");
@@ -663,7 +681,6 @@
     <div id="chat-input-area">
       <input type="text" id="chat-input" placeholder="채팅 입력..." />
     </div>
-    <!-- 파일 업로드 관련 요소는 제거되었습니다 -->
   </div>
   
   <div id="hud-3">
@@ -764,7 +781,6 @@
       const material = new THREE.MeshStandardMaterial({ color: color, roughness: 0.7, metalness: 0.1 });
       const building = new THREE.Mesh(geometry, material);
       buildingGroup.add(building);
-      
       const windowMat = new THREE.MeshStandardMaterial({ color: 0x87CEEB });
       for (let y = 3; y < height - 1; y += 2) {
         for (let x = -width/2 + 0.5; x < width/2; x += 1) {
@@ -777,7 +793,6 @@
       const door = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 0.1), doorMat);
       door.position.set(0, -height/2 + 1, depth/2 + 0.01);
       buildingGroup.add(door);
-      
       return buildingGroup;
     }
     function createHouse(width, height, depth, baseColor, roofColor) {
@@ -791,19 +806,16 @@
       roof.position.y = -2 + height + (height * 0.6)/2;
       roof.rotation.y = Math.PI/4;
       houseGroup.add(roof);
-      
       const windowMat = new THREE.MeshStandardMaterial({ color: 0xFFFFE0 });
       const window1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.1), windowMat);
       window1.position.set(-width/4, -2 + height/2, depth/2 + 0.01);
       const window2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.1), windowMat);
       window2.position.set(width/4, -2 + height/2, depth/2 + 0.01);
       houseGroup.add(window1, window2);
-      
       const doorMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
       const door = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.1), doorMat);
       door.position.set(0, -2 + height/4, depth/2 + 0.01);
       houseGroup.add(door);
-      
       return houseGroup;
     }
     for (let i = 0; i < 20; i++) {
@@ -931,14 +943,15 @@
     
     function createTree() {
       const treeGroup = new THREE.Group();
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2, 16), new THREE.MeshStandardMaterial({ color: 0x8B4513 }));
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2, 16),
+                                   new THREE.MeshStandardMaterial({ color: 0x8B4513 }));
       trunk.position.y = -1;
-      const foliage = new THREE.Mesh(new THREE.ConeGeometry(1, 3, 16), new THREE.MeshStandardMaterial({ color: 0x228B22 }));
+      const foliage = new THREE.Mesh(new THREE.ConeGeometry(1, 3, 16),
+                                     new THREE.MeshStandardMaterial({ color: 0x228B22 }));
       foliage.position.y = 0.5;
       treeGroup.add(trunk, foliage);
       return treeGroup;
     }
-    
     for (let i = 0; i < 10; i++) {
       const tree = createTree();
       tree.position.set(-50 + i * 10, -2, -15);
@@ -947,7 +960,6 @@
     
     function animate() {
       requestAnimationFrame(animate);
-      
       const now = new Date();
       const headWorldPos = new THREE.Vector3();
       head.getWorldPosition(headWorldPos);
@@ -960,7 +972,6 @@
         headWorldPos.z
       );
       sun.position.copy(sunPos);
-      
       const moonAngle = angle + Math.PI;
       const moonPos = new THREE.Vector3(
         headWorldPos.x + Math.cos(moonAngle) * radius,
@@ -968,7 +979,6 @@
         headWorldPos.z
       );
       moon.position.copy(moonPos);
-      
       const t = now.getHours() + now.getMinutes() / 60;
       let sunOpacity = 0, moonOpacity = 0;
       if (t < 6) { sunOpacity = 0; moonOpacity = 1; }
@@ -978,12 +988,10 @@
       else { sunOpacity = 0; moonOpacity = 1; }
       sun.material.opacity = sunOpacity;
       moon.material.opacity = moonOpacity;
-      
       const isDay = (t >= 7 && t < 17);
       scene.background = new THREE.Color(isDay ? 0x87CEEB : 0x000033);
       stars.forEach(s => s.visible = !isDay);
       fireflies.forEach(f => f.visible = !isDay);
-      
       characterStreetlight.traverse(child => {
         if (child instanceof THREE.PointLight) { child.intensity = isDay ? 0 : 1; }
       });
@@ -991,13 +999,11 @@
       characterLight.intensity = isDay ? 0 : 1;
       characterGroup.position.y = -1;
       characterGroup.rotation.x = 0;
-      
       updateWeatherEffects();
       updateHouseClouds();
       updateLightning();
       characterStreetlight.position.set(characterGroup.position.x + 1, -2, characterGroup.position.z);
       updateBubblePosition();
-      
       renderer.render(scene, camera);
     }
     animate();
@@ -1023,19 +1029,17 @@
         currentYear = parseInt(e.target.value);
         renderCalendar(currentYear, currentMonth);
       });
-      
       document.getElementById("delete-day-event").addEventListener("click", () => {
         const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
-        if(dayStr) {
+        if (dayStr) {
           const dayNum = parseInt(dayStr);
           const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${dayNum}`);
-          if(eventDiv) {
+          if (eventDiv) {
             eventDiv.textContent = "";
             alert(`${currentYear}-${currentMonth+1}-${dayNum} 일정이 삭제되었습니다. 다시 입력할 수 있습니다.`);
           }
         }
       });
-      
       document.getElementById("save-calendar").addEventListener("click", () => {
         saveCalendar();
       });
@@ -1043,20 +1047,20 @@
     function populateYearSelect() {
       const yearSelect = document.getElementById("year-select");
       yearSelect.innerHTML = "";
-      for(let y = 2020; y <= 2070; y++){
+      for (let y = 2020; y <= 2070; y++) {
         const option = document.createElement("option");
         option.value = y;
         option.textContent = y;
-        if(y === currentYear) option.selected = true;
+        if (y === currentYear) option.selected = true;
         yearSelect.appendChild(option);
       }
     }
     function renderCalendar(year, month) {
-      const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+      const monthNames = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
       document.getElementById("month-year-label").textContent = `${year}년 ${monthNames[month]}`;
       const grid = document.getElementById("calendar-grid");
       grid.innerHTML = "";
-      const daysOfWeek = ["일","월","화","수","목","금","토"];
+      const daysOfWeek = ["일", "월", "화", "수", "목", "금", "토"];
       daysOfWeek.forEach((day) => {
         const th = document.createElement("div");
         th.style.fontWeight = "bold";
@@ -1067,19 +1071,19 @@
         grid.appendChild(th);
       });
       const firstDay = new Date(year, month, 1).getDay();
-      const daysInMonth = new Date(year, month+1, 0).getDate();
-      for(let i = 0; i < firstDay; i++){
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      for (let i = 0; i < firstDay; i++) {
         grid.appendChild(document.createElement("div"));
       }
-      for(let d = 1; d <= daysInMonth; d++){
+      for (let d = 1; d <= daysInMonth; d++) {
         const cell = document.createElement("div");
         cell.innerHTML = `<div class="day-number">${d}</div>
                           <div class="event" id="event-${year}-${month+1}-${d}"></div>`;
         cell.addEventListener("click", () => {
           const eventText = prompt(`${year}-${month+1}-${d} 일정 입력:`);
-          if(eventText) {
+          if (eventText) {
             const eventDiv = document.getElementById(`event-${year}-${month+1}-${d}`);
-            if(eventDiv.textContent) {
+            if (eventDiv.textContent) {
               eventDiv.textContent += "; " + eventText;
             } else {
               eventDiv.textContent = eventText;
@@ -1102,14 +1106,10 @@
     function showTutorial() {
       const overlay = document.getElementById("tutorial-overlay");
       overlay.style.display = "flex";
-      setTimeout(() => {
-        overlay.style.opacity = "1";
-      }, 10);
+      setTimeout(() => { overlay.style.opacity = "1"; }, 10);
       setTimeout(() => {
         overlay.style.opacity = "0";
-        setTimeout(() => {
-          overlay.style.display = "none";
-        }, 1000);
+        setTimeout(() => { overlay.style.display = "none"; }, 1000);
       }, 4000);
     }
   </script>
