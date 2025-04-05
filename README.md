@@ -475,7 +475,7 @@
       reader.readAsText(file);
     }
     
-    // 채팅 입력 처리 (GPT 스타일의 능동적 응답 포함 및 감정 표현 추가)
+    // 채팅 입력 처리 (감정 표현: 사용자가 입력한 감정에 따라 미리 정의된 응답 출력)
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -516,26 +516,41 @@
         }
       }
       
-      // 감정 표현 처리: "기분"이라는 단어가 포함된 경우 다양한 감정 표현 적용
       if (!response) {
-        if (lowerInput.includes("기분")) {
+        if (lowerInput.includes("학습 시작") || lowerInput.includes("모델 학습") || lowerInput.includes("학습해줘")) {
+          response = "모델 학습 시작합니다.";
+          showSpeechBubbleInChunks(response, 2000);
+          // 더미 데이터로 학습 (파일이 업로드되지 않은 경우 대비)
+          const dummyData = [
+            {text: "오늘 너무 기분이 좋아", label: 0},
+            {text: "정말 슬픈 일이 있었어", label: 1},
+            {text: "짜증나는 하루였어", label: 2},
+            {text: "놀라운 소식이야", label: 3},
+            {text: "행복한 날이야", label: 0},
+            {text: "불안하고 초조해", label: 1}
+          ];
+          const texts = dummyData.map(d => d.text);
+          const labels = dummyData.map(d => d.label);
+          await trainModelWithFileData(texts, labels);
+        }
+        else if (lowerInput.includes("기분")) {
           if (lowerInput.includes("좋아")) {
-            response = "GPT: 정말요!? 저도 기분좋아요😁";
+            response = "정말요!? 저도 기분좋아요😁";
           } else if (lowerInput.includes("슬프")) {
-            response = "GPT: 정말 슬프네요... 제가 함께 있어드릴게요 😢";
+            response = "정말 슬프네요... 함께 있어드릴게요 😢";
           } else if (lowerInput.includes("화") || lowerInput.includes("분노")) {
-            response = "GPT: 화가 나셨군요. 조금 진정해보세요 😠";
+            response = "화가 나셨군요. 조금 진정해보세요 😠";
           } else if (lowerInput.includes("우울")) {
-            response = "GPT: 우울한 기분이시군요. 힘내세요 😔";
+            response = "우울한 기분이시군요. 힘내세요 😔";
           } else if (lowerInput.includes("행복")) {
-            response = "GPT: 행복한 모습이 너무 보기 좋네요! 😊";
+            response = "행복한 모습이 보기 좋아요! 😊";
           } else {
-            response = "GPT: 감정을 잘 표현해주셨네요.";
+            response = "감정을 잘 표현해주셨네요.";
           }
         }
         else if (lowerInput.includes("날씨") &&
-           (lowerInput.includes("알려") || lowerInput.includes("어때") ||
-            lowerInput.includes("뭐야") || lowerInput.includes("어떻게") || lowerInput.includes("맑아"))) {
+          (lowerInput.includes("알려") || lowerInput.includes("어때") ||
+           lowerInput.includes("뭐야") || lowerInput.includes("어떻게") || lowerInput.includes("맑아"))) {
           await updateWeatherAndEffects();
           return;
         }
@@ -543,16 +558,16 @@
           const now = new Date();
           const hours = now.getHours();
           const minutes = now.getMinutes();
-          response = `GPT: 현재 시간은 ${hours}시 ${minutes}분입니다.`;
+          response = `현재 시간은 ${hours}시 ${minutes}분입니다.`;
         }
         else if (lowerInput.includes("파일 저장해줘")) {
-          response = "GPT: 네, 파일 저장하겠습니다.";
+          response = "파일 저장하겠습니다.";
           saveFile();
         }
         else if ((lowerInput.includes("캘린더") && lowerInput.includes("저장")) ||
                  lowerInput.includes("일정저장") ||
                  lowerInput.includes("하루일과저장")) {
-          response = "GPT: 네, 캘린더 저장하겠습니다.";
+          response = "캘린더 저장하겠습니다.";
           saveCalendar();
         }
         else if (lowerInput.includes("일정 삭제") || 
@@ -565,10 +580,10 @@
             if (dayNum >= 1 && dayNum <= new Date(currentYear, currentMonth+1, 0).getDate()) {
               response = deleteCalendarEvent(dayNum);
             } else {
-              response = "GPT: 유효한 날짜를 입력해주세요.";
+              response = "유효한 날짜를 입력해주세요.";
             }
           } else {
-            response = "GPT: 날짜를 입력하지 않으셨습니다.";
+            response = "날짜를 입력하지 않으셨습니다.";
           }
         }
         else if (lowerInput.includes("일정 알려줘") || 
@@ -583,15 +598,15 @@
           }
         }
         else if (lowerInput.includes("안녕")) {
-          response = "GPT: 안녕하세요, 주인님! 오늘 기분은 어떠세요?";
+          response = "안녕하세요, 주인님! 오늘 기분은 어떠세요?";
           characterGroup.children[7].rotation.z = Math.PI / 4;
           setTimeout(() => { characterGroup.children[7].rotation.z = 0; }, 1000);
         }
         else if (lowerInput.includes("캐릭터 넌 누구야")) {
-          response = "GPT: 저는 당신의 개인 비서에요.";
+          response = "저는 당신의 개인 비서입니다.";
         }
         else if (lowerInput.includes("일정")) {
-          response = "GPT: 캘린더는 왼쪽에서 확인하세요.";
+          response = "캘린더는 왼쪽에서 확인하세요.";
         }
         else if (lowerInput.includes("캐릭터 춤춰줘") ||
                  lowerInput.includes("춤") ||
@@ -599,7 +614,7 @@
                  lowerInput.includes("춤춰줘") ||
                  lowerInput.includes("춤춰봐") ||
                  lowerInput.includes("춤사위")) {
-          response = "GPT: 춤추겠습니다! 잠시만 기다려 주세요.";
+          response = "춤추겠습니다! 잠시만 기다려 주세요.";
           if (danceInterval) clearInterval(danceInterval);
           danceInterval = setInterval(() => {
             characterGroup.children[7].rotation.z = Math.sin(Date.now() * 0.01) * Math.PI / 4;
@@ -612,7 +627,7 @@
           }, 3000);
         }
         else {
-          response = "GPT: 죄송해요, 잘 이해하지 못했어요. 다시 한 번 말씀해주시겠어요?";
+          response = "죄송합니다. 잘 이해하지 못했습니다. 다시 말씀해주시겠어요?";
         }
       }
       
