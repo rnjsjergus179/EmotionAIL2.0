@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>3D 캐릭터 HUD, 달력 & 말풍선 채팅</title>
+  <title>3D 캐릭터 HUD, 달력, 음성 채팅 & 말풍선</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidden; }
@@ -46,24 +46,32 @@
       padding: 5px;
       font-size: 14px;
     }
-    /* HUD-6: 음성 입력 영역 (채팅창 하단 중앙) */
+    
+    /* HUD-6: 음성 입력 영역 (채팅창과 지도 사이 중간에 위치) */
     #hud-6 {
-      text-align: center;
-      margin-top: 10px;
-    }
-    #voice-btn {
-      padding: 5px 10px;
-      font-size: 14px;
-      cursor: pointer;
-      border: none;
+      position: fixed;
+      top: 45%;
+      right: 1%;
+      width: 20%;
+      padding: 5px;
+      background: rgba(255,255,255,0.95);
       border-radius: 5px;
-      background: #00cc99;
-      color: #fff;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      z-index: 25;
+      text-align: center;
+    }
+    #hud-6 button {
+      padding: 8px 12px;
+      font-size: 14px;
+      border: none;
+      border-radius: 4px;
+      background: #00ffcc;
+      color: #000;
+      cursor: pointer;
       transition: background 0.3s;
     }
-    #voice-btn:hover {
-      background: #00aa88;
+    #hud-6 button:hover {
+      background: #00cc99;
     }
     
     /* 왼쪽 캘린더 HUD */
@@ -73,7 +81,7 @@
       left: 1%;
       width: 20%;
       padding: 1%;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0, 0, 0, 0.7);
       border: 2px solid #00ffcc;
       border-radius: 10px;
       box-shadow: 0 0 15px rgba(0,255,204,0.5);
@@ -82,7 +90,10 @@
       overflow-y: auto;
       color: #00ffcc;
     }
-    #left-hud h3 { margin-bottom: 5px; text-shadow: 0 0 5px #00ffcc; }
+    #left-hud h3 { 
+      margin-bottom: 5px; 
+      text-shadow: 0 0 5px #00ffcc;
+    }
     #calendar-container { margin-top: 10px; }
     #calendar-header {
       display: flex;
@@ -90,32 +101,39 @@
       justify-content: space-between;
       margin-bottom: 5px;
     }
-    #calendar-header button {
-      padding: 2px 6px;
-      font-size: 12px;
-      cursor: pointer;
-      background: #00ffcc;
-      color: #000;
-      border: none;
-      border-radius: 3px;
-      box-shadow: 0 0 5px #00ffcc;
-      transition: all 0.3s;
+    #calendar-header button { 
+      padding: 2px 6px; 
+      font-size: 12px; 
+      cursor: pointer; 
+      background: #00ffcc; 
+      color: #000; 
+      border: none; 
+      border-radius: 3px; 
+      box-shadow: 0 0 5px #00ffcc; 
+      transition: all 0.3s; 
     }
-    #calendar-header button:hover {
-      background: #00cc99;
-      box-shadow: 0 0 10px #00ffcc;
+    #calendar-header button:hover { 
+      background: #00cc99; 
+      box-shadow: 0 0 10px #00ffcc; 
     }
-    #month-year-label { font-weight: bold; font-size: 14px; text-shadow: 0 0 5px #00ffcc; }
-    #year-select {
-      font-size: 12px;
-      padding: 2px;
-      margin-left: 5px;
-      background: #333;
-      color: #00ffcc;
-      border: 1px solid #00ffcc;
-      border-radius: 3px;
+    #month-year-label { 
+      font-weight: bold; 
+      font-size: 14px; 
+      text-shadow: 0 0 5px #00ffcc; 
     }
-    #calendar-actions { margin-top: 5px; text-align: center; }
+    #year-select { 
+      font-size: 12px; 
+      padding: 2px; 
+      margin-left: 5px; 
+      background: #333; 
+      color: #00ffcc; 
+      border: 1px solid #00ffcc; 
+      border-radius: 3px; 
+    }
+    #calendar-actions {
+      margin-top: 5px;
+      text-align: center;
+    }
     #calendar-actions button {
       margin: 2px;
       padding: 5px 8px;
@@ -138,7 +156,7 @@
       gap: 2px;
     }
     #calendar-grid div {
-      background: rgba(255,255,255,0.1);
+      background: rgba(255, 255, 255, 0.1);
       border: 1px solid #00ffcc;
       border-radius: 4px;
       min-height: 25px;
@@ -148,8 +166,8 @@
       cursor: pointer;
       transition: all 0.3s;
     }
-    #calendar-grid div:hover {
-      background: rgba(0,255,204,0.3);
+    #calendar-grid div:hover { 
+      background: rgba(0, 255, 204, 0.3);
       box-shadow: 0 0 5px #00ffcc;
     }
     .day-number {
@@ -216,7 +234,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0, 0, 0, 0.7);
       color: white;
       display: flex;
       justify-content: center;
@@ -249,7 +267,7 @@
     }
     
     @media (max-width: 480px) {
-      #right-hud, #left-hud, #hud-3 { width: 90%; left: 5%; right: 5%; top: 5%; }
+      #right-hud, #left-hud, #hud-3, #hud-6 { width: 90%; left: 5%; right: 5%; top: 5%; }
     }
   </style>
   
@@ -262,6 +280,7 @@
     let currentCity = "서울";
     let currentWeather = "";
     
+    // 복사 방지
     document.addEventListener("copy", function(e) {
       e.preventDefault();
       let selectedText = window.getSelection().toString();
@@ -390,10 +409,10 @@
       currentCity = value;
       updateMap();
       updateWeatherAndEffects();
-      showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었어요.`);
+      showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
     
-    // 업그레이드된 캐릭터 대화 처리 함수 (감정, 유튜브, 반가움, 잘자 등 다양한 키워드 처리)
+    // 업그레이드된 캐릭터 대화 처리 함수 (감정, "알려줘" 등 다양한 상황 대응)
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -433,7 +452,7 @@
         await updateWeatherAndEffects();
       }
       
-      // "유튜브" 관련 키워드 처리 – 유튜브 관련 단어가 나오면 페이지 전체 리디렉션
+      // "유튜브" 관련 키워드 처리 – 관련 키워드가 감지되면 페이지 전체를 유튜브로 리디렉션
       const youtubeKeywords = ["유튜브", "유트브", "유튜브알려줘", "유튭", "유튜브랑", "유튜브나와줘"];
       if (!response && youtubeKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
         response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
@@ -456,7 +475,7 @@
         response = "편안한 밤 되세요, 좋은 꿈 꾸세요~";
       }
       
-      // 다양한 '알려줘' 관련 기능 (날씨, 일정, 시간 등)
+      // '알려줘' 관련 기능 (날씨, 일정, 시간 등)
       if (!response) {
         if (lowerInput.includes("날씨") &&
            (lowerInput.includes("알려줘") || lowerInput.includes("어때") || lowerInput.includes("맑아"))) {
@@ -481,41 +500,51 @@
         }
       }
       
-      // 업그레이드된 감정 표현 및 일반 대화 응답
+      // 업그레이드된 감정 및 일반 대화 응답 (다양한 상황에 따른 풍부한 응답)
       if (!response) {
         if (lowerInput.includes("기분") || lowerInput.includes("슬프") || lowerInput.includes("우울") ||
             lowerInput.includes("짜증") || lowerInput.includes("화난") || lowerInput.includes("분노") ||
-            lowerInput.includes("피곤") || lowerInput.includes("지쳤")) {
+            lowerInput.includes("놀람") || lowerInput.includes("피곤")) {
           const sadResponses = [
-            "정말 마음이 아프시네요. 혹시 도움이 필요하시면 말씀해 주세요.",
-            "그런 날도 있죠. 천천히 쉬시면서 마음을 달래보세요.",
-            "힘들어 보이시네요. 조금만 더 힘내시길 바랄게요."
+            "정말 마음이 아프시네요. 제가 도와드릴 수 있다면 좋겠어요.",
+            "그런 날도 있죠. 힘내시고 천천히 쉬어가세요.",
+            "마음이 많이 힘들어 보이네요. 꼭 회복되시길 바랄게요."
           ];
           const happyResponses = [
-            "오늘 정말 즐거워 보이세요! 행복한 일들만 가득하길 바랍니다.",
-            "당신의 미소가 주변을 환하게 만드네요. 기분 좋은 하루 되세요!",
-            "기쁨이 넘치는 하루, 함께 웃어요!"
+            "오늘 정말 즐거워 보이세요! 기분 좋은 일이 가득하길 바랍니다.",
+            "당신의 미소가 전해지네요. 행복한 하루 보내세요!",
+            "기쁨이 넘치는 하루, 함께 기뻐요!"
           ];
           const angryResponses = [
             "화가 치밀어 오시네요. 잠시 심호흡을 해보세요.",
-            "분노가 느껴지네요. 잠시 멈추고 다시 마음을 가다듬어 보세요.",
-            "감정이 격해지셨다면, 잠깐의 휴식이 도움이 될 거예요."
+            "분노를 조금 내려놓고, 잠깐의 휴식 어떠세요?",
+            "감정이 많이 격해지신 것 같아요. 차분해지시길 바랄게요."
           ];
-          const neutralResponses = [
-            "그렇군요, 좀 더 자세히 말씀해 주실 수 있을까요?",
-            "알겠습니다. 혹시 추가로 궁금한 점은 없으신가요?",
-            "흥미로운 이야기네요. 더 들려주세요!"
+          const surprisedResponses = [
+            "오, 놀라운 소식이네요! 자세히 말씀해 주세요.",
+            "정말 놀라워요! 당신의 이야기에 귀 기울이고 있어요."
           ];
-          
-          if (lowerInput.includes("슬프") || lowerInput.includes("우울") || lowerInput.includes("지쳤")) {
+          const tiredResponses = [
+            "피곤해 보이시네요. 푹 쉬시고 내일 더 힘내세요.",
+            "오늘 하루 수고 많으셨어요. 편안한 밤 되세요."
+          ];
+          // 우선 슬픔, 기쁨, 분노를 우선 처리하고 그 외 감정은 일반 응답으로 처리
+          if (lowerInput.includes("슬프") || lowerInput.includes("우울")) {
             response = sadResponses[Math.floor(Math.random() * sadResponses.length)];
           } else if (lowerInput.includes("기쁘") || lowerInput.includes("행복")) {
             response = happyResponses[Math.floor(Math.random() * happyResponses.length)];
           } else if (lowerInput.includes("화난") || lowerInput.includes("분노") || lowerInput.includes("짜증")) {
             response = angryResponses[Math.floor(Math.random() * angryResponses.length)];
+          } else if (lowerInput.includes("놀람")) {
+            response = surprisedResponses[Math.floor(Math.random() * surprisedResponses.length)];
           } else if (lowerInput.includes("피곤")) {
-            response = "피곤하신가요? 푹 쉬시고 내일 더 힘내세요.";
+            response = tiredResponses[Math.floor(Math.random() * tiredResponses.length)];
           } else {
+            const neutralResponses = [
+              "그렇군요, 좀 더 자세히 말씀해 주실 수 있을까요?",
+              "알겠습니다. 추가로 궁금한 점이 있으신가요?",
+              "흥미로운 이야기네요. 더 이야기해 주세요!"
+            ];
             response = neutralResponses[Math.floor(Math.random() * neutralResponses.length)];
           }
         } else {
@@ -523,7 +552,7 @@
             "정말 흥미로운 이야기네요. 더 들려주세요!",
             "알겠습니다. 혹시 다른 궁금한 점은 없으신가요?",
             "그렇군요. 당신의 의견을 듣고 있으니 저도 많이 배워요.",
-            "그렇게 느끼실 수 있겠어요. 함께 이야기 나눠봐요!"
+            "그렇게 느끼실 수 있겠네요. 함께 이야기 나눠봐요!"
           ];
           response = generalResponses[Math.floor(Math.random() * generalResponses.length)];
         }
@@ -603,6 +632,29 @@
       showNextChunk();
     }
     
+    // 음성 입력 기능: HUD-6에 배치된 마이크 버튼을 누르면 음성을 텍스트로 변환하여 채팅 입력란에 자동 입력
+    function startSpeechRecognition() {
+      if (!('webkitSpeechRecognition' in window)) {
+        alert("이 브라우저는 음성 인식을 지원하지 않습니다.");
+        return;
+      }
+      const recognition = new webkitSpeechRecognition();
+      recognition.lang = "ko-KR";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.start();
+      
+      recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById("chat-input").value = transcript;
+        // 원한다면 자동 전송 가능: sendChat();
+      };
+      
+      recognition.onerror = function(event) {
+        console.error("음성 인식 오류: ", event.error);
+      };
+    }
+    
     window.addEventListener("DOMContentLoaded", function() {
       document.getElementById("chat-input").addEventListener("keydown", function(e) {
         if (e.key === "Enter") sendChat();
@@ -638,30 +690,6 @@
         window.location.reload();
       }
     }
-    
-    // 음성 입력 기능 (HUD-6) 구현 (Web Speech API 사용, 지원 브라우저에서만 작동)
-    let recognition;
-    if ('webkitSpeechRecognition' in window) {
-      recognition = new webkitSpeechRecognition();
-      recognition.lang = 'ko-KR';
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-      recognition.onresult = function(event) {
-        const transcript = event.results[0][0].transcript;
-        document.getElementById("chat-input").value = transcript;
-      };
-      recognition.onerror = function(event) {
-        console.error("음성 인식 에러:", event.error);
-      };
-    } else {
-      console.warn("이 브라우저는 음성 인식을 지원하지 않습니다.");
-    }
-    
-    function startVoiceRecognition() {
-      if (recognition) {
-        recognition.start();
-      }
-    }
   </script>
 </head>
 <body>
@@ -674,10 +702,11 @@
     <div id="chat-input-area">
       <input type="text" id="chat-input" placeholder="채팅 입력..." />
     </div>
-    <!-- HUD-6: 음성 입력 영역 -->
-    <div id="hud-6">
-      <button id="voice-btn" onclick="startVoiceRecognition()">🎤 음성 입력</button>
-    </div>
+  </div>
+  
+  <!-- HUD-6: 음성 입력 영역 (채팅창과 지도 사이 중앙) -->
+  <div id="hud-6">
+    <button onclick="startSpeechRecognition()">🎤 음성 입력</button>
   </div>
   
   <div id="hud-3">
@@ -711,7 +740,7 @@
         <strong>채팅창:</strong> 상단 드롭다운 메뉴에서 지역을 선택하면 지도와 날씨가 업데이트됩니다.<br>
         "유튜브 보여줘", "유튜브알려줘" 등 유튜브 관련 키워드를 입력하면 페이지 전체가 유튜브로 전환됩니다.<br>
         "날씨 알려줘", "일정 알려줘", "시간 알려줘" 등 다양한 질문에도 응답합니다.<br>
-        "잘자" 관련 키워드가 나오면 편안한 밤 인사도 드려요!
+        "잘자", "좋은꿈", 등 잘자 관련 키워드도 상황에 맞게 응답합니다.
       </p>
       <p><strong>캘린더:</strong> 왼쪽에서 날짜를 클릭해 일정을 추가하거나, 버튼으로 저장/삭제할 수 있습니다.</p>
       <p><strong>버전 선택:</strong> 하단 드롭다운에서 "구버전 1.3" 또는 "최신 버전 (1.7)"을 선택해 해당 페이지로 이동하세요.</p>
@@ -1121,53 +1150,6 @@
         setTimeout(() => { overlay.style.display = "none"; }, 1000);
       }, 4000);
     }
-    
-    // 음성 입력 기능 (HUD-6) 구현 (Web Speech API 사용)
-    let recognition;
-    if ('webkitSpeechRecognition' in window) {
-      recognition = new webkitSpeechRecognition();
-      recognition.lang = 'ko-KR';
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-      recognition.onresult = function(event) {
-        const transcript = event.results[0][0].transcript;
-        document.getElementById("chat-input").value = transcript;
-      };
-      recognition.onerror = function(event) {
-        console.error("음성 인식 에러:", event.error);
-      };
-    } else {
-      console.warn("이 브라우저는 음성 인식을 지원하지 않습니다.");
-    }
-    
-    function startVoiceRecognition() {
-      if (recognition) {
-        recognition.start();
-      }
-    }
   </script>
-</head>
-<body>
-  <div id="right-hud">
-    <h3>채팅창</h3>
-    <select id="region-select" onchange="changeRegion(this.value)">
-      <option value="" disabled>지역 선택</option>
-    </select>
-    <div id="chat-log"></div>
-    <div id="chat-input-area">
-      <input type="text" id="chat-input" placeholder="채팅 입력..." />
-    </div>
-    <!-- HUD-6: 음성 입력 영역 -->
-    <div id="hud-6">
-      <button id="voice-btn" onclick="startVoiceRecognition()">🎤 음성 입력</button>
-    </div>
-  </div>
-  
-  <div id="hud-3">
-    <iframe id="map-iframe" src="https://www.google.com/maps?q=Seoul&output=embed" frameborder="0" style="width:100%; height:100%; border:0;" allowfullscreen></iframe>
-  </div>
-  
-  <div id="left-hud">
-    <h3>캘린더</h3>
-    <div id="calendar-container">
-      <div id
+</body>
+</html>
