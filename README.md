@@ -380,9 +380,9 @@
       showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
     
-    // GPT-3.5 터보 API 호출 함수 추가 (주의: 클라이언트 사이드에서 API키를 노출하는 것은 보안상 위험합니다)
+    // GPT-3.5 터보 API 호출 함수 (변경된 API 키 사용)
     async function callGPTTurbo(userMessage) {
-      const apiKey = "proj_NKo9nvSzpGrxCfHnJcQO1qSwsk-proj-7DGmoV308qAdLvq-2OYz138Y9bxB-yQ20wbsnQ896RmS0ByFxPjT7Y9UrUkyIlD0QFEZZzM8y6T3BlbkFJEXGMSW57tQqmvwHqlOLIM8wGZ82Y0-FPL2SPqmo8IkiGGOmQ-uoB9FLd7GzqN5X7rxgxxH4QwA";
+      const apiKey = "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";
       try {
         const res = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
@@ -402,7 +402,7 @@
       }
     }
     
-    // 채팅 입력 처리 – ML 파이프라인 관련 기능은 삭제되고, 감정 표현 응답이 방대하게 구성됨
+    // 채팅 입력 처리 – 감정 표현 및 GPT-3.5 터보 API 연동
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -443,7 +443,7 @@
         }
       }
       
-      // 감정 표현 처리: 입력한 감정 단어에 따라 다양한 응답 무작위 선택 (대폭 증가)
+      // 감정 표현 처리
       if (!response) {
         if (lowerInput.includes("기분") || 
             lowerInput.includes("슬프") || 
@@ -591,7 +591,7 @@
         }
       }
       
-      // 만약 위에서 처리된 내용이 없다면 GPT-3.5 터보 API를 호출합니다.
+      // 위 처리에 해당하지 않는 경우 GPT-3.5 터보 API 호출
       if (!response) {
         response = await callGPTTurbo(input);
       }
