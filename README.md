@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -8,7 +6,7 @@
   <title>3D 캐릭터 HUD, 달력 & 말풍선 채팅</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; font-family: Arial, sans-serif; overflow: hidden; }
+    html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidden; }
     
     #right-hud {
       position: fixed;
@@ -53,14 +51,19 @@
       left: 1%;
       width: 20%;
       padding: 1%;
-      background: rgba(255,255,255,0.9);
-      border-radius: 5px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      background: rgba(0, 0, 0, 0.7); /* 디지털 느낌의 반투명 검정 배경 */
+      border: 2px solid #00ffcc; /* 네온 청록색 테두리 */
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0, 255, 204, 0.5); /* 네온 글로우 효과 */
       z-index: 20;
       max-height: 80vh;
       overflow-y: auto;
+      color: #00ffcc; /* 텍스트 색상도 네온 청록색 */
     }
-    #left-hud h3 { margin-bottom: 5px; }
+    #left-hud h3 { 
+      margin-bottom: 5px; 
+      text-shadow: 0 0 5px #00ffcc; /* 텍스트에 네온 글로우 */
+    }
     #calendar-container { margin-top: 10px; }
     #calendar-header {
       display: flex;
@@ -68,9 +71,35 @@
       justify-content: space-between;
       margin-bottom: 5px;
     }
-    #calendar-header button { padding: 2px 6px; font-size: 12px; cursor: pointer; }
-    #month-year-label { font-weight: bold; font-size: 14px; }
-    #year-select { font-size: 12px; padding: 2px; margin-left: 5px; }
+    #calendar-header button { 
+      padding: 2px 6px; 
+      font-size: 12px; 
+      cursor: pointer; 
+      background: #00ffcc; 
+      color: #000; 
+      border: none; 
+      border-radius: 3px; 
+      box-shadow: 0 0 5px #00ffcc; 
+      transition: all 0.3s; 
+    }
+    #calendar-header button:hover { 
+      background: #00cc99; 
+      box-shadow: 0 0 10px #00ffcc; 
+    }
+    #month-year-label { 
+      font-weight: bold; 
+      font-size: 14px; 
+      text-shadow: 0 0 5px #00ffcc; 
+    }
+    #year-select { 
+      font-size: 12px; 
+      padding: 2px; 
+      margin-left: 5px; 
+      background: #333; 
+      color: #00ffcc; 
+      border: 1px solid #00ffcc; 
+      border-radius: 3px; 
+    }
     #calendar-actions {
       margin-top: 5px;
       text-align: center;
@@ -80,6 +109,16 @@
       padding: 5px 8px;
       font-size: 12px;
       cursor: pointer;
+      background: #00ffcc;
+      color: #000;
+      border: none;
+      border-radius: 3px;
+      box-shadow: 0 0 5px #00ffcc;
+      transition: all 0.3s;
+    }
+    #calendar-actions button:hover {
+      background: #00cc99;
+      box-shadow: 0 0 10px #00ffcc;
     }
     #calendar-grid {
       display: grid;
@@ -87,30 +126,37 @@
       gap: 2px;
     }
     #calendar-grid div {
-      background: #fff;
-      border: 1px solid #ccc;
+      background: rgba(255, 255, 255, 0.1); /* 반투명 흰색 배경 */
+      border: 1px solid #00ffcc; /* 네온 테두리 */
       border-radius: 4px;
       min-height: 25px;
       font-size: 10px;
       padding: 2px;
       position: relative;
       cursor: pointer;
+      transition: all 0.3s;
     }
-    #calendar-grid div:hover { background: #e9e9e9; }
+    #calendar-grid div:hover { 
+      background: rgba(0, 255, 204, 0.3); /* 호버 시 네온 효과 */
+      box-shadow: 0 0 5px #00ffcc; 
+    }
     .day-number {
       position: absolute;
       top: 2px;
       left: 2px;
       font-weight: bold;
       font-size: 10px;
+      color: #00ffcc;
+      text-shadow: 0 0 3px #00ffcc;
     }
     .event {
       margin-top: 14px;
       font-size: 8px;
-      color: #333;
+      color: #00ffcc;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      text-shadow: 0 0 3px #00ffcc;
     }
     
     #canvas {
@@ -269,6 +315,16 @@
       document.body.removeChild(dlAnchorElem);
     }
     
+    function deleteCalendarEvent(day) {
+      const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${day}`);
+      if (eventDiv) {
+        eventDiv.textContent = "";
+        return `${currentYear}-${currentMonth+1}-${day} 일정이 삭제되었습니다.`;
+      } else {
+        return "해당 날짜에 일정이 없습니다.";
+      }
+    }
+    
     function updateMap() {
       const englishCity = regionMap[currentCity] || "Seoul";
       document.getElementById("map-iframe").src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
@@ -352,6 +408,22 @@
           response = "네, 알겠습니다. 캘린더 저장하겠습니다.";
           saveCalendar();
         }
+        else if (lowerInput.includes("일정 삭제") || 
+                 lowerInput.includes("하루일정 삭제") || 
+                 lowerInput.includes("일정 삭제해줘") || 
+                 lowerInput.includes("하루 일정 삭제")) {
+          const dayStr = prompt("삭제할 일정의 날짜(일)를 입력하세요 (예: 15):");
+          if (dayStr) {
+            const dayNum = parseInt(dayStr);
+            if (dayNum >= 1 && dayNum <= new Date(currentYear, currentMonth+1, 0).getDate()) {
+              response = deleteCalendarEvent(dayNum);
+            } else {
+              response = "유효한 날짜를 입력해주세요.";
+            }
+          } else {
+            response = "날짜를 입력하지 않았습니다.";
+          }
+        }
         else if (lowerInput.includes("기분") && lowerInput.includes("좋아")) {
           response = "정말요!? 저도 정말 기분좋아요😁";
           const originalEyeColor = leftEye.material.color.getHex();
@@ -427,6 +499,8 @@
           extraComment = " 오늘은 약간 흐린 날씨네요 ☁️";
         } else if (description.indexOf("맑음") !== -1) {
           extraComment = " 오늘은 맑은 날씨네요 ☀️";
+        } else if (description.indexOf("비") !== -1 || description.indexOf("소나기") !== -1) {
+          extraComment = " 오늘은 비가 오네요 ☔";
         }
         return {
           message: `오늘 ${currentCity}의 날씨는 ${description}이며, 온도는 ${temp}°C입니다.${extraComment}`
@@ -441,13 +515,13 @@
       if (!currentWeather) return;
       if (currentWeather.indexOf("비") !== -1 || currentWeather.indexOf("소나기") !== -1) {
         rainGroup.visible = true;
-      } else {
+        houseCloudGroup.visible = false; // 비가 올 때는 구름 숨김
+      } else if (currentWeather.indexOf("구름") !== -1 || currentWeather.indexOf("흐림") !== -1) {
         rainGroup.visible = false;
-      }
-      if (currentWeather.indexOf("구름") !== -1 || currentWeather.indexOf("흐림") !== -1) {
         houseCloudGroup.visible = true;
       } else {
-        houseCloudGroup.visible = false;
+        rainGroup.visible = false;
+        houseCloudGroup.visible = false; // 맑을 때는 구름과 비 모두 숨김
       }
     }
     
@@ -511,10 +585,8 @@
     
     function changeVersion(version) {
       if (version === "1.3") {
-        // 1.3 버전으로 이동 (URL 변경)
         window.location.href = "https://aipersonalassistant.neocities.org/";
       } else if (version === "latest") {
-        // 현재 페이지가 1.7 버전이므로 새로고침
         window.location.reload();
       }
     }
@@ -562,16 +634,17 @@
       <p>
         <strong>채팅창:</strong> 상단 드롭다운 메뉴에서 지역을 선택하면 지도와 날씨가 즉시 업데이트됩니다.<br>
         또는 "지역 [지역명]" (예: "지역 인천" 또는 "인천") 입력으로도 변경 가능합니다.<br>
-        "날씨 알려줘"로 현재 지역의 날씨를 다시 확인할 수 있습니다.
+        "날씨 알려줘"로 현재 지역의 날씨를 다시 확인할 수 있습니다.<br>
+        "일정 삭제" 또는 "하루일정 삭제"를 입력해 캘린더 일정을 삭제할 수 있습니다.
       </p>
       <p><strong>캘린더:</strong> 왼쪽에서 날짜 클릭해 일정을 추가하거나, 버튼으로 저장/삭제하세요.</p>
-      <p><strong>버전 선택:</strong> 하단 드롭다운에서 "구버전 1.3"을 선택하면 1.3 버전 페이지로 이동합니다.</p>
+      <p><strong>버전 선택:</strong> 하단 드롭다운에서 "구버전 1.3" 또는 "최신 버전 (1.7)"을 선택해 해당 페이지로 이동하세요.</p>
     </div>
   </div>
   
   <div id="version-select">
     <select onchange="changeVersion(this.value)">
-      <option value="latest">최신 버전</option>
+      <option value="latest">최신 버전 (1.7)</option>
       <option value="1.3">구버전 1.3</option>
     </select>
   </div>
@@ -734,23 +807,28 @@
     function createHouseCloud() {
       const cloud = new THREE.Group();
       const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
-      const sphere1 = new THREE.Mesh(new THREE.SphereGeometry(2, 32, 32), cloudMat);
+      const sphere1 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), cloudMat); // 구름 크기 축소
       sphere1.position.set(0, 0, 0);
-      const sphere2 = new THREE.Mesh(new THREE.SphereGeometry(1.8, 32, 32), cloudMat);
-      sphere2.position.set(2.2, 0.7, 0);
-      const sphere3 = new THREE.Mesh(new THREE.SphereGeometry(2.1, 32, 32), cloudMat);
-      sphere3.position.set(-2.2, 0.5, 0);
+      const sphere2 = new THREE.Mesh(new THREE.SphereGeometry(0.4, 32, 32), cloudMat);
+      sphere2.position.set(0.6, 0.2, 0);
+      const sphere3 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), cloudMat);
+      sphere3.position.set(-0.6, 0.1, 0);
       cloud.add(sphere1, sphere2, sphere3);
       cloud.userData.initialPos = cloud.position.clone();
       return cloud;
     }
     const singleCloud = createHouseCloud();
     houseCloudGroup.add(singleCloud);
-    houseCloudGroup.position.set(0, 10, -20);
+    // 구름을 캐릭터 머리 위로 이동 (초기 위치 설정)
+    houseCloudGroup.position.set(0, 2, 0); // 캐릭터 머리 위로 설정 (y=2)
     scene.add(houseCloudGroup);
     function updateHouseClouds() {
-      singleCloud.position.x += 0.02;
-      if (singleCloud.position.x > 10) { singleCloud.position.x = -10; }
+      // 캐릭터 머리 위에서 좌우로 움직이도록 설정
+      const headWorldPos = new THREE.Vector3();
+      head.getWorldPosition(headWorldPos);
+      houseCloudGroup.position.x = headWorldPos.x + Math.sin(Date.now() * 0.001) * 1; // 좌우 이동
+      houseCloudGroup.position.y = headWorldPos.y + 1; // 머리 위 1 유닛
+      houseCloudGroup.position.z = headWorldPos.z;
     }
     
     let lightningLight = new THREE.PointLight(0xffffff, 0, 500);
@@ -923,6 +1001,8 @@
         th.style.fontWeight = "bold";
         th.style.textAlign = "center";
         th.textContent = day;
+        th.style.color = "#00ffcc";
+        th.style.textShadow = "0 0 3px #00ffcc";
         grid.appendChild(th);
       });
       const firstDay = new Date(year, month, 1).getDay();
