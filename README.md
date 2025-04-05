@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -475,7 +474,7 @@
       reader.readAsText(file);
     }
     
-    // 채팅 입력 처리 (감정 표현: 사용자가 입력한 감정에 따라 미리 정의된 응답 출력)
+    // 채팅 입력 처리 (감정 표현: 입력한 감정 단어에 따라 다양하고 방대한 응답을 캐릭터가 표현)
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -516,11 +515,11 @@
         }
       }
       
+      // 감정 표현 처리: 입력에 감정 관련 단어가 포함되면 미리 정의된 다양한 응답 중 선택
       if (!response) {
         if (lowerInput.includes("학습 시작") || lowerInput.includes("모델 학습") || lowerInput.includes("학습해줘")) {
           response = "모델 학습 시작합니다.";
           showSpeechBubbleInChunks(response, 2000);
-          // 더미 데이터로 학습 (파일이 업로드되지 않은 경우 대비)
           const dummyData = [
             {text: "오늘 너무 기분이 좋아", label: 0},
             {text: "정말 슬픈 일이 있었어", label: 1},
@@ -533,24 +532,39 @@
           const labels = dummyData.map(d => d.label);
           await trainModelWithFileData(texts, labels);
         }
-        else if (lowerInput.includes("기분")) {
-          if (lowerInput.includes("좋아")) {
-            response = "정말요!? 저도 기분좋아요😁";
-          } else if (lowerInput.includes("슬프")) {
-            response = "정말 슬프네요... 함께 있어드릴게요 😢";
-          } else if (lowerInput.includes("화") || lowerInput.includes("분노")) {
-            response = "화가 나셨군요. 조금 진정해보세요 😠";
-          } else if (lowerInput.includes("우울")) {
-            response = "우울한 기분이시군요. 힘내세요 😔";
-          } else if (lowerInput.includes("행복")) {
-            response = "행복한 모습이 보기 좋아요! 😊";
-          } else {
-            response = "감정을 잘 표현해주셨네요.";
+        else if (lowerInput.includes("기분") || 
+                 lowerInput.includes("슬프") || 
+                 lowerInput.includes("기쁘") || 
+                 lowerInput.includes("화난") || 
+                 lowerInput.includes("분노") || 
+                 lowerInput.includes("우울") || 
+                 lowerInput.includes("행복") || 
+                 lowerInput.includes("짜증") || 
+                 lowerInput.includes("놀라")) {
+          let emotionResponses = [];
+          if (lowerInput.includes("슬프")) {
+            emotionResponses.push("정말 슬퍼요... 눈물이 나네요.", "마음이 아파요...", "슬픔이 깊게 느껴져요.");
           }
+          if (lowerInput.includes("기쁘") || lowerInput.includes("행복")) {
+            emotionResponses.push("정말 기쁘고 행복해요!", "마음이 환하게 빛나요.", "너무 즐거워요!");
+          }
+          if (lowerInput.includes("화난") || lowerInput.includes("분노") || lowerInput.includes("짜증")) {
+            emotionResponses.push("정말 화가 나요. 진정이 필요해요.", "분노가 치밀어요!", "짜증이 나네요...");
+          }
+          if (lowerInput.includes("우울")) {
+            emotionResponses.push("정말 우울해요... 힘내세요.", "마음이 무겁네요.", "우울한 기분이 오래 가네요.");
+          }
+          if (lowerInput.includes("놀라")) {
+            emotionResponses.push("정말 놀라워요!", "깜짝 놀랐어요!", "놀라움이 가득해요!");
+          }
+          if (emotionResponses.length === 0) {
+            emotionResponses.push("감정을 잘 표현해주셨네요.");
+          }
+          response = emotionResponses[Math.floor(Math.random() * emotionResponses.length)];
         }
         else if (lowerInput.includes("날씨") &&
-          (lowerInput.includes("알려") || lowerInput.includes("어때") ||
-           lowerInput.includes("뭐야") || lowerInput.includes("어떻게") || lowerInput.includes("맑아"))) {
+                 (lowerInput.includes("알려") || lowerInput.includes("어때") ||
+                  lowerInput.includes("뭐야") || lowerInput.includes("어떻게") || lowerInput.includes("맑아"))) {
           await updateWeatherAndEffects();
           return;
         }
