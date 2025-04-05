@@ -380,7 +380,7 @@
       showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
     
-    // 채팅 입력 처리 – GPT 관련 코드를 제거하고, 감정 표현 및 상황별 응답을 풍부하게 추가
+    // 채팅 입력 처리 – GPT 관련 코드는 제거하고, 감정 표현과 대화 흐름을 보다 풍부하게 처리
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -420,8 +420,12 @@
         await updateWeatherAndEffects();
       }
       
+      // 반가움 관련 키워드 처리
+      if (!response && lowerInput.includes("반가")) {
+        response = "반가워요~😉";
+      }
       // 감정 표현 및 다양한 대화 응답
-      if (!response) {
+      else if (!response) {
         if (lowerInput.includes("기분") || 
             lowerInput.includes("슬프") || 
             lowerInput.includes("우울") || 
@@ -452,7 +456,6 @@
             "그렇군요. 좀 더 자세히 말씀해 주실 수 있을까요?"
           ];
           
-          // 상황에 따른 선택
           if (lowerInput.includes("슬프") || lowerInput.includes("우울")) {
             response = sadResponses[Math.floor(Math.random() * sadResponses.length)];
           } else if (lowerInput.includes("기쁘") || lowerInput.includes("행복")) {
@@ -515,7 +518,6 @@
         }
         else if (lowerInput.includes("안녕")) {
           response = "안녕하세요, 주인님! 오늘 하루 어땠나요?";
-          // 캐릭터가 미소 짓는 효과 (약간의 회전)
           characterGroup.children[7].rotation.z = Math.PI / 4;
           setTimeout(() => { characterGroup.children[7].rotation.z = 0; }, 1000);
         }
@@ -543,7 +545,6 @@
             head.rotation.y = 0;
           }, 3000);
         }
-        // 추가로 일반 대화에 대한 반응 (상황별, 공감, 격려 등)
         else {
           const generalResponses = [
             "그렇군요. 자세히 말씀해 주실 수 있나요?",
