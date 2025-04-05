@@ -302,29 +302,23 @@
     
     // ==============================
     // 자모 조합 처리 함수
-    // 입력된 문자열에서 각 단어별로 마침표(.)가 있으면 제거하여 완성된 단어로 결합합니다.
+    // 각 단어 내 마침표(.)를 제거하여 완성된 단어로 결합합니다.
     function combineJamo(text) {
-      return text.split(" ").map(word => {
-        return word.indexOf(".") !== -1 ? word.replace(/\./g, "") : word;
-      }).join(" ");
+      return text.split(" ").map(word => word.indexOf(".") !== -1 ? word.replace(/\./g, "") : word).join(" ");
     }
     
     // ==============================
-    // 단어 학습 기능 – 웹사이트 내용을 학습
-    // ==============================
-    // 아래 attachedContent에 웹사이트(또는 검색 결과)에서 복사한 텍스트를 붙여넣으면 학습 데이터로 활용됩니다.
+    // 단어 학습 기능 – 웹사이트 텍스트 학습
+    // attachedContent에 기본 텍스트가 포함되어 있으며, 이후 fetchAndLearn(url)로 추가 학습이 가능합니다.
     const attachedContent = `
 다정한 사람의 말투는 부드럽고 따뜻합니다.
-그들은 "안녕하세요, 오늘 기분 어떠세요?" 라고 인사하며, 슬플 때는 "정말 속이 후련하지 않아요..."라고 말합니다.
+그들은 "안녕하세요, 오늘 기분 어떠세요?"라고 인사하며, 슬플 때는 "정말 속이 후련하지 않아요..."라고 말합니다.
 또한 "편안한 밤 되세요, 좋은 꿈 꾸세요"와 같은 따뜻한 응원의 말도 잊지 않습니다.
-`;
-    // 간단한 토큰화 함수 (특수문자 제거, 소문자 변환 후 공백 기준 분리)
+    `;
     function tokenize(text) {
       return text.replace(/[^\w가-힣\s]/g, "").toLowerCase().split(/\s+/);
     }
-    // 단어 빈도를 저장할 객체
     const wordFrequencies = {};
-    // 텍스트를 학습하는 함수: 단어를 토큰화하여 빈도수를 업데이트
     function learnFromText(text) {
       const tokens = tokenize(text);
       tokens.forEach(token => {
@@ -334,8 +328,23 @@
       });
       console.log("학습된 단어 빈도:", wordFrequencies);
     }
-    // 웹사이트 텍스트 학습
+    // 초기 학습
     learnFromText(attachedContent);
+    // 웹사이트 URL을 통해 텍스트를 가져와 학습하는 함수 (CORS 제한에 주의)
+    async function fetchAndLearn(url) {
+      try {
+        const response = await fetch(url);
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+        const textContent = doc.body.textContent;
+        learnFromText(textContent);
+        showSpeechBubbleInChunks("웹사이트 내용을 학습했습니다.");
+      } catch(err) {
+        console.error("웹사이트 학습 오류:", err);
+        showSpeechBubbleInChunks("웹사이트 학습에 실패했습니다.");
+      }
+    }
     
     // ==============================
     // 기본 기능: 지역, 날씨, 캘린더 등
@@ -461,7 +470,7 @@
     }
     
     // ==============================
-    // 채팅 입력 처리 – 감정 키워드 및 자모 조합 처리, 단어 학습 활용
+    // 채팅 입력 처리 – 감정 키워드, 자모 결합, 단어 학습 활용, 그리고 "학습 [URL]" 명령어 처리
     // ==============================
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
@@ -474,11 +483,23 @@
       }
       if (!input) return;
       
-      // 자모 조합 처리
+      // 자모 결합 처리
       input = combineJamo(input);
       
       let response = "";
       const lowerInput = input.toLowerCase();
+      
+      // "학습 [URL]" 명령어 처리 – URL 뒤에 붙은 웹페이지 내용을 가져와 단어 학습 진행
+      if (lowerInput.startsWith("학습 ")) {
+        const url = input.substring(3).trim();
+        if (url) {
+          await fetchAndLearn(url);
+          inputEl.value = "";
+          return;
+        } else {
+          response = "학습할 URL을 입력해주세요.";
+        }
+      }
       
       // 지역 변경 처리
       if (lowerInput.startsWith("지역 ")) {
@@ -504,10 +525,10 @@
         await updateWeatherAndEffects();
       }
       
-      // 감정 키워드 분석
+      // 감정 키워드 분석 – detectEmotion() 함수로 입력 텍스트에서 감정 키워드를 찾아 처리
       const detectedEmotions = detectEmotion(input);
       if (detectedEmotions.length > 0) {
-        const emotion = detectedEmotions[0]; // 첫번째 감정만 처리 (복합 감정은 추후 확장 가능)
+        const emotion = detectedEmotions[0];
         const responses = emotionResponses[emotion];
         if (responses && responses.length > 0) {
           response = responses[Math.floor(Math.random() * responses.length)];
@@ -593,54 +614,24 @@
       inputEl.value = "";
     }
     
-    async function getWeather() {
-      try {
-        const englishCity = regionMap[currentCity] || "Seoul";
-        const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(englishCity)}&appid=${weatherKey}&units=metric&lang=kr`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("날씨 API 호출 실패");
-        const data = await res.json();
-        const description = data.weather[0].description;
-        const temp = data.main.temp;
-        currentWeather = description;
-        let extraComment = "";
-        if (description.indexOf("흐림") !== -1 || description.indexOf("구름") !== -1) {
-          extraComment = " 오늘은 약간 흐린 날씨네요 ☁️";
-        } else if (description.indexOf("맑음") !== -1) {
-          extraComment = " 오늘은 맑은 날씨네요 ☀️";
-        } else if (description.indexOf("비") !== -1 || description.indexOf("소나기") !== -1) {
-          extraComment = " 오늘은 비가 오네요 ☔";
-        }
-        return { message: `오늘 ${currentCity}의 날씨는 ${description}이며, 온도는 ${temp}°C입니다.${extraComment}` };
-      } catch (err) {
-        currentWeather = "";
-        return { message: `날씨 정보를 가져오지 못했습니다: ${currentCity}` };
-      }
-    }
-    
-    function updateWeatherEffects() {
-      if (!currentWeather) return;
-      if (currentWeather.indexOf("비") !== -1 || currentWeather.indexOf("소나기") !== -1) {
-        rainGroup.visible = true;
-        houseCloudGroup.visible = false;
-      } else if (currentWeather.indexOf("구름") !== -1 || currentWeather.indexOf("흐림") !== -1) {
-        rainGroup.visible = false;
-        houseCloudGroup.visible = true;
-      } else {
-        rainGroup.visible = false;
-        houseCloudGroup.visible = false;
-      }
-    }
-    
-    function updateLightning() {
-      if (currentWeather.indexOf("번개") !== -1 || currentWeather.indexOf("뇌우") !== -1) {
-        if (Math.random() < 0.001) {
-          lightningLight.intensity = 5;
-          setTimeout(() => { lightningLight.intensity = 0; }, 100);
+    // 감정 키워드 분석 함수: 미리 정의된 키워드와 비교하여 감정을 감지합니다.
+    function detectEmotion(text) {
+      const found = [];
+      const lowerText = text.toLowerCase();
+      for (const [emotion, keywords] of Object.entries(emotionKeywords)) {
+        for (const keyword of keywords) {
+          if (lowerText.includes(keyword)) {
+            found.push(emotion);
+            break;
+          }
         }
       }
+      return found;
     }
     
+    // ==============================
+    // 말풍선 표시 함수
+    // ==============================
     function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 3000) {
       const bubble = document.getElementById("speech-bubble");
       const chunks = [];
@@ -1134,7 +1125,8 @@
         또는 "지역 [지역명]" (예: "지역 인천" 또는 "인천") 입력으로도 변경 가능합니다.<br>
         "날씨 알려줘"로 현재 지역의 날씨를 다시 확인할 수 있습니다.<br>
         "일정 삭제" 또는 "하루일정 삭제"를 입력해 캘린더 일정을 삭제할 수 있습니다.<br>
-        "일정 알려줘"를 입력해 저장된 일정을 확인할 수 있습니다 (예: "2025-4-15 일정 알려줘").
+        "일정 알려줘"를 입력해 저장된 일정을 확인할 수 있습니다 (예: "2025-4-15 일정 알려줘").<br>
+        "학습 [URL]" 명령어로 웹사이트 URL을 입력하면 해당 페이지의 텍스트를 학습합니다.
       </p>
       <p><strong>캘린더:</strong> 왼쪽에서 날짜 클릭해 일정을 추가하거나, 버튼으로 저장/삭제하세요.</p>
       <p><strong>버전 선택:</strong> 하단 드롭다운에서 "구버전 1.3" 또는 "최신 버전 (1.7)"을 선택해 해당 페이지로 이동하세요.</p>
