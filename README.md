@@ -235,10 +235,13 @@
 
     async function callGPTProxy(prompt) {
       console.log("GPT 호출 시작:", prompt);
+      const serverUrl = "http://localhost:3000/api/gpt"; // 로컬 서버 URL
       try {
-        // 로컬 서버 사용 시: http://localhost:3000/api/gpt
-        // AWS Lambda 사용 시: https://your-api-id.execute-api.region.amazonaws.com/api/gpt
-        const res = await fetch("http://localhost:3000/api/gpt", {
+        // 서버 상태 확인 (옵션)
+        const serverCheck = await fetch(serverUrl, { method: "HEAD" });
+        if (!serverCheck.ok) throw new Error("서버에 연결할 수 없습니다. 로컬 서버가 실행 중인지 확인하세요.");
+
+        const res = await fetch(serverUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -251,12 +254,20 @@
         console.log("응답 상태:", res.status);
         const data = await res.json();
         console.log("GPT 응답:", data);
-        if (!res.ok) throw new Error(data.error?.message || "GPT 호출 실패");
+
+        if (!res.ok) throw new Error(data.error?.message || `GPT 호출 실패 (상태 코드: ${res.status})`);
         if (!data.choices || !data.choices[0]?.message?.content) throw new Error("응답 형식이 예상과 다릅니다.");
         return data.choices[0].message.content.trim();
       } catch (error) {
         console.error("GPT 호출 오류:", error.message);
-        return "죄송해요, 응답을 생성하는 데 문제가 생겼습니다.";
+        // 더 구체적인 오류 메시지 반환
+        if (error.message.includes("서버에 연결할 수 없습니다")) {
+          return "로컬 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인하거나, 백엔드 설정을 점검하세요.";
+        } else if (error.message.includes("GPT 호출 실패")) {
+          return `GPT 호출 중 오류가 발생했습니다: ${error.message}`;
+        } else {
+          return "죄송해요, GPT 응답을 생성하는 데 문제가 생겼습니다. 서버 로그를 확인하세요.";
+        }
       }
     }
 
