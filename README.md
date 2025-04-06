@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -280,6 +279,7 @@
       youtube: ["유튜브", "유트브", "유튜브알려줘", "유튭", "유튜브랑", "유튜브나와줘"],
       twitter: ["트위터", "트위터 보여주게", "트위터 틔위터검색", "트위터보여", "트위터보여줘봐"],
       naver: ["네이버", "네이버 보여줘", "네이버 보여주게", "네이버 검색"],
+      instagram: ["인스타", "인스타 보여줘", "인스타 보여주게", "인스타좀", "인스타입니다", "인스타검색"],
       weather: ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"],
       calendar: ["일정 알려줘"],
       time: ["시간 알려줘"],
@@ -503,7 +503,7 @@
       let response = "";
       const lowerInput = input.toLowerCase();
       
-      // 지역 변경 처리 – "지역 서울" 등
+      // 지역 변경 처리 – "지역 ..." 명령어 입력 시
       if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
         if (newCity) {
@@ -529,7 +529,7 @@
         }
       }
       
-      // 각 키워드 그룹별 처리
+      // 유튜브 관련 처리
       if (!response && KEYWORDS.youtube.some(keyword => lowerInput.includes(keyword))) {
         response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
@@ -537,6 +537,8 @@
         inputEl.value = "";
         return;
       }
+      
+      // 트위터 관련 처리
       if (!response && KEYWORDS.twitter.some(keyword => lowerInput.includes(keyword))) {
         response = "트위터(현재 X)를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
@@ -544,6 +546,8 @@
         inputEl.value = "";
         return;
       }
+      
+      // 네이버 관련 처리
       if (!response && KEYWORDS.naver.some(keyword => lowerInput.includes(keyword))) {
         response = "네이버를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
@@ -551,17 +555,32 @@
         inputEl.value = "";
         return;
       }
+      
+      // 인스타그램 관련 처리
+      if (!response && KEYWORDS.instagram.some(keyword => lowerInput.includes(keyword))) {
+        response = "인스타그램을 보여드릴게요! 잠시만 기다려 주세요.";
+        showSpeechBubbleInChunks(response);
+        setTimeout(() => { window.location.href = "https://www.instagram.com/인스타"; }, 2000);
+        inputEl.value = "";
+        return;
+      }
+      
+      // 인삿말 및 잘자 관련 처리
       if (!response && KEYWORDS.greetings.some(keyword => lowerInput.includes(keyword))) {
         response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
       }
       if (!response && KEYWORDS.sleep.some(keyword => lowerInput.includes(keyword))) {
         response = "편안한 밤 되세요, 좋은 꿈 꾸세요~";
       }
+      
+      // 날씨 관련 처리
       if (!response && KEYWORDS.weather.some(keyword => lowerInput.includes(keyword))) {
         await updateWeatherAndEffects();
         inputEl.value = "";
         return;
       }
+      
+      // 일정 관련 처리
       if (!response && lowerInput.includes("일정") && lowerInput.includes("알려줘")) {
         const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
         if (dateMatch) {
@@ -571,12 +590,16 @@
           response = getCalendarEvents();
         }
       }
+      
+      // 시간 관련 처리
       if (!response && KEYWORDS.time.some(keyword => lowerInput.includes(keyword))) {
         const now = new Date();
         const hours = now.getHours();
         const minutes = now.getMinutes();
         response = `현재 시간은 ${hours}시 ${minutes}분입니다.`;
       }
+      
+      // 지도 관련 처리
       if (!response && KEYWORDS.map.some(keyword => lowerInput.includes(keyword))) {
         response = "지도를 보여드릴게요!";
         showSpeechBubbleInChunks(response);
@@ -679,7 +702,7 @@
       }
     }
     
-    /* 추가: 버전 선택 대신 로고 파일 업로드를 위한 동그란 버튼과 hud-7 바 형태 기능 */
+    /* 추가: 버전 선택 대신 로고 파일 업로드 버튼과 hud-7 바 형태 기능 */
     document.addEventListener("DOMContentLoaded", function(){
       document.getElementById("logo-upload-btn").addEventListener("click", function(){
         document.getElementById("logo-upload").click();
