@@ -230,17 +230,7 @@
       overflow: hidden;
     }
     
-    /* 버전 선택 메뉴 */
-    #version-select {
-      position: fixed;
-      bottom: 10px;
-      left: 10px;
-      z-index: 50;
-    }
-    #version-select select {
-      padding: 5px;
-      font-size: 12px;
-    }
+    /* 버전 선택 메뉴 – (버전 1.7 드롭다운 제거됨) */
     
     @media (max-width: 480px) {
       #right-hud, #left-hud, #hud-3, #hud-6 { width: 90%; left: 5%; right: 5%; top: 5%; }
@@ -714,24 +704,19 @@
         <button id="save-calendar">바탕화면 저장</button>
       </div>
       <div id="calendar-grid"></div>
-    </div>
-    <!-- 추가된 HUD-7: 동그란 버튼과 옆에 베타버전2.0 텍스트 표시 -->
-    <div id="hud-7" style="display: flex; align-items: center; justify-content: center; margin-top: 10px;">
-      <button id="hud-7-button" style="width: 50px; height: 50px; border-radius: 50%; background: #00ffcc; border: none; cursor: pointer;"></button>
-      <div id="hud-7-bar" style="margin-left: 10px; padding: 10px 20px; background: #00cc99; color: #000; border-radius: 20px; font-size: 14px; font-weight: bold;">
-        버전2.0베타버전
+      <!-- 추가된 HUD-7: 동그란 버튼과 옆에 "버전2.0베타버전" 텍스트 -->
+      <div id="hud-7" style="display: flex; align-items: center; justify-content: center; margin-top: 10px;">
+        <button id="hud-7-button" style="width: 50px; height: 50px; border-radius: 50%; background: #00ffcc; border: none; cursor: pointer;"></button>
+        <div id="hud-7-bar" style="margin-left: 10px; padding: 10px 20px; background: #00cc99; color: #000; border-radius: 20px; font-size: 14px; font-weight: bold;">
+          버전2.0베타버전
+        </div>
       </div>
     </div>
   </div>
   
   <div id="speech-bubble"></div>
   
-  <div id="version-select">
-    <select onchange="changeVersion(this.value)">
-      <option value="latest">최신 버전 (1.7)</option>
-      <option value="1.3">구버전 1.3</option>
-    </select>
-  </div>
+  <!-- 버전 선택 드롭다운(버전 1.7) 제거됨 -->
   
   <canvas id="canvas"></canvas>
   
