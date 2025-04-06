@@ -48,7 +48,7 @@
       font-size: 14px;
     }
     
-    /* HUD-6: 음성 입력 영역 (채팅창과 지도 사이 중앙) */
+    /* HUD-6: 음성 입력 영역 */
     #hud-6 {
       position: fixed;
       top: 45%;
@@ -227,33 +227,6 @@
       z-index: 20;
       overflow: hidden;
     }
-    
-    /* 튜토리얼 오버레이 */
-    #tutorial-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.7);
-      color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 100;
-      opacity: 0;
-      transition: opacity 1s ease-in-out;
-      pointer-events: none;
-    }
-    #tutorial-content {
-      text-align: center;
-      padding: 20px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 10px;
-      max-width: 600px;
-    }
-    #tutorial-content h2 { margin-bottom: 15px; }
-    #tutorial-content p { margin: 10px 0; font-size: 14px; }
     
     /* 버전 선택 메뉴 */
     #version-select {
@@ -648,7 +621,6 @@
     
     window.addEventListener("load", async () => {
       initCalendar();
-      showTutorial();
       updateMap();
       await updateWeatherAndEffects();
     });
@@ -701,26 +673,6 @@
   </div>
   
   <div id="speech-bubble"></div>
-  
-  <div id="tutorial-overlay">
-    <div id="tutorial-content">
-      <h2>사용법 안내</h2>
-      <p><strong>캐릭터:</strong> 채팅창에 "안녕", "캐릭터 춤춰줘" 등 입력해 보세요.</p>
-      <p>
-        <strong>채팅창:</strong> 상단 드롭다운 메뉴에서 지역을 선택하면 지도와 날씨가 업데이트됩니다.<br>
-        "유튜브 보여줘", "유튜브알려줘" 등 유튜브 관련 키워드를 입력하면 페이지 전체가 유튜브로 전환됩니다.<br>
-        "트위터 보여주게", "트위터 틔위터검색", "트위터보여", "트위터보여줘봐" 등의 키워드가 입력되면 트위터(현재 X) 로그인 페이지(https://x.com/login?lang=ko)로 전환됩니다.<br>
-        "네이버 보여주게", "네이버 보여줘", "네이버 검색" 등의 키워드가 입력되면 네이버 모바일 페이지(https://m.naver.com/)로 전환됩니다.<br>
-        "지도 보여줘"를 입력하면 구글 지도가 확대(zoom=18) 모드로 전환되고,<br>
-        "교통정보" 또는 "구글 지도 교통상황"을 입력하면 네이버 모바일 교통정보 페이지(https://m.search.naver.com/search.naver?query=%EA%B5%90%ED%86%B5%EC%A0%95%EB%B3%B4&sm=mtp_hty.top&where=m)로 전환됩니다.<br>
-        "날씨 알려줘", "일정 알려줘", "시간 알려줘" 등 다양한 질문에도 응답하며,<br>
-        "잘자", "좋은꿈" 등 잘자 관련, "안녕", "안녕하세요" 등 인삿말에 따른 풍부한 응답을 제공합니다.<br>
-        또한, HUD‑6의 음성 입력 버튼을 눌러 음성 입력도 할 수 있고, 채팅 입력창에는 미리 설정된 자동 완성 키워드가 제시됩니다.
-      </p>
-      <p><strong>캘린더:</strong> 왼쪽에서 날짜를 클릭해 일정을 추가하거나, 버튼으로 저장/삭제할 수 있습니다.</p>
-      <p><strong>버전 선택:</strong> 하단 드롭다운에서 "구버전 1.3" 또는 "최신 버전 (1.7)"을 선택해 해당 페이지로 이동하세요.</p>
-    </div>
-  </div>
   
   <div id="version-select">
     <select onchange="changeVersion(this.value)">
@@ -1140,16 +1092,6 @@
           setTimeout(() => { lightningLight.intensity = 0; }, 100);
         }
       }
-    }
-    
-    function showTutorial() {
-      const overlay = document.getElementById("tutorial-overlay");
-      overlay.style.display = "flex";
-      setTimeout(() => { overlay.style.opacity = "1"; }, 10);
-      setTimeout(() => {
-        overlay.style.opacity = "0";
-        setTimeout(() => { overlay.style.display = "none"; }, 1000);
-      }, 4000);
     }
   </script>
 </body>
