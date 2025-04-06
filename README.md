@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -741,7 +742,7 @@
   <div id="version-select">
     <button id="logo-upload-btn">버전</button>
     <input type="file" id="logo-upload" accept="image/*">
-    <div id="hud-7">버전2.0</div>
+    <div id="hud-7">버전2.0베타버전</div>
   </div>
   
   <canvas id="canvas"></canvas>
