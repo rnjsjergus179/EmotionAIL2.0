@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -10,7 +9,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidden; }
     
-    /* 오른쪽 채팅창 HUD – 지역 선택 드롭다운은 그대로 남겨두었지만(필요시 제거 가능) */
+    /* 오른쪽 채팅창 HUD */
     #right-hud {
       position: fixed;
       top: 10%;
@@ -43,6 +42,7 @@
       display: flex;
       margin-top: 10px;
     }
+    /* 채팅 입력창 */
     #chat-input {
       flex: 1;
       padding: 5px;
@@ -76,7 +76,7 @@
       background: #00cc99;
     }
     
-    /* 왼쪽 캘린더 HUD (스타일은 그대로 유지) */
+    /* 왼쪽 캘린더 HUD */
     #left-hud {
       position: fixed;
       top: 10%;
@@ -96,7 +96,100 @@
       margin-bottom: 5px; 
       text-shadow: 0 0 5px #00ffcc;
     }
-    /* (캘린더 관련 CSS는 그대로 유지) */
+    #calendar-container { margin-top: 10px; }
+    #calendar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+    #calendar-header button { 
+      padding: 2px 6px; 
+      font-size: 12px; 
+      cursor: pointer; 
+      background: #00ffcc; 
+      color: #000; 
+      border: none; 
+      border-radius: 3px; 
+      box-shadow: 0 0 5px #00ffcc; 
+      transition: all 0.3s; 
+    }
+    #calendar-header button:hover { 
+      background: #00cc99; 
+      box-shadow: 0 0 10px #00ffcc; 
+    }
+    #month-year-label { 
+      font-weight: bold; 
+      font-size: 14px; 
+      text-shadow: 0 0 5px #00ffcc;
+    }
+    #year-select { 
+      font-size: 12px; 
+      padding: 2px; 
+      margin-left: 5px; 
+      background: #333; 
+      color: #00ffcc; 
+      border: 1px solid #00ffcc; 
+      border-radius: 3px; 
+    }
+    #calendar-actions {
+      margin-top: 5px;
+      text-align: center;
+    }
+    #calendar-actions button {
+      margin: 2px;
+      padding: 5px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      background: #00ffcc;
+      color: #000;
+      border: none;
+      border-radius: 3px;
+      box-shadow: 0 0 5px #00ffcc;
+      transition: all 0.3s;
+    }
+    #calendar-actions button:hover {
+      background: #00cc99;
+      box-shadow: 0 0 10px #00ffcc;
+    }
+    #calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+    #calendar-grid div {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid #00ffcc;
+      border-radius: 4px;
+      min-height: 25px;
+      font-size: 10px;
+      padding: 2px;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    #calendar-grid div:hover { 
+      background: rgba(0,255,204,0.3);
+      box-shadow: 0 0 5px #00ffcc;
+    }
+    .day-number {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      font-weight: bold;
+      font-size: 10px;
+      color: #00ffcc;
+      text-shadow: 0 0 3px #00ffcc;
+    }
+    .event {
+      margin-top: 14px;
+      font-size: 8px;
+      color: #00ffcc;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-shadow: 0 0 3px #00ffcc;
+    }
     
     /* 메인 캔버스와 말풍선 */
     #canvas {
@@ -153,10 +246,11 @@
     }
   </style>
   
+  <!-- Three.js 라이브러리 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
   
   <script>
-    /* 전역 키워드 객체 – 채팅 처리용 (캘린더, 날씨, 삭제 등 포함) */
+    /* 전역 키워드 객체 – 자동완성과 채팅 처리용 */
     const KEYWORDS = {
       greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
       sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
@@ -213,13 +307,81 @@
       showSpeechBubbleInChunks("1시간동안 차단됩니다.");
     });
     
-    /* 캘린더 및 파일 저장 관련 함수들은 그대로 유지 (생략) */
-    function saveCalendar() { /* ... */ }
-    function deleteCalendarEvent(day) { /* ... */ }
-    function getCalendarEvents(dateStr = null) { /* ... */ }
+    /* 캘린더, 파일 저장 관련 함수들 */
+    function saveFile() {
+      const content = "파일 저장 완료";
+      const filename = "saved_file.txt";
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+    
+    function saveCalendar() {
+      const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+      const calendarData = {};
+      for (let d = 1; d <= daysInMonth; d++) {
+        const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${d}`);
+        if (eventDiv && eventDiv.textContent.trim() !== "") {
+          calendarData[`${currentYear}-${currentMonth+1}-${d}`] = eventDiv.textContent;
+        }
+      }
+      localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(calendarData, null, 2));
+      const dlAnchorElem = document.createElement("a");
+      dlAnchorElem.setAttribute("href", dataStr);
+      dlAnchorElem.setAttribute("download", "calendar_events.json");
+      dlAnchorElem.style.display = "none";
+      document.body.appendChild(dlAnchorElem);
+      dlAnchorElem.click();
+      document.body.removeChild(dlAnchorElem);
+    }
+    
+    function deleteCalendarEvent(day) {
+      const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${day}`);
+      if (eventDiv) {
+        eventDiv.textContent = "";
+        const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+        delete calendarData[`${currentYear}-${currentMonth+1}-${day}`];
+        localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+        return `${currentYear}-${currentMonth+1}-${day} 일정이 삭제되었습니다.`;
+      } else {
+        return "해당 날짜에 일정이 없습니다.";
+      }
+    }
+    
+    function getCalendarEvents(dateStr = null) {
+      const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+      if (!Object.keys(calendarData).length) {
+        return "저장된 일정이 없습니다. 먼저 캘린더를 저장해주세요.";
+      }
+      
+      if (dateStr) {
+        if (calendarData[dateStr]) {
+          return `${dateStr}의 일정: ${calendarData[dateStr]}`;
+        } else {
+          return `${dateStr}에는 일정이 없습니다.`;
+        }
+      } else {
+        const currentMonthStr = `${currentYear}-${currentMonth+1}`;
+        let events = [];
+        for (let key in calendarData) {
+          if (key.startsWith(currentMonthStr)) {
+            events.push(`${key}: ${calendarData[key]}`);
+          }
+        }
+        if (events.length) {
+          return `현재 월(${currentMonthStr})의 일정:\n${events.join("\n")}`;
+        } else {
+          return `현재 월(${currentMonthStr})에는 일정이 없습니다.`;
+        }
+      }
+    }
     
     function updateMap() {
-      // 지도는 현재 지역의 영어 이름으로 검색하여 보여줌
       const englishCity = regionMap[currentCity] || "Seoul";
       document.getElementById("map-iframe").src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
     }
@@ -242,9 +404,10 @@
       }
     }
     
-    /* 날씨 효과 업데이트 – 비 효과와 구름 효과를 각각 표시 */
+    /* 날씨 효과 업데이트 – 비 효과와 구름 효과 각각 표시 */
     function updateWeatherEffects() {
       if (!currentWeather) return;
+      // 비 효과: "비" 또는 "소나기"가 포함되면
       if (currentWeather.includes("비") || currentWeather.includes("소나기")) {
         rainGroup.visible = true;
         cloudRainGroup.visible = true;
@@ -252,6 +415,7 @@
         rainGroup.visible = false;
         cloudRainGroup.visible = false;
       }
+      // 구름 효과: "구름" 또는 "흐림"이 포함되면
       if (currentWeather.includes("구름") || currentWeather.includes("흐림")) {
         houseCloudGroup.visible = true;
       } else {
@@ -276,13 +440,11 @@
       updateWeatherEffects();
     }
     
-    /* 지역 변경 함수 – 채팅 입력에서 "지역 ..." 명령어 입력 시 호출 */
     function changeRegion(value) {
       currentCity = value;
       updateMap();
       updateWeatherAndEffects();
-      const englishCity = regionMap[currentCity] || "Seoul";
-      showSpeechBubbleInChunks(`지역이 ${currentCity} (${englishCity})로 변경되었습니다.`);
+      showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
     
     function startSpeechRecognition() {
@@ -317,22 +479,31 @@
       let response = "";
       const lowerInput = input.toLowerCase();
       
-      // 지역 변경 처리 – "지역 서울" 등
+      // 지역 변경 처리
       if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
         if (newCity) {
           if (regionList.includes(newCity)) {
-            changeRegion(newCity);
-            return;
+            currentCity = newCity;
+            document.getElementById("region-select").value = newCity;
+            response = `좋아요, 지역을 ${newCity}(으)로 변경할게요!`;
+            updateMap();
+            await updateWeatherAndEffects();
           } else {
-            response = "죄송해요, 그 지역은 지원하지 않아요.";
+            response = "죄송해요, 그 지역은 지원하지 않아요. 드롭다운 메뉴에서 선택해주세요.";
           }
         } else {
           response = "변경할 지역을 입력해 주세요.";
         }
+      } else if (regionList.includes(input)) {
+        currentCity = input;
+        document.getElementById("region-select").value = input;
+        response = `좋아요, 지역을 ${input}(으)로 변경할게요!`;
+        updateMap();
+        await updateWeatherAndEffects();
       }
       
-      // 하루 일정 삭제 처리
+      // 하루 일정 삭제 관련 (예: "하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관")
       if (!response && KEYWORDS.delete.some(keyword => lowerInput.includes(keyword))) {
         const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
         if(dayStr) {
@@ -343,7 +514,7 @@
         }
       }
       
-      // 기타 키워드 처리 – 유튜브, 트위터, 네이버, 인삿말, 잘자, 날씨, 일정, 시간
+      // 각 키워드 그룹별 처리
       if (!response && KEYWORDS.youtube.some(keyword => lowerInput.includes(keyword))) {
         response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
@@ -391,29 +562,60 @@
         const minutes = now.getMinutes();
         response = `현재 시간은 ${hours}시 ${minutes}분입니다.`;
       }
-      
-      // *** 지도 관련 처리: "지도 보여줘~" 명령어가 감지되면 지도 영역의 iframe src를 업데이트 ***
       if (!response && KEYWORDS.map.some(keyword => lowerInput.includes(keyword))) {
         response = "지도를 보여드릴게요!";
         showSpeechBubbleInChunks(response);
-        setTimeout(() => {
-          document.getElementById("map-iframe").src = "https://www.google.com/maps?output=embed";
-        }, 2000);
+        setTimeout(() => { window.location.href = "https://www.google.com/maps"; }, 2000);
         inputEl.value = "";
         return;
       }
       
-      // 감정 및 일반 대화 응답 처리
+      // 감정 및 일반 응답 처리
       if (!response) {
         if (lowerInput.includes("기분") || lowerInput.includes("슬프") || lowerInput.includes("우울") ||
             lowerInput.includes("짜증") || lowerInput.includes("화난") || lowerInput.includes("분노") ||
             lowerInput.includes("놀람") || lowerInput.includes("피곤")) {
-          const responses = [
+          const sadResponses = [
             "정말 마음이 아프시네요. 제가 도와드릴 수 있다면 좋겠어요.",
             "그런 날도 있죠. 힘내시고 천천히 쉬어가세요.",
-            "오늘 정말 즐거워 보이세요! 기분 좋은 일이 가득하길 바랍니다."
+            "마음이 많이 힘들어 보이네요. 꼭 회복되시길 바랄게요."
           ];
-          response = responses[Math.floor(Math.random() * responses.length)];
+          const happyResponses = [
+            "오늘 정말 즐거워 보이세요! 기분 좋은 일이 가득하길 바랍니다.",
+            "당신의 미소가 전해지네요. 행복한 하루 보내세요!",
+            "기쁨이 넘치는 하루, 함께 기뻐요!"
+          ];
+          const angryResponses = [
+            "화가 치밀어 오시네요. 잠시 심호흡을 해보세요.",
+            "분노를 조금 내려놓고, 잠깐의 휴식 어떠세요?",
+            "감정이 많이 격해지신 것 같아요. 차분해지시길 바랄게요."
+          ];
+          const surprisedResponses = [
+            "오, 놀라운 소식이네요! 자세히 말씀해 주세요.",
+            "정말 놀라워요! 당신의 이야기에 귀 기울이고 있어요."
+          ];
+          const tiredResponses = [
+            "피곤해 보이시네요. 푹 쉬시고 내일 더 힘내세요.",
+            "오늘 하루 수고 많으셨어요. 편안한 밤 되세요."
+          ];
+          if (lowerInput.includes("슬프") || lowerInput.includes("우울")) {
+            response = sadResponses[Math.floor(Math.random() * sadResponses.length)];
+          } else if (lowerInput.includes("기쁘") || lowerInput.includes("행복")) {
+            response = happyResponses[Math.floor(Math.random() * happyResponses.length)];
+          } else if (lowerInput.includes("화난") || lowerInput.includes("분노") || lowerInput.includes("짜증")) {
+            response = angryResponses[Math.floor(Math.random() * angryResponses.length)];
+          } else if (lowerInput.includes("놀람")) {
+            response = surprisedResponses[Math.floor(Math.random() * surprisedResponses.length)];
+          } else if (lowerInput.includes("피곤")) {
+            response = tiredResponses[Math.floor(Math.random() * tiredResponses.length)];
+          } else {
+            const neutralResponses = [
+              "그렇군요, 좀 더 자세히 말씀해 주실 수 있을까요?",
+              "알겠습니다. 추가로 궁금한 점이 있으신가요?",
+              "흥미로운 이야기네요. 더 이야기해 주세요!"
+            ];
+            response = neutralResponses[Math.floor(Math.random() * neutralResponses.length)];
+          }
         } else {
           const generalResponses = [
             "정말 흥미로운 이야기네요. 더 들려주세요!",
@@ -450,6 +652,7 @@
     }
     
     window.addEventListener("DOMContentLoaded", function() {
+      // 자동 완성을 위한 datalist – KEYWORDS의 모든 값을 결합
       const chatInput = document.getElementById("chat-input");
       chatInput.setAttribute("list", "chat-keywords");
       const autoCompleteList = document.createElement("datalist");
@@ -466,7 +669,6 @@
         if (e.key === "Enter") sendChat();
       });
       
-      // 지역 선택 드롭다운은 남겨두었지만, 필요시 제거할 수 있음.
       const regionSelect = document.getElementById("region-select");
       regionList.forEach(region => {
         const option = document.createElement("option");
@@ -966,14 +1168,6 @@
       const screenPos = headWorldPos.project(camera);
       bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
       bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
-    }
-    
-    function changeVersion(version) {
-      if (version === "1.3") {
-        window.location.href = "https://aipersonalassistant.neocities.org/";
-      } else if (version === "latest") {
-        window.location.reload();
-      }
     }
   </script>
 </body>
