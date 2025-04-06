@@ -230,7 +230,17 @@
       overflow: hidden;
     }
     
-    /* 버전 선택 메뉴 – (버전 1.7 드롭다운 제거됨) */
+    /* 버전 선택 드롭다운(버전 1.7)은 제거됨.
+       대신 캘린더 영역 하단에 새로운 HUD-7 바로 "2.0 베타버전" 텍스트를 표시합니다. */
+    #hud-7 {
+      margin-top: 10px;
+      padding: 10px;
+      background: #00ffcc;
+      color: #000;
+      border-radius: 10px;
+      text-align: center;
+      font-weight: bold;
+    }
     
     @media (max-width: 480px) {
       #right-hud, #left-hud, #hud-3, #hud-6 { width: 90%; left: 5%; right: 5%; top: 5%; }
@@ -432,7 +442,7 @@
       updateWeatherEffects();
     }
     
-    /* 지역 변경 함수 – 드롭다운 제거 및 말풍선에 한국어와 영어 함께 출력 */
+    /* 지역 변경 함수 – 드롭다운은 그대로 있으나 버전 텍스트는 아래 캘린더에 추가됨 */
     function changeRegion(value) {
       currentCity = value;
       updateMap();
@@ -460,7 +470,7 @@
       };
     }
     
-    /* 무료 음성 API – 캐릭터가 말하도록 SpeechSynthesis 사용 */
+    /* 무료 음성 API – SpeechSynthesis를 사용하여 캐릭터가 말하도록 구현 */
     function speakCharacter(text) {
       if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(text);
@@ -493,7 +503,7 @@
             updateMap();
             await updateWeatherAndEffects();
           } else {
-            response = "죄송해요, 그 지역은 지원하지 않아요. 드롭다운 메뉴에서 선택해주세요.";
+            response = "죄송해요, 그 지역은 지원하지 않아요.";
           }
         } else {
           response = "변경할 지역을 입력해 주세요.";
@@ -521,6 +531,7 @@
       if (!response && KEYWORDS.youtube.some(keyword => lowerInput.includes(keyword))) {
         response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
+        speakCharacter(response);
         setTimeout(() => { window.location.href = "https://www.youtube.com/"; }, 2000);
         inputEl.value = "";
         return;
@@ -528,6 +539,7 @@
       if (!response && KEYWORDS.twitter.some(keyword => lowerInput.includes(keyword))) {
         response = "트위터(현재 X)를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
+        speakCharacter(response);
         setTimeout(() => { window.location.href = "https://x.com/login?lang=ko"; }, 2000);
         inputEl.value = "";
         return;
@@ -535,6 +547,7 @@
       if (!response && KEYWORDS.naver.some(keyword => lowerInput.includes(keyword))) {
         response = "네이버를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
+        speakCharacter(response);
         setTimeout(() => { window.location.href = "https://m.naver.com/"; }, 2000);
         inputEl.value = "";
         return;
@@ -568,6 +581,7 @@
       if (!response && KEYWORDS.map.some(keyword => lowerInput.includes(keyword))) {
         response = "지도를 보여드릴게요!";
         showSpeechBubbleInChunks(response);
+        speakCharacter(response);
         setTimeout(() => { window.location.href = "https://www.google.com/maps"; }, 2000);
         inputEl.value = "";
         return;
@@ -704,19 +718,14 @@
         <button id="save-calendar">바탕화면 저장</button>
       </div>
       <div id="calendar-grid"></div>
-      <!-- 추가된 HUD-7: 동그란 버튼과 옆에 "버전2.0베타버전" 텍스트 -->
-      <div id="hud-7" style="display: flex; align-items: center; justify-content: center; margin-top: 10px;">
-        <button id="hud-7-button" style="width: 50px; height: 50px; border-radius: 50%; background: #00ffcc; border: none; cursor: pointer;"></button>
-        <div id="hud-7-bar" style="margin-left: 10px; padding: 10px 20px; background: #00cc99; color: #000; border-radius: 20px; font-size: 14px; font-weight: bold;">
-          버전2.0베타버전
-        </div>
-      </div>
+      <!-- 추가: 버전 텍스트 2.0 베타버전을 표시하는 HUD-7 바 -->
+      <div id="hud-7">2.0 베타버전</div>
     </div>
   </div>
   
   <div id="speech-bubble"></div>
   
-  <!-- 버전 선택 드롭다운(버전 1.7) 제거됨 -->
+  <!-- 버전 선택 드롭다운(버전 1.7)은 제거됨 -->
   
   <canvas id="canvas"></canvas>
   
