@@ -58,12 +58,14 @@
       instagram: ["인스타", "인스타 보여줘", "인스타 나오게", "인스타 검색", "인스타그램"]
     };
     
+    // API 키를 변수로 선언하여 숨김
+    const openAIKey = "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";
+    
     document.addEventListener("contextmenu", event => event.preventDefault());
     let blockUntil = 0;
     let currentCity = "서울";
     let currentWeather = "";
     const weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
-    const openAIKey = "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";
     const regionMap = {
       "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
       "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
