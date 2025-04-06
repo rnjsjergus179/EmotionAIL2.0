@@ -229,7 +229,7 @@
       overflow: hidden;
     }
     
-    /* 버전 선택 메뉴 대신 동그란 로고 업로드 버튼 추가 */
+    /* 버전 선택 대신 동그란 로고 업로드 버튼과 hud-7 바 형태 추가 */
     #version-select {
       position: fixed;
       bottom: 10px;
@@ -251,6 +251,16 @@
     }
     #version-select input[type="file"] {
       display: none;
+    }
+    /* hud-7 바 형태 */
+    #hud-7 {
+      display: inline-block;
+      margin-left: 10px;
+      padding: 10px 20px;
+      background: #00ccff;
+      color: #fff;
+      font-weight: bold;
+      border-radius: 10px;
     }
     
     @media (max-width: 480px) {
@@ -668,7 +678,7 @@
       }
     }
     
-    /* 추가: 버전 선택 대신 로고 파일 업로드를 위한 동그란 버튼 기능 */
+    /* 추가: 버전 선택 대신 로고 파일 업로드를 위한 동그란 버튼과 hud-7 바 형태 기능 */
     document.addEventListener("DOMContentLoaded", function(){
       document.getElementById("logo-upload-btn").addEventListener("click", function(){
         document.getElementById("logo-upload").click();
@@ -727,10 +737,11 @@
   
   <div id="speech-bubble"></div>
   
-  <!-- 버전 선택 대신 로고 업로드 버튼 (동그란 구형태 버튼) -->
+  <!-- 버전 선택 대신 로고 업로드 버튼과 hud-7 바 형태 버튼 추가 -->
   <div id="version-select">
     <button id="logo-upload-btn">버전</button>
     <input type="file" id="logo-upload" accept="image/*">
+    <div id="hud-7">버전2.0</div>
   </div>
   
   <canvas id="canvas"></canvas>
