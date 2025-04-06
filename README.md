@@ -229,38 +229,16 @@
       overflow: hidden;
     }
     
-    /* 버전 선택 대신 동그란 로고 업로드 버튼과 hud-7 바 형태 추가 */
+    /* 버전 선택 메뉴 */
     #version-select {
       position: fixed;
       bottom: 10px;
       left: 10px;
       z-index: 50;
     }
-    #logo-upload-btn {
-      width: 50px;
-      height: 50px;
-      border-radius: 50%;
-      border: none;
-      background: #00ffcc;
-      color: #000;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    #logo-upload-btn:hover {
-      background: #00cc99;
-    }
-    #version-select input[type="file"] {
-      display: none;
-    }
-    /* hud-7 바 형태 */
-    #hud-7 {
-      display: inline-block;
-      margin-left: 10px;
-      padding: 10px 20px;
-      background: #00ccff;
-      color: #fff;
-      font-weight: bold;
-      border-radius: 10px;
+    #version-select select {
+      padding: 5px;
+      font-size: 12px;
     }
     
     @media (max-width: 480px) {
@@ -279,7 +257,6 @@
       youtube: ["유튜브", "유트브", "유튜브알려줘", "유튭", "유튜브랑", "유튜브나와줘"],
       twitter: ["트위터", "트위터 보여주게", "트위터 틔위터검색", "트위터보여", "트위터보여줘봐"],
       naver: ["네이버", "네이버 보여줘", "네이버 보여주게", "네이버 검색"],
-      instagram: ["인스타", "인스타 보여줘", "인스타 보여주게", "인스타좀", "인스타입니다", "인스타검색"],
       weather: ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"],
       calendar: ["일정 알려줘"],
       time: ["시간 알려줘"],
@@ -463,12 +440,13 @@
       updateWeatherEffects();
     }
     
-    /* 지역 변경 함수 – 채팅 입력에서 "지역 ..." 명령어 입력 시 호출 */
+    /* 지역 변경 함수 – 드롭다운 제거 및 말풍선에 한국어와 영어 함께 출력 */
     function changeRegion(value) {
       currentCity = value;
       updateMap();
       updateWeatherAndEffects();
-      showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
+      const englishCity = regionMap[currentCity] || "Seoul";
+      showSpeechBubbleInChunks(`지역이 ${currentCity} (${englishCity})로 변경되었습니다.`);
     }
     
     function startSpeechRecognition() {
@@ -490,6 +468,15 @@
       };
     }
     
+    /* 무료 음성 API – 캐릭터가 말하도록 SpeechSynthesis 사용 */
+    function speakCharacter(text) {
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ko-KR';
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+    
     /* 채팅 처리 함수 – KEYWORDS 객체를 활용하여 명령어 분기 처리 */
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
@@ -503,22 +490,31 @@
       let response = "";
       const lowerInput = input.toLowerCase();
       
-      // 지역 변경 처리 – "지역 ..." 명령어 입력 시
+      // 지역 변경 처리 – 채팅창에 "지역 ..." 명령어 입력 시
       if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
         if (newCity) {
           if (regionList.includes(newCity)) {
-            changeRegion(newCity);
-            return;
+            currentCity = newCity;
+            document.getElementById("region-select").value = newCity;
+            response = `좋아요, 지역을 ${newCity}(으)로 변경할게요!`;
+            updateMap();
+            await updateWeatherAndEffects();
           } else {
-            response = "죄송해요, 그 지역은 지원하지 않아요.";
+            response = "죄송해요, 그 지역은 지원하지 않아요. 드롭다운 메뉴에서 선택해주세요.";
           }
         } else {
           response = "변경할 지역을 입력해 주세요.";
         }
+      } else if (regionList.includes(input)) {
+        currentCity = input;
+        document.getElementById("region-select").value = input;
+        response = `좋아요, 지역을 ${input}(으)로 변경할게요!`;
+        updateMap();
+        await updateWeatherAndEffects();
       }
       
-      // 하루 일정 삭제 처리
+      // 하루 일정 삭제 관련 (예: "하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관")
       if (!response && KEYWORDS.delete.some(keyword => lowerInput.includes(keyword))) {
         const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
         if(dayStr) {
@@ -529,7 +525,7 @@
         }
       }
       
-      // 유튜브 관련 처리
+      // 각 키워드 그룹별 처리
       if (!response && KEYWORDS.youtube.some(keyword => lowerInput.includes(keyword))) {
         response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
@@ -537,8 +533,6 @@
         inputEl.value = "";
         return;
       }
-      
-      // 트위터 관련 처리
       if (!response && KEYWORDS.twitter.some(keyword => lowerInput.includes(keyword))) {
         response = "트위터(현재 X)를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
@@ -546,8 +540,6 @@
         inputEl.value = "";
         return;
       }
-      
-      // 네이버 관련 처리
       if (!response && KEYWORDS.naver.some(keyword => lowerInput.includes(keyword))) {
         response = "네이버를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
@@ -555,32 +547,17 @@
         inputEl.value = "";
         return;
       }
-      
-      // 인스타그램 관련 처리
-      if (!response && KEYWORDS.instagram.some(keyword => lowerInput.includes(keyword))) {
-        response = "인스타그램을 보여드릴게요! 잠시만 기다려 주세요.";
-        showSpeechBubbleInChunks(response);
-        setTimeout(() => { window.location.href = "https://www.instagram.com/인스타"; }, 2000);
-        inputEl.value = "";
-        return;
-      }
-      
-      // 인삿말 및 잘자 관련 처리
       if (!response && KEYWORDS.greetings.some(keyword => lowerInput.includes(keyword))) {
         response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
       }
       if (!response && KEYWORDS.sleep.some(keyword => lowerInput.includes(keyword))) {
         response = "편안한 밤 되세요, 좋은 꿈 꾸세요~";
       }
-      
-      // 날씨 관련 처리
       if (!response && KEYWORDS.weather.some(keyword => lowerInput.includes(keyword))) {
         await updateWeatherAndEffects();
         inputEl.value = "";
         return;
       }
-      
-      // 일정 관련 처리
       if (!response && lowerInput.includes("일정") && lowerInput.includes("알려줘")) {
         const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
         if (dateMatch) {
@@ -590,16 +567,12 @@
           response = getCalendarEvents();
         }
       }
-      
-      // 시간 관련 처리
       if (!response && KEYWORDS.time.some(keyword => lowerInput.includes(keyword))) {
         const now = new Date();
         const hours = now.getHours();
         const minutes = now.getMinutes();
         response = `현재 시간은 ${hours}시 ${minutes}분입니다.`;
       }
-      
-      // 지도 관련 처리
       if (!response && KEYWORDS.map.some(keyword => lowerInput.includes(keyword))) {
         response = "지도를 보여드릴게요!";
         showSpeechBubbleInChunks(response);
@@ -631,6 +604,7 @@
       }
       
       showSpeechBubbleInChunks(response);
+      speakCharacter(response);
       inputEl.value = "";
     }
     
@@ -701,24 +675,6 @@
         window.location.reload();
       }
     }
-    
-    /* 추가: 버전 선택 대신 로고 파일 업로드 버튼과 hud-7 바 형태 기능 */
-    document.addEventListener("DOMContentLoaded", function(){
-      document.getElementById("logo-upload-btn").addEventListener("click", function(){
-        document.getElementById("logo-upload").click();
-      });
-      
-      document.getElementById("logo-upload").addEventListener("change", function(e){
-        const file = e.target.files[0];
-        if(file){
-          const reader = new FileReader();
-          reader.onload = function(event){
-            document.getElementById("logo-upload-btn").innerHTML = `<img src="${event.target.result}" style="width:100%; height:100%; border-radius:50%;">`;
-          }
-          reader.readAsDataURL(file);
-        }
-      });
-    });
   </script>
 </head>
 <body>
@@ -761,11 +717,11 @@
   
   <div id="speech-bubble"></div>
   
-  <!-- 버전 선택 대신 로고 업로드 버튼과 hud-7 바 형태 버튼 추가 -->
   <div id="version-select">
-    <button id="logo-upload-btn">버전</button>
-    <input type="file" id="logo-upload" accept="image/*">
-    <div id="hud-7">버전2.0베타버전</div>
+    <select onchange="changeVersion(this.value)">
+      <option value="latest">최신 버전 (1.7)</option>
+      <option value="1.3">구버전 1.3</option>
+    </select>
   </div>
   
   <canvas id="canvas"></canvas>
