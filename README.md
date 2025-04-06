@@ -1,49 +1,258 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>3D 캐릭터 HUD, 캘린더, 음성 채팅 & 말풍선 with GPT-3.5</title>
+  <title>3D 캐릭터 HUD, 캘린더, 음성 채팅 & 말풍선</title>
   <style>
-    /* 기존 스타일 유지 */
+    /* 기본 스타일 */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidden; }
+    
+    /* 오른쪽 채팅창 HUD */
     #right-hud {
-      position: fixed; top: 10%; right: 1%; width: 20%; padding: 1%;
-      background: rgba(255,255,255,0.8); border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); z-index: 20;
+      position: fixed;
+      top: 10%;
+      right: 1%;
+      width: 20%;
+      padding: 1%;
+      background: rgba(255,255,255,0.8);
+      border-radius: 5px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      z-index: 20;
     }
-    #region-select { width: 100%; padding: 5px; font-size: 14px; margin-bottom: 10px; }
-    #chat-log { display: none; height: 100px; overflow-y: scroll; border: 1px solid #ccc; padding: 5px; margin-top: 10px; border-radius: 3px; background: #fff; }
-    #chat-input-area { display: flex; margin-top: 10px; }
-    #chat-input { flex: 1; padding: 5px; font-size: 14px; }
-    #hud-6 { position: fixed; top: 45%; right: 1%; width: 20%; padding: 5px; background: rgba(255,255,255,0.95); border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); z-index: 25; text-align: center; }
-    #hud-6 button { padding: 8px 12px; font-size: 14px; border: none; border-radius: 4px; background: #00ffcc; color: #000; cursor: pointer; transition: background 0.3s; }
-    #hud-6 button:hover { background: #00cc99; }
-    #left-hud { position: fixed; top: 10%; left: 1%; width: 20%; padding: 1%; background: rgba(0, 0, 0, 0.7); border: 2px solid #00ffcc; border-radius: 10px; box-shadow: 0 0 15px rgba(0,255,204,0.5); z-index: 20; max-height: 80vh; overflow-y: auto; color: #00ffcc; }
-    #left-hud h3 { margin-bottom: 5px; text-shadow: 0 0 5px #00ffcc; }
+    #region-select {
+      width: 100%;
+      padding: 5px;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    #chat-log {
+      display: none;
+      height: 100px;
+      overflow-y: scroll;
+      border: 1px solid #ccc;
+      padding: 5px;
+      margin-top: 10px;
+      border-radius: 3px;
+      background: #fff;
+    }
+    #chat-input-area {
+      display: flex;
+      margin-top: 10px;
+    }
+    #chat-input {
+      flex: 1;
+      padding: 5px;
+      font-size: 14px;
+    }
+    
+    /* HUD-6: 음성 입력 영역 */
+    #hud-6 {
+      position: fixed;
+      top: 45%;
+      right: 1%;
+      width: 20%;
+      padding: 5px;
+      background: rgba(255,255,255,0.95);
+      border-radius: 5px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      z-index: 25;
+      text-align: center;
+    }
+    #hud-6 button {
+      padding: 8px 12px;
+      font-size: 14px;
+      border: none;
+      border-radius: 4px;
+      background: #00ffcc;
+      color: #000;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    #hud-6 button:hover {
+      background: #00cc99;
+    }
+    
+    /* 왼쪽 캘린더 HUD */
+    #left-hud {
+      position: fixed;
+      top: 10%;
+      left: 1%;
+      width: 20%;
+      padding: 1%;
+      background: rgba(0, 0, 0, 0.7);
+      border: 2px solid #00ffcc;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0,255,204,0.5);
+      z-index: 20;
+      max-height: 80vh;
+      overflow-y: auto;
+      color: #00ffcc;
+    }
+    #left-hud h3 { 
+      margin-bottom: 5px; 
+      text-shadow: 0 0 5px #00ffcc;
+    }
     #calendar-container { margin-top: 10px; }
-    #calendar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
-    #calendar-header button { padding: 2px 6px; font-size: 12px; cursor: pointer; background: #00ffcc; color: #000; border: none; border-radius: 3px; box-shadow: 0 0 5px #00ffcc; transition: all 0.3s; }
-    #calendar-header button:hover { background: #00cc99; box-shadow: 0 0 10px #00ffcc; }
-    #month-year-label { font-weight: bold; font-size: 14px; text-shadow: 0 0 5px #00ffcc; }
-    #year-select { font-size: 12px; padding: 2px; margin-left: 5px; background: #333; color: #00ffcc; border: 1px solid #00ffcc; border-radius: 3px; }
-    #calendar-actions { margin-top: 5px; text-align: center; }
-    #calendar-actions button { margin: 2px; padding: 5px 8px; font-size: 12px; cursor: pointer; background: #00ffcc; color: #000; border: none; border-radius: 3px; box-shadow: 0 0 5px #00ffcc; transition: all 0.3s; }
-    #calendar-actions button:hover { background: #00cc99; box-shadow: 0 0 10px #00ffcc; }
-    #calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-    #calendar-grid div { background: rgba(255,255,255,0.1); border: 1px solid #00ffcc; border-radius: 4px; min-height: 25px; font-size: 10px; padding: 2px; position: relative; cursor: pointer; transition: all 0.3s; }
-    #calendar-grid div:hover { background: rgba(0,255,204,0.3); box-shadow: 0 0 5px #00ffcc; }
-    .day-number { position: absolute; top: 2px; left: 2px; font-weight: bold; font-size: 10px; color: #00ffcc; text-shadow: 0 0 3px #00ffcc; }
-    .event { margin-top: 14px; font-size: 8px; color: #00ffcc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 0 3px #00ffcc; }
-    #hud-7 { position: fixed; bottom: 0; left: 0; width: 100%; height: 30px; background: rgba(0, 0, 0, 0.8); color: #00ffcc; text-align: center; line-height: 30px; font-size: 14px; z-index: 50; box-shadow: 0 -2px 5px rgba(0,255,204,0.3); }
-    #canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; display: block; }
-    #speech-bubble { position: fixed; background: white; padding: 5px 10px; border-radius: 10px; font-size: 12px; display: none; z-index: 30; white-space: pre-line; pointer-events: none; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-    #hud-3 { position: fixed; top: 70%; right: 1%; width: 20%; height: 20%; padding: 1%; background: rgba(255,255,255,0.9); border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); z-index: 20; overflow: hidden; }
-    @media (max-width: 480px) { #right-hud, #left-hud, #hud-3, #hud-6 { width: 90%; left: 5%; right: 5%; top: 5%; } }
+    #calendar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+    #calendar-header button { 
+      padding: 2px 6px; 
+      font-size: 12px; 
+      cursor: pointer; 
+      background: #00ffcc; 
+      color: #000; 
+      border: none; 
+      border-radius: 3px; 
+      box-shadow: 0 0 5px #00ffcc; 
+      transition: all 0.3s; 
+    }
+    #calendar-header button:hover { 
+      background: #00cc99; 
+      box-shadow: 0 0 10px #00ffcc; 
+    }
+    #month-year-label { 
+      font-weight: bold; 
+      font-size: 14px; 
+      text-shadow: 0 0 5px #00ffcc;
+    }
+    #year-select { 
+      font-size: 12px; 
+      padding: 2px; 
+      margin-left: 5px; 
+      background: #333; 
+      color: #00ffcc; 
+      border: 1px solid #00ffcc; 
+      border-radius: 3px; 
+    }
+    #calendar-actions {
+      margin-top: 5px;
+      text-align: center;
+    }
+    #calendar-actions button {
+      margin: 2px;
+      padding: 5px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      background: #00ffcc;
+      color: #000;
+      border: none;
+      border-radius: 3px;
+      box-shadow: 0 0 5px #00ffcc;
+      transition: all 0.3s;
+    }
+    #calendar-actions button:hover {
+      background: #00cc99;
+      box-shadow: 0 0 10px #00ffcc;
+    }
+    #calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+    #calendar-grid div {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid #00ffcc;
+      border-radius: 4px;
+      min-height: 25px;
+      font-size: 10px;
+      padding: 2px;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    #calendar-grid div:hover { 
+      background: rgba(0,255,204,0.3);
+      box-shadow: 0 0 5px #00ffcc;
+    }
+    .day-number {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      font-weight: bold;
+      font-size: 10px;
+      color: #00ffcc;
+      text-shadow: 0 0 3px #00ffcc;
+    }
+    .event {
+      margin-top: 14px;
+      font-size: 8px;
+      color: #00ffcc;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-shadow: 0 0 3px #00ffcc;
+    }
+    
+    /* HUD-7: 버전 정보 바 */
+    #hud-7 {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 30px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #00ffcc;
+      text-align: center;
+      line-height: 30px;
+      font-size: 14px;
+      z-index: 50;
+      box-shadow: 0 -2px 5px rgba(0,255,204,0.3);
+    }
+    
+    /* 메인 캔버스와 말풍선 */
+    #canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+    }
+    #speech-bubble {
+      position: fixed;
+      background: white;
+      padding: 5px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      display: none;
+      z-index: 30;
+      white-space: pre-line;
+      pointer-events: none;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    
+    /* 지도 또는 유튜브 영역 */
+    #hud-3 {
+      position: fixed;
+      top: 70%;
+      right: 1%;
+      width: 20%;
+      height: 20%;
+      padding: 1%;
+      background: rgba(255,255,255,0.9);
+      border-radius: 5px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      z-index: 20;
+      overflow: hidden;
+    }
+    
+    @media (max-width: 480px) {
+      #right-hud, #left-hud, #hud-3, #hud-6 { width: 90%; left: 5%; right: 5%; top: 5%; }
+    }
   </style>
+  
+  <!-- Three.js 라이브러리 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  
   <script>
+    /* 전역 키워드 객체 – 자동완성과 채팅 처리용 */
     const KEYWORDS = {
       greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
       sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
@@ -58,20 +267,36 @@
       instagram: ["인스타", "인스타 보여줘", "인스타 나오게", "인스타 검색", "인스타그램"]
     };
     
-    // API 키를 변수로 선언하여 숨김
-    const openAIKey = "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";
-    
+    /* 전역 변수 */
     document.addEventListener("contextmenu", event => event.preventDefault());
     let blockUntil = 0;
     let currentCity = "서울";
     let currentWeather = "";
     const weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
     const regionMap = {
-      "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
-      "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
-      "안산": "Ansan", "파주": "Paju", "부산": "Busan", "대구": "Daegu", "광주": "Gwangju",
-      "대전": "Daejeon", "울산": "Ulsan", "제주": "Jeju", "전주": "Jeonju", "청주": "Cheongju",
-      "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
+      "서울": "Seoul",
+      "인천": "Incheon",
+      "수원": "Suwon",
+      "고양": "Goyang",
+      "성남": "Seongnam",
+      "용인": "Yongin",
+      "부천": "Bucheon",
+      "안양": "Anyang",
+      "의정부": "Uijeongbu",
+      "광명": "Gwangmyeong",
+      "안산": "Ansan",
+      "파주": "Paju",
+      "부산": "Busan",
+      "대구": "Daegu",
+      "광주": "Gwangju",
+      "대전": "Daejeon",
+      "울산": "Ulsan",
+      "제주": "Jeju",
+      "전주": "Jeonju",
+      "청주": "Cheongju",
+      "포항": "Pohang",
+      "여수": "Yeosu",
+      "김해": "Gimhae"
     };
     const regionList = Object.keys(regionMap);
     
@@ -85,6 +310,7 @@
       showSpeechBubbleInChunks("1시간동안 차단됩니다.");
     });
     
+    /* 음성 출력 함수 */
     function speakText(text) {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "ko-KR";
@@ -94,6 +320,7 @@
       window.speechSynthesis.speak(utterance);
     }
     
+    /* 캘린더, 파일 저장 관련 함수들 */
     function saveFile() {
       const content = "파일 저장 완료";
       const filename = "saved_file.txt";
@@ -143,6 +370,7 @@
       if (!Object.keys(calendarData).length) {
         return "저장된 일정이 없습니다. 먼저 캘린더를 저장해주세요.";
       }
+      
       if (dateStr) {
         if (calendarData[dateStr]) {
           return `${dateStr}의 일정: ${calendarData[dateStr]}`;
@@ -242,7 +470,7 @@
       recognition.onresult = function(event) {
         const transcript = event.results[0][0].transcript.trim();
         document.getElementById("chat-input").value = transcript;
-        sendChat();
+        sendChat(); // 음성 입력 후 바로 처리
       };
       recognition.onerror = function(event) {
         console.error("음성 인식 오류:", event.error);
@@ -322,6 +550,12 @@
         inputEl.value = "";
         return;
       }
+      if (!response && KEYWORDS.greetings.some(keyword => lowerInput.includes(keyword))) {
+        response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
+      }
+      if (!response && KEYWORDS.sleep.some(keyword => lowerInput.includes(keyword))) {
+        response = "편안한 밤 되세요, 좋은 꿈 꾸세요~";
+      }
       if (!response && KEYWORDS.weather.some(keyword => lowerInput.includes(keyword))) {
         await updateWeatherAndEffects();
         inputEl.value = "";
@@ -358,26 +592,23 @@
       }
       
       if (!response) {
-        try {
-          const res = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${openAIKey}`
-            },
-            body: JSON.stringify({
-              model: "gpt-3.5-turbo",
-              messages: [{ role: "user", content: input }],
-              max_tokens: 150,
-              temperature: 0.7
-            })
-          });
-          if (!res.ok) throw new Error("OpenAI API 호출 실패");
-          const data = await res.json();
-          response = data.choices[0].message.content.trim();
-        } catch (error) {
-          console.error(error);
-          response = "죄송해요, 응답을 생성하는 데 문제가 생겼습니다.";
+        if (lowerInput.includes("기분") || lowerInput.includes("슬프") || lowerInput.includes("우울") ||
+            lowerInput.includes("짜증") || lowerInput.includes("화난") || lowerInput.includes("분노") ||
+            lowerInput.includes("놀람") || lowerInput.includes("피곤")) {
+          const responses = [
+            "정말 마음이 아프시네요. 제가 도와드릴 수 있다면 좋겠어요.",
+            "그런 날도 있죠. 힘내시고 천천히 쉬어가세요.",
+            "오늘 정말 즐거워 보이세요! 기분 좋은 일이 가득하길 바랍니다."
+          ];
+          response = responses[Math.floor(Math.random() * responses.length)];
+        } else {
+          const generalResponses = [
+            "정말 흥미로운 이야기네요. 더 들려주세요!",
+            "알겠습니다. 혹시 다른 궁금한 점은 없으신가요?",
+            "그렇군요. 당신의 의견을 듣고 있으니 저도 많이 배워요.",
+            "그렇게 느끼실 수 있겠네요. 함께 이야기 나눠봐요!"
+          ];
+          response = generalResponses[Math.floor(Math.random() * generalResponses.length)];
         }
       }
       
@@ -396,7 +627,7 @@
         if (index < chunks.length) {
           bubble.textContent = chunks[index];
           bubble.style.display = "block";
-          speakText(chunks[index]);
+          speakText(chunks[index]); // 음성 출력 추가
           index++;
           setTimeout(showNextChunk, delay);
         } else {
@@ -457,12 +688,15 @@
       <input type="text" id="chat-input" placeholder="채팅 입력..." />
     </div>
   </div>
+  
   <div id="hud-6">
     <button onclick="startSpeechRecognition()">🎤 음성 입력</button>
   </div>
+  
   <div id="hud-3">
     <iframe id="map-iframe" src="https://www.google.com/maps?q=Seoul&output=embed" frameborder="0" style="width:100%; height:100%; border:0;" allowfullscreen></iframe>
   </div>
+  
   <div id="left-hud">
     <h3>캘린더</h3>
     <div id="calendar-container">
@@ -479,8 +713,11 @@
       <div id="calendar-grid"></div>
     </div>
   </div>
+  
   <div id="speech-bubble"></div>
-  <div id="hud-7">버전 2.0 베타 with GPT-3.5</div>
+  
+  <div id="hud-7">버전 2.0 베타</div>
+  
   <canvas id="canvas"></canvas>
   
   <script>
@@ -533,6 +770,7 @@
       const material = new THREE.MeshStandardMaterial({ color: color, roughness: 0.7, metalness: 0.1 });
       const building = new THREE.Mesh(geometry, material);
       buildingGroup.add(building);
+      
       const windowMat = new THREE.MeshStandardMaterial({ color: 0x87CEEB });
       for (let y = 3; y < height - 1; y += 2) {
         for (let x = -width/2 + 0.5; x < width/2; x += 1) {
@@ -545,6 +783,7 @@
       const door = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 0.1), doorMat);
       door.position.set(0, -height/2 + 1, depth/2 + 0.01);
       buildingGroup.add(door);
+      
       return buildingGroup;
     }
     function createHouse(width, height, depth, baseColor, roofColor) {
@@ -558,16 +797,19 @@
       roof.position.y = -2 + height + (height * 0.6)/2;
       roof.rotation.y = Math.PI/4;
       houseGroup.add(roof);
+      
       const windowMat = new THREE.MeshStandardMaterial({ color: 0xFFFFE0 });
       const window1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.1), windowMat);
       window1.position.set(-width/4, -2 + height/2, depth/2 + 0.01);
       const window2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.1), windowMat);
       window2.position.set(width/4, -2 + height/2, depth/2 + 0.01);
       houseGroup.add(window1, window2);
+      
       const doorMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
       const door = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.1), doorMat);
       door.position.set(0, -2 + height/4, depth/2 + 0.01);
       houseGroup.add(door);
+      
       return houseGroup;
     }
     for (let i = 0; i < 20; i++) {
@@ -734,6 +976,7 @@
     
     function animate() {
       requestAnimationFrame(animate);
+      
       const now = new Date();
       const headWorldPos = new THREE.Vector3();
       head.getWorldPosition(headWorldPos);
@@ -746,6 +989,7 @@
         headWorldPos.z
       );
       sun.position.copy(sunPos);
+      
       const moonAngle = angle + Math.PI;
       const moonPos = new THREE.Vector3(
         headWorldPos.x + Math.cos(moonAngle) * radius,
@@ -753,6 +997,7 @@
         headWorldPos.z
       );
       moon.position.copy(moonPos);
+      
       const t = now.getHours() + now.getMinutes() / 60;
       let sunOpacity = 0, moonOpacity = 0;
       if (t < 6) { sunOpacity = 0; moonOpacity = 1; }
@@ -762,10 +1007,12 @@
       else { sunOpacity = 0; moonOpacity = 1; }
       sun.material.opacity = sunOpacity;
       moon.material.opacity = moonOpacity;
+      
       const isDay = (t >= 7 && t < 17);
       scene.background = new THREE.Color(isDay ? 0x87CEEB : 0x000033);
       stars.forEach(s => s.visible = !isDay);
       fireflies.forEach(f => f.visible = !isDay);
+      
       characterStreetlight.traverse(child => {
         if (child instanceof THREE.PointLight) { child.intensity = isDay ? 0 : 1; }
       });
@@ -773,11 +1020,13 @@
       characterLight.intensity = isDay ? 0 : 1;
       characterGroup.position.y = -1;
       characterGroup.rotation.x = 0;
+      
       updateWeatherEffects();
       updateHouseClouds();
       updateLightning();
       characterStreetlight.position.set(characterGroup.position.x + 1, -2, characterGroup.position.z);
       updateBubblePosition();
+      
       if (cloudRainGroup.visible) {
         const particles = cloudRainGroup.children[0];
         let positions = particles.geometry.attributes.position.array;
@@ -789,6 +1038,7 @@
         }
         particles.geometry.attributes.position.needsUpdate = true;
       }
+      
       renderer.render(scene, camera);
     }
     animate();
