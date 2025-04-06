@@ -436,6 +436,7 @@
       const weatherData = await getWeather();
       if (sendMessage) {
         showSpeechBubbleInChunks(weatherData.message);
+        speakCharacter(weatherData.message);
       }
       updateWeatherEffects();
     }
