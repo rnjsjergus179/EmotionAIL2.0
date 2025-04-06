@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -9,7 +10,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidden; }
     
-    /* 오른쪽 채팅창 HUD – 드롭다운 제거됨 */
+    /* 오른쪽 채팅창 HUD – 지역 선택 드롭다운은 그대로 남겨두었지만(필요시 제거 가능) */
     #right-hud {
       position: fixed;
       top: 10%;
@@ -20,6 +21,12 @@
       border-radius: 5px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.2);
       z-index: 20;
+    }
+    #region-select {
+      width: 100%;
+      padding: 5px;
+      font-size: 14px;
+      margin-bottom: 10px;
     }
     /* 채팅 로그 */
     #chat-log {
@@ -89,7 +96,7 @@
       margin-bottom: 5px; 
       text-shadow: 0 0 5px #00ffcc;
     }
-    /* ... (캘린더 관련 스타일은 그대로 유지) ... */
+    /* (캘린더 관련 CSS는 그대로 유지) */
     
     /* 메인 캔버스와 말풍선 */
     #canvas {
@@ -146,7 +153,6 @@
     }
   </style>
   
-  <!-- Three.js 라이브러리 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
   
   <script>
@@ -207,18 +213,18 @@
       showSpeechBubbleInChunks("1시간동안 차단됩니다.");
     });
     
-    /* 캘린더 및 파일 저장 관련 함수 (변경 없이 그대로 유지) */
-    function saveFile() { /* ... */ }
+    /* 캘린더 및 파일 저장 관련 함수들은 그대로 유지 (생략) */
     function saveCalendar() { /* ... */ }
     function deleteCalendarEvent(day) { /* ... */ }
     function getCalendarEvents(dateStr = null) { /* ... */ }
     
     function updateMap() {
+      // 지도는 현재 지역의 영어 이름으로 검색하여 보여줌
       const englishCity = regionMap[currentCity] || "Seoul";
       document.getElementById("map-iframe").src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
     }
     
-    /* 날씨 API – 영어 도시명을 사용하여 날씨 호출 */
+    /* 날씨 API 호출 – 영어 도시명 사용 */
     async function getWeather() {
       try {
         const englishCity = regionMap[currentCity] || "Seoul";
@@ -227,7 +233,7 @@
         if (!res.ok) throw new Error("날씨 API 호출 실패");
         const data = await res.json();
         currentWeather = data.weather[0].description;
-        const message = `오늘 ${currentCity} (${englishCity})의 날씨는 ${data.weather[0].description}이고, 기온은 ${data.main.temp}°C입니다.`;
+        const message = `오늘 ${currentCity}의 날씨는 ${data.weather[0].description}이고, 기온은 ${data.main.temp}°C입니다.`;
         return { message };
       } catch (error) {
         console.error(error);
@@ -236,7 +242,7 @@
       }
     }
     
-    /* 날씨 효과 – 비 효과와 구름 효과를 각각 표시 */
+    /* 날씨 효과 업데이트 – 비 효과와 구름 효과를 각각 표시 */
     function updateWeatherEffects() {
       if (!currentWeather) return;
       if (currentWeather.includes("비") || currentWeather.includes("소나기")) {
@@ -270,7 +276,7 @@
       updateWeatherEffects();
     }
     
-    /* 지역 변경 함수 – 드롭다운 제거 및 말풍선에 한국어와 영어 함께 출력 */
+    /* 지역 변경 함수 – 채팅 입력에서 "지역 ..." 명령어 입력 시 호출 */
     function changeRegion(value) {
       currentCity = value;
       updateMap();
@@ -298,7 +304,7 @@
       };
     }
     
-    /* 채팅 처리 함수 – KEYWORDS 객체를 활용하여 명령어 분기 처리 (지역 변경, 날씨 호출 등) */
+    /* 채팅 처리 함수 – KEYWORDS 객체를 활용하여 명령어 분기 처리 */
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -311,7 +317,7 @@
       let response = "";
       const lowerInput = input.toLowerCase();
       
-      // 지역 변경 처리 – 채팅창에 "지역 ..." 명령어 입력 시
+      // 지역 변경 처리 – "지역 서울" 등
       if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
         if (newCity) {
@@ -326,7 +332,7 @@
         }
       }
       
-      // 하루 일정 삭제 처리 (KEYWORDS.delete)
+      // 하루 일정 삭제 처리
       if (!response && KEYWORDS.delete.some(keyword => lowerInput.includes(keyword))) {
         const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
         if(dayStr) {
@@ -337,7 +343,7 @@
         }
       }
       
-      // 기타 키워드 처리 (유튜브, 트위터, 네이버, 인삿말, 잘자, 날씨, 일정, 시간, 지도)
+      // 기타 키워드 처리 – 유튜브, 트위터, 네이버, 인삿말, 잘자, 날씨, 일정, 시간
       if (!response && KEYWORDS.youtube.some(keyword => lowerInput.includes(keyword))) {
         response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
@@ -385,10 +391,14 @@
         const minutes = now.getMinutes();
         response = `현재 시간은 ${hours}시 ${minutes}분입니다.`;
       }
+      
+      // *** 지도 관련 처리: "지도 보여줘~" 명령어가 감지되면 지도 영역의 iframe src를 업데이트 ***
       if (!response && KEYWORDS.map.some(keyword => lowerInput.includes(keyword))) {
         response = "지도를 보여드릴게요!";
         showSpeechBubbleInChunks(response);
-        setTimeout(() => { window.location.href = "https://www.google.com/maps"; }, 2000);
+        setTimeout(() => {
+          document.getElementById("map-iframe").src = "https://www.google.com/maps?output=embed";
+        }, 2000);
         inputEl.value = "";
         return;
       }
@@ -440,7 +450,6 @@
     }
     
     window.addEventListener("DOMContentLoaded", function() {
-      // 채팅 입력창 자동 완성용 datalist – KEYWORDS의 모든 값을 결합
       const chatInput = document.getElementById("chat-input");
       chatInput.setAttribute("list", "chat-keywords");
       const autoCompleteList = document.createElement("datalist");
@@ -456,7 +465,16 @@
       document.getElementById("chat-input").addEventListener("keydown", function(e) {
         if (e.key === "Enter") sendChat();
       });
-      // 지역 선택 드롭다운은 제거되었으므로 관련 코드는 삭제함.
+      
+      // 지역 선택 드롭다운은 남겨두었지만, 필요시 제거할 수 있음.
+      const regionSelect = document.getElementById("region-select");
+      regionList.forEach(region => {
+        const option = document.createElement("option");
+        option.value = region;
+        option.textContent = `${region} (${regionMap[region]})`;
+        if (region === currentCity) option.selected = true;
+        regionSelect.appendChild(option);
+      });
     });
     
     window.addEventListener("resize", function(){
@@ -483,7 +501,9 @@
 <body>
   <div id="right-hud">
     <h3>채팅창</h3>
-    <!-- 지역 선택 드롭다운 제거됨 -->
+    <select id="region-select" onchange="changeRegion(this.value)">
+      <option value="" disabled>지역 선택</option>
+    </select>
     <div id="chat-log"></div>
     <div id="chat-input-area">
       <input type="text" id="chat-input" placeholder="채팅 입력..." />
