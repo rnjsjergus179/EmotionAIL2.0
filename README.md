@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -496,8 +497,8 @@
       
       // '알려줘' 관련 기능 (날씨, 일정, 시간)
       if (!response) {
-        if (lowerInput.includes("날씨") &&
-           (lowerInput.includes("알려줘") || lowerInput.includes("어때") || lowerInput.includes("맑아"))) {
+        const weatherKeywords = ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"];
+        if (weatherKeywords.some(keyword => lowerInput.includes(keyword))) {
           await updateWeatherAndEffects();
           inputEl.value = "";
           return;
@@ -612,7 +613,8 @@
         "유튜브 보여줘", "유튜브알려줘", "유트브", "유튜브랑", "유튜브나와줘",
         "트위터 보여주게", "트위터 틔위터검색", "트위터보여", "트위터보여줘봐",
         "네이버 보여줘", "네이버 보여주게", "네이버 검색",
-        "날씨 알려줘", "일정 알려줘", "시간 알려줘",
+        "날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아",
+        "일정 알려줘", "시간 알려줘",
         "지도 보여줘", "교통정보"
       ];
       keywords.forEach(kw => {
