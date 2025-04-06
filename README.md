@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -713,6 +714,13 @@
         <button id="save-calendar">바탕화면 저장</button>
       </div>
       <div id="calendar-grid"></div>
+    </div>
+    <!-- 추가된 HUD-7: 동그란 버튼과 옆에 베타버전2.0 텍스트 표시 -->
+    <div id="hud-7" style="display: flex; align-items: center; justify-content: center; margin-top: 10px;">
+      <button id="hud-7-button" style="width: 50px; height: 50px; border-radius: 50%; background: #00ffcc; border: none; cursor: pointer;"></button>
+      <div id="hud-7-bar" style="margin-left: 10px; padding: 10px 20px; background: #00cc99; color: #000; border-radius: 20px; font-size: 14px; font-weight: bold;">
+        버전2.0베타버전
+      </div>
     </div>
   </div>
   
