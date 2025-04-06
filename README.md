@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -10,7 +9,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidden; }
     
-    /* 오른쪽 채팅창 HUD (지역 선택 드롭다운 제거) */
+    /* 오른쪽 채팅창 HUD – 드롭다운 제거됨 */
     #right-hud {
       position: fixed;
       top: 10%;
@@ -22,7 +21,7 @@
       box-shadow: 0 4px 8px rgba(0,0,0,0.2);
       z-index: 20;
     }
-    /* 채팅 로그 (필요시 보이도록 설정) */
+    /* 채팅 로그 */
     #chat-log {
       display: none;
       height: 100px;
@@ -70,7 +69,7 @@
       background: #00cc99;
     }
     
-    /* 왼쪽 캘린더 HUD */
+    /* 왼쪽 캘린더 HUD (스타일은 그대로 유지) */
     #left-hud {
       position: fixed;
       top: 10%;
@@ -151,7 +150,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
   
   <script>
-    /* 전역 키워드 객체 – 자동완성 및 채팅 처리용 */
+    /* 전역 키워드 객체 – 채팅 처리용 (캘린더, 날씨, 삭제 등 포함) */
     const KEYWORDS = {
       greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
       sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
@@ -208,7 +207,7 @@
       showSpeechBubbleInChunks("1시간동안 차단됩니다.");
     });
     
-    /* 캘린더 및 파일 저장 관련 함수 (변경 없음) */
+    /* 캘린더 및 파일 저장 관련 함수 (변경 없이 그대로 유지) */
     function saveFile() { /* ... */ }
     function saveCalendar() { /* ... */ }
     function deleteCalendarEvent(day) { /* ... */ }
@@ -219,7 +218,7 @@
       document.getElementById("map-iframe").src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
     }
     
-    /* 날씨 API – 영어 도시명 사용 */
+    /* 날씨 API – 영어 도시명을 사용하여 날씨 호출 */
     async function getWeather() {
       try {
         const englishCity = regionMap[currentCity] || "Seoul";
@@ -237,7 +236,7 @@
       }
     }
     
-    /* 날씨 효과 – 비 효과와 구름 효과 각각 표시 */
+    /* 날씨 효과 – 비 효과와 구름 효과를 각각 표시 */
     function updateWeatherEffects() {
       if (!currentWeather) return;
       if (currentWeather.includes("비") || currentWeather.includes("소나기")) {
@@ -271,7 +270,7 @@
       updateWeatherEffects();
     }
     
-    /* 지역 변경 함수 – 말풍선에 한국어와 영어 함께 표시 */
+    /* 지역 변경 함수 – 드롭다운 제거 및 말풍선에 한국어와 영어 함께 출력 */
     function changeRegion(value) {
       currentCity = value;
       updateMap();
@@ -299,7 +298,7 @@
       };
     }
     
-    /* 채팅 처리 함수 – KEYWORDS 객체를 활용하여 명령어 분기 처리 및 하루 일정 삭제 기능 추가 */
+    /* 채팅 처리 함수 – KEYWORDS 객체를 활용하여 명령어 분기 처리 (지역 변경, 날씨 호출 등) */
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -312,7 +311,7 @@
       let response = "";
       const lowerInput = input.toLowerCase();
       
-      // 지역 변경 처리 (채팅 명령어 "지역 ...")
+      // 지역 변경 처리 – 채팅창에 "지역 ..." 명령어 입력 시
       if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
         if (newCity) {
@@ -338,7 +337,7 @@
         }
       }
       
-      // 각 키워드 그룹별 처리
+      // 기타 키워드 처리 (유튜브, 트위터, 네이버, 인삿말, 잘자, 날씨, 일정, 시간, 지도)
       if (!response && KEYWORDS.youtube.some(keyword => lowerInput.includes(keyword))) {
         response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
@@ -457,6 +456,7 @@
       document.getElementById("chat-input").addEventListener("keydown", function(e) {
         if (e.key === "Enter") sendChat();
       });
+      // 지역 선택 드롭다운은 제거되었으므로 관련 코드는 삭제함.
     });
     
     window.addEventListener("resize", function(){
@@ -946,6 +946,14 @@
       const screenPos = headWorldPos.project(camera);
       bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
       bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
+    }
+    
+    function changeVersion(version) {
+      if (version === "1.3") {
+        window.location.href = "https://aipersonalassistant.neocities.org/";
+      } else if (version === "latest") {
+        window.location.reload();
+      }
     }
   </script>
 </body>
