@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -28,6 +27,7 @@
       font-size: 14px;
       margin-bottom: 10px;
     }
+    /* 채팅 로그를 필요에 따라 보이도록 조정 */
     #chat-log {
       display: none;
       height: 100px;
@@ -408,6 +408,8 @@
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
+      
+      // (여기서는 채팅 로그 업데이트 코드는 생략하거나 별도로 처리)
       
       if (Date.now() < blockUntil) {
         showSpeechBubbleInChunks("1시간동안 차단됩니다.");
@@ -858,6 +860,7 @@
     rainGroup.visible = false;
     
     let houseCloudGroup = new THREE.Group();
+    scene.add(houseCloudGroup);
     function createHouseCloud() {
       const cloud = new THREE.Group();
       const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
@@ -868,7 +871,7 @@
       const sphere3 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), cloudMat);
       sphere3.position.set(-0.6, 0.1, 0);
       cloud.add(sphere1, sphere2, sphere3);
-      // 구름을 현실처럼 크게 보이도록 스케일 2배 적용
+      // 구름을 크게 보이도록 스케일 2배 적용
       cloud.scale.set(2, 2, 2);
       cloud.userData.initialPos = cloud.position.clone();
       return cloud;
@@ -876,7 +879,29 @@
     const singleCloud = createHouseCloud();
     houseCloudGroup.add(singleCloud);
     houseCloudGroup.position.set(0, 2, 0);
-    scene.add(houseCloudGroup);
+    
+    // 구름에서 비가 내리는 효과: cloudRainGroup은 houseCloudGroup의 자식으로 추가
+    let cloudRainGroup = new THREE.Group();
+    function initCloudRain() {
+      const cloudRainCount = 100;
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(cloudRainCount * 3);
+      for (let i = 0; i < cloudRainCount; i++) {
+        // raindrop 초기 위치는 구름 내부에서 임의의 위치
+        positions[i * 3] = (Math.random()-0.5) * 1.5;
+        positions[i * 3 + 1] = Math.random() * 0.2; // 0 ~ 0.2
+        positions[i * 3 + 2] = (Math.random()-0.5) * 1.5;
+      }
+      geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      const material = new THREE.PointsMaterial({ color: 0xaaaaee, size: 0.05, transparent: true, opacity: 0.8 });
+      const particles = new THREE.Points(geometry, material);
+      cloudRainGroup.add(particles);
+    }
+    initCloudRain();
+    cloudRainGroup.visible = false;
+    // cloudRainGroup를 구름 그룹의 자식으로 추가
+    houseCloudGroup.add(cloudRainGroup);
+    
     function updateHouseClouds() {
       const headWorldPos = new THREE.Vector3();
       head.getWorldPosition(headWorldPos);
@@ -988,6 +1013,20 @@
       
       updateWeatherEffects();
       updateHouseClouds();
+      
+      // 구름에서 내리는 비 효과 업데이트 (날씨가 비일 때)
+      if (cloudRainGroup.visible) {
+        const particles = cloudRainGroup.children[0];
+        let positions = particles.geometry.attributes.position.array;
+        for (let i = 0; i < positions.length; i += 3) {
+          positions[i+1] -= 0.02; // 낙하 속도
+          if (positions[i+1] < -0.3) { // 일정 높이 아래로 내려가면 다시 위로
+            positions[i+1] = Math.random() * 0.2;
+          }
+        }
+        particles.geometry.attributes.position.needsUpdate = true;
+      }
+      
       updateLightning();
       characterStreetlight.position.set(characterGroup.position.x + 1, -2, characterGroup.position.z);
       updateBubblePosition();
@@ -1099,13 +1138,16 @@
       if (!currentWeather) return;
       if (currentWeather.indexOf("비") !== -1 || currentWeather.indexOf("소나기") !== -1) {
         rainGroup.visible = true;
-        houseCloudGroup.visible = false;
+        houseCloudGroup.visible = true;
+        cloudRainGroup.visible = true;
       } else if (currentWeather.indexOf("구름") !== -1 || currentWeather.indexOf("흐림") !== -1) {
         rainGroup.visible = false;
         houseCloudGroup.visible = true;
+        cloudRainGroup.visible = false;
       } else {
         rainGroup.visible = false;
         houseCloudGroup.visible = false;
+        cloudRainGroup.visible = false;
       }
     }
     
