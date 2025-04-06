@@ -599,6 +599,27 @@
     }
     
     window.addEventListener("DOMContentLoaded", function() {
+      // 자동 완성을 위한 datalist 추가
+      const chatInput = document.getElementById("chat-input");
+      chatInput.setAttribute("list", "chat-keywords");
+      const autoCompleteList = document.createElement("datalist");
+      autoCompleteList.id = "chat-keywords";
+      const keywords = [
+        "안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네",
+        "잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께",
+        "유튜브 보여줘", "유튜브알려줘", "유트브", "유튜브랑", "유튜브나와줘",
+        "트위터 보여주게", "트위터 틔위터검색", "트위터보여", "트위터보여줘봐",
+        "네이버 보여줘", "네이버 보여주게", "네이버 검색",
+        "날씨 알려줘", "일정 알려줘", "시간 알려줘",
+        "지도 보여줘", "교통정보"
+      ];
+      keywords.forEach(kw => {
+        const option = document.createElement("option");
+        option.value = kw;
+        autoCompleteList.appendChild(option);
+      });
+      document.body.appendChild(autoCompleteList);
+      
       document.getElementById("chat-input").addEventListener("keydown", function(e) {
         if (e.key === "Enter") sendChat();
       });
