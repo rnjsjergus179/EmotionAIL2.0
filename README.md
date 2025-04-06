@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -43,6 +42,7 @@
       display: flex;
       margin-top: 10px;
     }
+    /* 채팅 입력창 */
     #chat-input {
       flex: 1;
       padding: 5px;
@@ -246,10 +246,24 @@
     }
   </style>
   
+  <!-- Three.js 라이브러리 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
   
   <script>
-    // 기본 설정 및 복사 방지
+    /* 전역 키워드 객체 – 자동완성 및 채팅 처리용 */
+    const KEYWORDS = {
+      greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
+      sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
+      youtube: ["유튜브", "유트브", "유튜브알려줘", "유튭", "유튜브랑", "유튜브나와줘"],
+      twitter: ["트위터", "트위터 보여주게", "트위터 틔위터검색", "트위터보여", "트위터보여줘봐"],
+      naver: ["네이버", "네이버 보여줘", "네이버 보여주게", "네이버 검색"],
+      weather: ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"],
+      calendar: ["일정 알려줘"],
+      time: ["시간 알려줘"],
+      map: ["지도 보여줘", "교통정보"]
+    };
+    
+    /* 전역 변수 */
     document.addEventListener("contextmenu", event => event.preventDefault());
     let blockUntil = 0;
     let currentCity = "서울";
@@ -292,6 +306,7 @@
       showSpeechBubbleInChunks("1시간동안 차단됩니다.");
     });
     
+    /* 캘린더, 파일 저장 관련 함수들 */
     function saveFile() {
       const content = "파일 저장 완료";
       const filename = "saved_file.txt";
@@ -370,19 +385,49 @@
       document.getElementById("map-iframe").src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
     }
     
-    // 날씨 API를 통해 현재 날씨 정보를 가져오는 함수 추가 (OpenWeatherMap API 사용)
+    /* 날씨 API 호출 – 지도와 동일하게 영어 도시명을 사용 */
     async function getWeather() {
       try {
-        const response = await fetch(
-          `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(currentCity)}&appid=${weatherKey}&lang=kr&units=metric`
-        );
-        const data = await response.json();
-        currentWeather = data.weather[0].description; // 날씨 설명 (예: 구름 많음, 비 등)
-        const message = `현재 ${currentCity}의 날씨는 ${data.weather[0].description}이고, 기온은 ${data.main.temp}°C 입니다.`;
+        const englishCity = regionMap[currentCity] || "Seoul";
+        const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(englishCity)}&appid=${weatherKey}&units=metric&lang=kr`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("날씨 API 호출 실패");
+        const data = await res.json();
+        currentWeather = data.weather[0].description;
+        const message = `오늘 ${currentCity}의 날씨는 ${data.weather[0].description}이고, 기온은 ${data.main.temp}°C입니다.`;
         return { message };
       } catch (error) {
         console.error(error);
+        currentWeather = "";
         return { message: "날씨 정보를 가져오는데 실패했습니다." };
+      }
+    }
+    
+    /* 날씨 효과 업데이트 – 비 효과와 구름 효과를 각각 독립적으로 표시 */
+    function updateWeatherEffects() {
+      if (!currentWeather) return;
+      // 비 효과: "비" 또는 "소나기"가 포함되면
+      if (currentWeather.includes("비") || currentWeather.includes("소나기")) {
+        rainGroup.visible = true;
+        cloudRainGroup.visible = true;
+      } else {
+        rainGroup.visible = false;
+        cloudRainGroup.visible = false;
+      }
+      // 구름 효과: "구름" 또는 "흐림"이 포함되면
+      if (currentWeather.includes("구름") || currentWeather.includes("흐림")) {
+        houseCloudGroup.visible = true;
+      } else {
+        houseCloudGroup.visible = false;
+      }
+    }
+    
+    function updateLightning() {
+      if (currentWeather.includes("번개") || currentWeather.includes("뇌우")) {
+        if (Math.random() < 0.001) {
+          lightningLight.intensity = 5;
+          setTimeout(() => { lightningLight.intensity = 0; }, 100);
+        }
       }
     }
     
@@ -411,36 +456,32 @@
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
       recognition.start();
-      
       recognition.onresult = function(event) {
         const transcript = event.results[0][0].transcript.trim();
         document.getElementById("chat-input").value = transcript;
       };
-      
       recognition.onerror = function(event) {
         console.error("음성 인식 오류:", event.error);
       };
     }
     
+    /* 채팅 처리 – KEYWORDS 객체를 이용해 중복 키워드를 통합 */
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
-      
       if (Date.now() < blockUntil) {
         showSpeechBubbleInChunks("1시간동안 차단됩니다.");
         inputEl.value = "";
         return;
       }
-      
       if (!input) return;
-      
       let response = "";
       const lowerInput = input.toLowerCase();
       
       // 지역 변경 처리
       if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
-        if(newCity) {
+        if (newCity) {
           if (regionList.includes(newCity)) {
             currentCity = newCity;
             document.getElementById("region-select").value = newCity;
@@ -461,77 +502,60 @@
         await updateWeatherAndEffects();
       }
       
-      // "유튜브" 관련 키워드 처리
-      const youtubeKeywords = ["유튜브", "유트브", "유튜브알려줘", "유튭", "유튜브랑", "유튜브나와줘"];
-      if (!response && youtubeKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
+      // 각 키워드 그룹별 처리 (KEYWORDS 사용)
+      if (!response && KEYWORDS.youtube.some(keyword => lowerInput.includes(keyword))) {
         response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
-        setTimeout(() => {
-          window.location.href = "https://www.youtube.com/";
-        }, 2000);
+        setTimeout(() => { window.location.href = "https://www.youtube.com/"; }, 2000);
         inputEl.value = "";
         return;
       }
-      
-      // "트위터" 관련 키워드 처리
-      const twitterKeywords = ["트위터", "트위터 보여주게", "트위터 틔위터검색", "트위터보여", "트위터보여줘봐"];
-      if (!response && twitterKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
+      if (!response && KEYWORDS.twitter.some(keyword => lowerInput.includes(keyword))) {
         response = "트위터(현재 X)를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
-        setTimeout(() => {
-          window.location.href = "https://x.com/login?lang=ko";
-        }, 2000);
+        setTimeout(() => { window.location.href = "https://x.com/login?lang=ko"; }, 2000);
         inputEl.value = "";
         return;
       }
-      
-      // "네이버" 관련 키워드 처리
-      const naverKeywords = ["네이버 보여줘", "네이버 보여주게", "네이버 검색", "네이버"];
-      if (!response && naverKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
+      if (!response && KEYWORDS.naver.some(keyword => lowerInput.includes(keyword))) {
         response = "네이버를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
-        setTimeout(() => {
-          window.location.href = "https://m.naver.com/";
-        }, 2000);
+        setTimeout(() => { window.location.href = "https://m.naver.com/"; }, 2000);
         inputEl.value = "";
         return;
       }
-      
-      // 인삿말 관련 키워드 처리
-      const greetingKeywords = ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"];
-      if (!response && greetingKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
+      if (!response && KEYWORDS.greetings.some(keyword => lowerInput.includes(keyword))) {
         response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
       }
-      
-      // "잘자" 관련 키워드 처리
-      const sleepKeywords = ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"];
-      if (!response && sleepKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
+      if (!response && KEYWORDS.sleep.some(keyword => lowerInput.includes(keyword))) {
         response = "편안한 밤 되세요, 좋은 꿈 꾸세요~";
       }
-      
-      // '알려줘' 관련 기능 (날씨, 일정, 시간)
-      if (!response) {
-        const weatherKeywords = ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"];
-        if (weatherKeywords.some(keyword => lowerInput.includes(keyword))) {
-          await updateWeatherAndEffects();
-          inputEl.value = "";
-          return;
+      if (!response && KEYWORDS.weather.some(keyword => lowerInput.includes(keyword))) {
+        await updateWeatherAndEffects();
+        inputEl.value = "";
+        return;
+      }
+      if (!response && lowerInput.includes("일정") && lowerInput.includes("알려줘")) {
+        const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
+        if (dateMatch) {
+          const dateStr = dateMatch[0];
+          response = getCalendarEvents(dateStr);
+        } else {
+          response = getCalendarEvents();
         }
-        if (lowerInput.includes("일정") && lowerInput.includes("알려줘")) {
-          const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
-          if (dateMatch) {
-            const dateStr = dateMatch[0];
-            response = getCalendarEvents(dateStr);
-          } else {
-            response = getCalendarEvents();
-          }
-        }
-        if (lowerInput.includes("시간") || lowerInput.includes("몇시") || lowerInput.includes("현재시간")) {
-          const now = new Date();
-          const hours = now.getHours();
-          const minutes = now.getMinutes();
-          response = `현재 시간은 ${hours}시 ${minutes}분입니다.`;
-        }
+      }
+      if (!response && KEYWORDS.time.some(keyword => lowerInput.includes(keyword))) {
+        const now = new Date();
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+        response = `현재 시간은 ${hours}시 ${minutes}분입니다.`;
+      }
+      if (!response && KEYWORDS.map.some(keyword => lowerInput.includes(keyword))) {
+        response = "지도를 보여드릴게요!";
+        showSpeechBubbleInChunks(response);
+        setTimeout(() => { window.location.href = "https://www.google.com/maps"; }, 2000);
+        inputEl.value = "";
+        return;
       }
       
       // 감정 및 일반 대화 응답 처리
@@ -616,22 +640,13 @@
     }
     
     window.addEventListener("DOMContentLoaded", function() {
-      // 자동 완성을 위한 datalist 추가
+      // 자동 완성용 datalist – KEYWORDS의 모든 값을 결합
       const chatInput = document.getElementById("chat-input");
       chatInput.setAttribute("list", "chat-keywords");
       const autoCompleteList = document.createElement("datalist");
       autoCompleteList.id = "chat-keywords";
-      const keywords = [
-        "안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네",
-        "잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께",
-        "유튜브 보여줘", "유튜브알려줘", "유트브", "유튜브랑", "유튜브나와줘",
-        "트위터 보여주게", "트위터 틔위터검색", "트위터보여", "트위터보여줘봐",
-        "네이버 보여줘", "네이버 보여주게", "네이버 검색",
-        "날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아",
-        "일정 알려줘", "시간 알려줘",
-        "지도 보여줘", "교통정보"
-      ];
-      keywords.forEach(kw => {
+      const allKeywords = Object.values(KEYWORDS).flat();
+      allKeywords.forEach(kw => {
         const option = document.createElement("option");
         option.value = kw;
         autoCompleteList.appendChild(option);
@@ -723,7 +738,7 @@
   <canvas id="canvas"></canvas>
   
   <script>
-    // Three.js Scene, 카메라, 렌더러 설정 및 애니메이션
+    /* Three.js Scene, 카메라, 렌더러 및 애니메이션 설정 */
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas"), alpha: true });
@@ -887,7 +902,6 @@
       const sphere3 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), cloudMat);
       sphere3.position.set(-0.6, 0.1, 0);
       cloud.add(sphere1, sphere2, sphere3);
-      // 구름을 크게 보이도록 스케일 2배 적용
       cloud.scale.set(2, 2, 2);
       cloud.userData.initialPos = cloud.position.clone();
       return cloud;
@@ -896,7 +910,6 @@
     houseCloudGroup.add(singleCloud);
     houseCloudGroup.position.set(0, 2, 0);
     
-    // 구름에서 비가 내리는 효과: cloudRainGroup은 houseCloudGroup의 자식으로 추가
     let cloudRainGroup = new THREE.Group();
     function initCloudRain() {
       const cloudRainCount = 100;
@@ -963,9 +976,11 @@
     
     function createTree() {
       const treeGroup = new THREE.Group();
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2, 16), new THREE.MeshStandardMaterial({ color: 0x8B4513 }));
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2, 16),
+                                     new THREE.MeshStandardMaterial({ color: 0x8B4513 }));
       trunk.position.y = -1;
-      const foliage = new THREE.Mesh(new THREE.ConeGeometry(1, 3, 16), new THREE.MeshStandardMaterial({ color: 0x228B22 }));
+      const foliage = new THREE.Mesh(new THREE.ConeGeometry(1, 3, 16),
+                                       new THREE.MeshStandardMaterial({ color: 0x228B22 }));
       foliage.position.y = 0.5;
       treeGroup.add(trunk, foliage);
       return treeGroup;
@@ -1026,6 +1041,9 @@
       
       updateWeatherEffects();
       updateHouseClouds();
+      updateLightning();
+      characterStreetlight.position.set(characterGroup.position.x + 1, -2, characterGroup.position.z);
+      updateBubblePosition();
       
       if (cloudRainGroup.visible) {
         const particles = cloudRainGroup.children[0];
@@ -1038,10 +1056,6 @@
         }
         particles.geometry.attributes.position.needsUpdate = true;
       }
-      
-      updateLightning();
-      characterStreetlight.position.set(characterGroup.position.x + 1, -2, characterGroup.position.z);
-      updateBubblePosition();
       
       renderer.render(scene, camera);
     }
@@ -1068,7 +1082,6 @@
         currentYear = parseInt(e.target.value);
         renderCalendar(currentYear, currentMonth);
       });
-      
       document.getElementById("delete-day-event").addEventListener("click", () => {
         const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
         if(dayStr) {
@@ -1080,7 +1093,6 @@
           }
         }
       });
-      
       document.getElementById("save-calendar").addEventListener("click", () => {
         saveCalendar();
       });
@@ -1144,32 +1156,6 @@
       const screenPos = headWorldPos.project(camera);
       bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
       bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
-    }
-    
-    function updateWeatherEffects() {
-      if (!currentWeather) return;
-      if (currentWeather.indexOf("비") !== -1 || currentWeather.indexOf("소나기") !== -1) {
-        rainGroup.visible = true;
-        houseCloudGroup.visible = true;
-        cloudRainGroup.visible = true;
-      } else if (currentWeather.indexOf("구름") !== -1 || currentWeather.indexOf("흐림") !== -1) {
-        rainGroup.visible = false;
-        houseCloudGroup.visible = true;
-        cloudRainGroup.visible = false;
-      } else {
-        rainGroup.visible = false;
-        houseCloudGroup.visible = false;
-        cloudRainGroup.visible = false;
-      }
-    }
-    
-    function updateLightning() {
-      if (currentWeather.indexOf("번개") !== -1 || currentWeather.indexOf("뇌우") !== -1) {
-        if (Math.random() < 0.001) {
-          lightningLight.intensity = 5;
-          setTimeout(() => { lightningLight.intensity = 0; }, 100);
-        }
-      }
     }
   </script>
 </body>
