@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -245,18 +243,6 @@
       overflow: hidden;
     }
     
-    /* 버전 선택 메뉴 */
-    #version-select {
-      position: fixed;
-      bottom: 40px; /* HUD-7 위로 조정 */
-      left: 10px;
-      z-index: 50;
-    }
-    #version-select select {
-      padding: 5px;
-      font-size: 12px;
-    }
-    
     @media (max-width: 480px) {
       #right-hud, #left-hud, #hud-3, #hud-6 { width: 90%; left: 5%; right: 5%; top: 5%; }
     }
@@ -277,7 +263,8 @@
       calendar: ["일정 알려줘"],
       time: ["시간 알려줘"],
       map: ["지도 보여줘", "교통정보"],
-      delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
+      delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"],
+      instagram: ["인스타", "인스타 보여줘", "인스타 나오게", "인스타 검색", "인스타그램"]
     };
     
     /* 전역 변수 */
@@ -596,6 +583,13 @@
         inputEl.value = "";
         return;
       }
+      if (!response && KEYWORDS.instagram.some(keyword => lowerInput.includes(keyword))) {
+        response = "인스타그램을 보여드릴게요! 잠시만 기다려 주세요.";
+        showSpeechBubbleInChunks(response);
+        setTimeout(() => { window.location.href = "https://www.instagram.com/"; }, 2000);
+        inputEl.value = "";
+        return;
+      }
       
       if (!response) {
         if (lowerInput.includes("기분") || lowerInput.includes("슬프") || lowerInput.includes("우울") ||
@@ -681,14 +675,6 @@
       updateMap();
       await updateWeatherAndEffects();
     });
-    
-    function changeVersion(version) {
-      if (version === "1.3") {
-        window.location.href = "https://aipersonalassistant.neocities.org/";
-      } else if (version === "latest") {
-        window.location.reload();
-      }
-    }
   </script>
 </head>
 <body>
@@ -729,13 +715,6 @@
   </div>
   
   <div id="speech-bubble"></div>
-  
-  <div id="version-select">
-    <select onchange="changeVersion(this.value)">
-      <option value="latest">최신 버전 (1.7)</option>
-      <option value="1.3">구버전 1.3</option>
-    </select>
-  </div>
   
   <div id="hud-7">버전 2.0 베타</div>
   
@@ -1016,7 +995,7 @@
         headWorldPos.x + Math.cos(moonAngle) * radius,
         headWorldPos.y + Math.sin(moonAngle) * radius,
         headWorldPos.z
-      );
+     kay);
       moon.position.copy(moonPos);
       
       const t = now.getHours() + now.getMinutes() / 60;
