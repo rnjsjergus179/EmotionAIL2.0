@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -230,16 +229,16 @@
       overflow: hidden;
     }
     
-    /* 버전 선택 드롭다운(버전 1.7)은 제거됨.
-       대신 캘린더 영역 하단에 새로운 HUD-7 바로 "2.0 베타버전" 텍스트를 표시합니다. */
-    #hud-7 {
-      margin-top: 10px;
-      padding: 10px;
-      background: #00ffcc;
-      color: #000;
-      border-radius: 10px;
-      text-align: center;
-      font-weight: bold;
+    /* 버전 선택 메뉴 */
+    #version-select {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      z-index: 50;
+    }
+    #version-select select {
+      padding: 5px;
+      font-size: 12px;
     }
     
     @media (max-width: 480px) {
@@ -321,6 +320,7 @@
       document.body.removeChild(link);
     }
     
+    /* saveCalendar() 함수 – 파일 다운로드 기능 포함 */
     function saveCalendar() {
       const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
       const calendarData = {};
@@ -330,7 +330,6 @@
           calendarData[`${currentYear}-${currentMonth+1}-${d}`] = eventDiv.textContent;
         }
       }
-      localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(calendarData, null, 2));
       const dlAnchorElem = document.createElement("a");
       dlAnchorElem.setAttribute("href", dataStr);
@@ -437,12 +436,11 @@
       const weatherData = await getWeather();
       if (sendMessage) {
         showSpeechBubbleInChunks(weatherData.message);
-        speakCharacter(weatherData.message);
       }
       updateWeatherEffects();
     }
     
-    /* 지역 변경 함수 – 드롭다운은 그대로 있으나 버전 텍스트는 아래 캘린더에 추가됨 */
+    /* 지역 변경 함수 – 드롭다운은 그대로 있으나 말풍선에 한국어와 영어 함께 출력 */
     function changeRegion(value) {
       currentCity = value;
       updateMap();
@@ -470,15 +468,6 @@
       };
     }
     
-    /* 무료 음성 API – SpeechSynthesis를 사용하여 캐릭터가 말하도록 구현 */
-    function speakCharacter(text) {
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'ko-KR';
-        window.speechSynthesis.speak(utterance);
-      }
-    }
-    
     /* 채팅 처리 함수 – KEYWORDS 객체를 활용하여 명령어 분기 처리 */
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
@@ -492,6 +481,13 @@
       let response = "";
       const lowerInput = input.toLowerCase();
       
+      // 파일 저장/캘린더 저장 명령어 처리 – 파일 다운로드 실행
+      if(lowerInput.includes("파일 저장해줘") || lowerInput.includes("캘린더 저장해줘")) {
+        saveCalendar();
+        inputEl.value = "";
+        return;
+      }
+      
       // 지역 변경 처리 – 채팅창에 "지역 ..." 명령어 입력 시
       if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
@@ -503,7 +499,7 @@
             updateMap();
             await updateWeatherAndEffects();
           } else {
-            response = "죄송해요, 그 지역은 지원하지 않아요.";
+            response = "죄송해요, 그 지역은 지원하지 않아요. 드롭다운 메뉴에서 선택해주세요.";
           }
         } else {
           response = "변경할 지역을 입력해 주세요.";
@@ -516,7 +512,7 @@
         await updateWeatherAndEffects();
       }
       
-      // 하루 일정 삭제 관련 (예: "하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관")
+      // 하루 일정 삭제 관련
       if (!response && KEYWORDS.delete.some(keyword => lowerInput.includes(keyword))) {
         const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
         if(dayStr) {
@@ -531,7 +527,6 @@
       if (!response && KEYWORDS.youtube.some(keyword => lowerInput.includes(keyword))) {
         response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
-        speakCharacter(response);
         setTimeout(() => { window.location.href = "https://www.youtube.com/"; }, 2000);
         inputEl.value = "";
         return;
@@ -539,7 +534,6 @@
       if (!response && KEYWORDS.twitter.some(keyword => lowerInput.includes(keyword))) {
         response = "트위터(현재 X)를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
-        speakCharacter(response);
         setTimeout(() => { window.location.href = "https://x.com/login?lang=ko"; }, 2000);
         inputEl.value = "";
         return;
@@ -547,7 +541,6 @@
       if (!response && KEYWORDS.naver.some(keyword => lowerInput.includes(keyword))) {
         response = "네이버를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
-        speakCharacter(response);
         setTimeout(() => { window.location.href = "https://m.naver.com/"; }, 2000);
         inputEl.value = "";
         return;
@@ -581,7 +574,6 @@
       if (!response && KEYWORDS.map.some(keyword => lowerInput.includes(keyword))) {
         response = "지도를 보여드릴게요!";
         showSpeechBubbleInChunks(response);
-        speakCharacter(response);
         setTimeout(() => { window.location.href = "https://www.google.com/maps"; }, 2000);
         inputEl.value = "";
         return;
@@ -610,7 +602,6 @@
       }
       
       showSpeechBubbleInChunks(response);
-      speakCharacter(response);
       inputEl.value = "";
     }
     
@@ -718,14 +709,17 @@
         <button id="save-calendar">바탕화면 저장</button>
       </div>
       <div id="calendar-grid"></div>
-      <!-- 추가: 버전 텍스트 2.0 베타버전을 표시하는 HUD-7 바 -->
-      <div id="hud-7">2.0 베타버전</div>
     </div>
   </div>
   
   <div id="speech-bubble"></div>
   
-  <!-- 버전 선택 드롭다운(버전 1.7)은 제거됨 -->
+  <div id="version-select">
+    <select onchange="changeVersion(this.value)">
+      <option value="latest">최신 버전 (1.7)</option>
+      <option value="1.3">구버전 1.3</option>
+    </select>
+  </div>
   
   <canvas id="canvas"></canvas>
   
