@@ -995,7 +995,7 @@
         headWorldPos.x + Math.cos(moonAngle) * radius,
         headWorldPos.y + Math.sin(moonAngle) * radius,
         headWorldPos.z
-     kay);
+      );
       moon.position.copy(moonPos);
       
       const t = now.getHours() + now.getMinutes() / 60;
