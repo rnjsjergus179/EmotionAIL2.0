@@ -229,16 +229,28 @@
       overflow: hidden;
     }
     
-    /* 버전 선택 메뉴 */
+    /* 버전 선택 메뉴 대신 동그란 로고 업로드 버튼 추가 */
     #version-select {
       position: fixed;
       bottom: 10px;
       left: 10px;
       z-index: 50;
     }
-    #version-select select {
-      padding: 5px;
-      font-size: 12px;
+    #logo-upload-btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: none;
+      background: #00ffcc;
+      color: #000;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    #logo-upload-btn:hover {
+      background: #00cc99;
+    }
+    #version-select input[type="file"] {
+      display: none;
     }
     
     @media (max-width: 480px) {
@@ -440,6 +452,7 @@
       updateWeatherEffects();
     }
     
+    /* 지역 변경 함수 – 채팅 입력에서 "지역 ..." 명령어 입력 시 호출 */
     function changeRegion(value) {
       currentCity = value;
       updateMap();
@@ -479,31 +492,22 @@
       let response = "";
       const lowerInput = input.toLowerCase();
       
-      // 지역 변경 처리
+      // 지역 변경 처리 – "지역 서울" 등
       if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
         if (newCity) {
           if (regionList.includes(newCity)) {
-            currentCity = newCity;
-            document.getElementById("region-select").value = newCity;
-            response = `좋아요, 지역을 ${newCity}(으)로 변경할게요!`;
-            updateMap();
-            await updateWeatherAndEffects();
+            changeRegion(newCity);
+            return;
           } else {
-            response = "죄송해요, 그 지역은 지원하지 않아요. 드롭다운 메뉴에서 선택해주세요.";
+            response = "죄송해요, 그 지역은 지원하지 않아요.";
           }
         } else {
           response = "변경할 지역을 입력해 주세요.";
         }
-      } else if (regionList.includes(input)) {
-        currentCity = input;
-        document.getElementById("region-select").value = input;
-        response = `좋아요, 지역을 ${input}(으)로 변경할게요!`;
-        updateMap();
-        await updateWeatherAndEffects();
       }
       
-      // 하루 일정 삭제 관련 (예: "하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관")
+      // 하루 일정 삭제 처리
       if (!response && KEYWORDS.delete.some(keyword => lowerInput.includes(keyword))) {
         const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
         if(dayStr) {
@@ -575,47 +579,12 @@
         if (lowerInput.includes("기분") || lowerInput.includes("슬프") || lowerInput.includes("우울") ||
             lowerInput.includes("짜증") || lowerInput.includes("화난") || lowerInput.includes("분노") ||
             lowerInput.includes("놀람") || lowerInput.includes("피곤")) {
-          const sadResponses = [
+          const responses = [
             "정말 마음이 아프시네요. 제가 도와드릴 수 있다면 좋겠어요.",
             "그런 날도 있죠. 힘내시고 천천히 쉬어가세요.",
-            "마음이 많이 힘들어 보이네요. 꼭 회복되시길 바랄게요."
+            "오늘 정말 즐거워 보이세요! 기분 좋은 일이 가득하길 바랍니다."
           ];
-          const happyResponses = [
-            "오늘 정말 즐거워 보이세요! 기분 좋은 일이 가득하길 바랍니다.",
-            "당신의 미소가 전해지네요. 행복한 하루 보내세요!",
-            "기쁨이 넘치는 하루, 함께 기뻐요!"
-          ];
-          const angryResponses = [
-            "화가 치밀어 오시네요. 잠시 심호흡을 해보세요.",
-            "분노를 조금 내려놓고, 잠깐의 휴식 어떠세요?",
-            "감정이 많이 격해지신 것 같아요. 차분해지시길 바랄게요."
-          ];
-          const surprisedResponses = [
-            "오, 놀라운 소식이네요! 자세히 말씀해 주세요.",
-            "정말 놀라워요! 당신의 이야기에 귀 기울이고 있어요."
-          ];
-          const tiredResponses = [
-            "피곤해 보이시네요. 푹 쉬시고 내일 더 힘내세요.",
-            "오늘 하루 수고 많으셨어요. 편안한 밤 되세요."
-          ];
-          if (lowerInput.includes("슬프") || lowerInput.includes("우울")) {
-            response = sadResponses[Math.floor(Math.random() * sadResponses.length)];
-          } else if (lowerInput.includes("기쁘") || lowerInput.includes("행복")) {
-            response = happyResponses[Math.floor(Math.random() * happyResponses.length)];
-          } else if (lowerInput.includes("화난") || lowerInput.includes("분노") || lowerInput.includes("짜증")) {
-            response = angryResponses[Math.floor(Math.random() * angryResponses.length)];
-          } else if (lowerInput.includes("놀람")) {
-            response = surprisedResponses[Math.floor(Math.random() * surprisedResponses.length)];
-          } else if (lowerInput.includes("피곤")) {
-            response = tiredResponses[Math.floor(Math.random() * tiredResponses.length)];
-          } else {
-            const neutralResponses = [
-              "그렇군요, 좀 더 자세히 말씀해 주실 수 있을까요?",
-              "알겠습니다. 추가로 궁금한 점이 있으신가요?",
-              "흥미로운 이야기네요. 더 이야기해 주세요!"
-            ];
-            response = neutralResponses[Math.floor(Math.random() * neutralResponses.length)];
-          }
+          response = responses[Math.floor(Math.random() * responses.length)];
         } else {
           const generalResponses = [
             "정말 흥미로운 이야기네요. 더 들려주세요!",
@@ -698,6 +667,24 @@
         window.location.reload();
       }
     }
+    
+    /* 추가: 버전 선택 대신 로고 파일 업로드를 위한 동그란 버튼 기능 */
+    document.addEventListener("DOMContentLoaded", function(){
+      document.getElementById("logo-upload-btn").addEventListener("click", function(){
+        document.getElementById("logo-upload").click();
+      });
+      
+      document.getElementById("logo-upload").addEventListener("change", function(e){
+        const file = e.target.files[0];
+        if(file){
+          const reader = new FileReader();
+          reader.onload = function(event){
+            document.getElementById("logo-upload-btn").innerHTML = `<img src="${event.target.result}" style="width:100%; height:100%; border-radius:50%;">`;
+          }
+          reader.readAsDataURL(file);
+        }
+      });
+    });
   </script>
 </head>
 <body>
@@ -740,11 +727,10 @@
   
   <div id="speech-bubble"></div>
   
+  <!-- 버전 선택 대신 로고 업로드 버튼 (동그란 구형태 버튼) -->
   <div id="version-select">
-    <select onchange="changeVersion(this.value)">
-      <option value="latest">최신 버전 (1.7)</option>
-      <option value="1.3">구버전 1.3</option>
-    </select>
+    <button id="logo-upload-btn">버전</button>
+    <input type="file" id="logo-upload" accept="image/*">
   </div>
   
   <canvas id="canvas"></canvas>
@@ -1168,6 +1154,14 @@
       const screenPos = headWorldPos.project(camera);
       bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
       bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
+    }
+    
+    function changeVersion(version) {
+      if (version === "1.3") {
+        window.location.href = "https://aipersonalassistant.neocities.org/";
+      } else if (version === "latest") {
+        window.location.reload();
+      }
     }
   </script>
 </body>
