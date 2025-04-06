@@ -868,6 +868,8 @@
       const sphere3 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), cloudMat);
       sphere3.position.set(-0.6, 0.1, 0);
       cloud.add(sphere1, sphere2, sphere3);
+      // 구름을 현실처럼 크게 보이도록 스케일 2배 적용
+      cloud.scale.set(2, 2, 2);
       cloud.userData.initialPos = cloud.position.clone();
       return cloud;
     }
@@ -879,7 +881,8 @@
       const headWorldPos = new THREE.Vector3();
       head.getWorldPosition(headWorldPos);
       houseCloudGroup.position.x = headWorldPos.x + Math.sin(Date.now() * 0.001) * 1;
-      houseCloudGroup.position.y = headWorldPos.y + 1;
+      // 캐릭터 머리 위로 구름이 더 높게 떠 있도록 y 좌표 조정
+      houseCloudGroup.position.y = headWorldPos.y + 2.5;
       houseCloudGroup.position.z = headWorldPos.z;
     }
     
