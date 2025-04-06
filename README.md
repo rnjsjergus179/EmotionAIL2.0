@@ -9,6 +9,7 @@
     /* 기본 스타일 */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidden; }
+    
     /* 오른쪽 채팅창 HUD */
     #right-hud {
       position: fixed;
@@ -46,6 +47,7 @@
       padding: 5px;
       font-size: 14px;
     }
+    
     /* HUD-6: 음성 입력 영역 */
     #hud-6 {
       position: fixed;
@@ -72,6 +74,7 @@
     #hud-6 button:hover {
       background: #00cc99;
     }
+    
     /* 왼쪽 캘린더 HUD */
     #left-hud {
       position: fixed;
@@ -88,21 +91,105 @@
       overflow-y: auto;
       color: #00ffcc;
     }
-    #left-hud h3 { margin-bottom: 5px; text-shadow: 0 0 5px #00ffcc; }
+    #left-hud h3 { 
+      margin-bottom: 5px; 
+      text-shadow: 0 0 5px #00ffcc;
+    }
     #calendar-container { margin-top: 10px; }
-    #calendar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
-    #calendar-header button { padding: 2px 6px; font-size: 12px; cursor: pointer; background: #00ffcc; color: #000; border: none; border-radius: 3px; box-shadow: 0 0 5px #00ffcc; transition: all 0.3s; }
-    #calendar-header button:hover { background: #00cc99; box-shadow: 0 0 10px #00ffcc; }
-    #month-year-label { font-weight: bold; font-size: 14px; text-shadow: 0 0 5px #00ffcc; }
-    #year-select { font-size: 12px; padding: 2px; margin-left: 5px; background: #333; color: #00ffcc; border: 1px solid #00ffcc; border-radius: 3px; }
-    #calendar-actions { margin-top: 5px; text-align: center; }
-    #calendar-actions button { margin: 2px; padding: 5px 8px; font-size: 12px; cursor: pointer; background: #00ffcc; color: #000; border: none; border-radius: 3px; box-shadow: 0 0 5px #00ffcc; transition: all 0.3s; }
-    #calendar-actions button:hover { background: #00cc99; box-shadow: 0 0 10px #00ffcc; }
-    #calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-    #calendar-grid div { background: rgba(255,255,255,0.1); border: 1px solid #00ffcc; border-radius: 4px; min-height: 25px; font-size: 10px; padding: 2px; position: relative; cursor: pointer; transition: all 0.3s; }
-    #calendar-grid div:hover { background: rgba(0,255,204,0.3); box-shadow: 0 0 5px #00ffcc; }
-    .day-number { position: absolute; top: 2px; left: 2px; font-weight: bold; font-size: 10px; color: #00ffcc; text-shadow: 0 0 3px #00ffcc; }
-    .event { margin-top: 14px; font-size: 8px; color: #00ffcc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 0 3px #00ffcc; }
+    #calendar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+    #calendar-header button { 
+      padding: 2px 6px; 
+      font-size: 12px; 
+      cursor: pointer; 
+      background: #00ffcc; 
+      color: #000; 
+      border: none; 
+      border-radius: 3px; 
+      box-shadow: 0 0 5px #00ffcc; 
+      transition: all 0.3s; 
+    }
+    #calendar-header button:hover { 
+      background: #00cc99; 
+      box-shadow: 0 0 10px #00ffcc; 
+    }
+    #month-year-label { 
+      font-weight: bold; 
+      font-size: 14px; 
+      text-shadow: 0 0 5px #00ffcc;
+    }
+    #year-select { 
+      font-size: 12px; 
+      padding: 2px; 
+      margin-left: 5px; 
+      background: #333; 
+      color: #00ffcc; 
+      border: 1px solid #00ffcc; 
+      border-radius: 3px; 
+    }
+    #calendar-actions {
+      margin-top: 5px;
+      text-align: center;
+    }
+    #calendar-actions button {
+      margin: 2px;
+      padding: 5px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      background: #00ffcc;
+      color: #000;
+      border: none;
+      border-radius: 3px;
+      box-shadow: 0 0 5px #00ffcc;
+      transition: all 0.3s;
+    }
+    #calendar-actions button:hover {
+      background: #00cc99;
+      box-shadow: 0 0 10px #00ffcc;
+    }
+    #calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+    #calendar-grid div {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid #00ffcc;
+      border-radius: 4px;
+      min-height: 25px;
+      font-size: 10px;
+      padding: 2px;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    #calendar-grid div:hover { 
+      background: rgba(0,255,204,0.3);
+      box-shadow: 0 0 5px #00ffcc;
+    }
+    .day-number {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      font-weight: bold;
+      font-size: 10px;
+      color: #00ffcc;
+      text-shadow: 0 0 3px #00ffcc;
+    }
+    .event {
+      margin-top: 14px;
+      font-size: 8px;
+      color: #00ffcc;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-shadow: 0 0 3px #00ffcc;
+    }
+    
     /* HUD-7: 버전 정보 바 */
     #hud-7 {
       position: fixed;
@@ -118,6 +205,7 @@
       z-index: 50;
       box-shadow: 0 -2px 5px rgba(0,255,204,0.3);
     }
+    
     /* 메인 캔버스와 말풍선 */
     #canvas {
       position: fixed;
@@ -140,6 +228,7 @@
       pointer-events: none;
       box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
+    
     /* 지도 또는 유튜브 영역 */
     #hud-3 {
       position: fixed;
@@ -154,6 +243,7 @@
       z-index: 20;
       overflow: hidden;
     }
+    
     @media (max-width: 480px) {
       #right-hud, #left-hud, #hud-3, #hud-6 { width: 90%; left: 5%; right: 5%; top: 5%; }
     }
