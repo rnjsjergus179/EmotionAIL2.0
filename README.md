@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -20,10 +21,31 @@
       box-shadow: 0 4px 8px rgba(0,0,0,0.2);
       z-index: 20;
     }
-    #region-select { width: 100%; padding: 5px; font-size: 14px; margin-bottom: 10px; }
-    #chat-log { display: none; height: 100px; overflow-y: scroll; border: 1px solid #ccc; padding: 5px; margin-top: 10px; border-radius: 3px; background: #fff; }
-    #chat-input-area { display: flex; margin-top: 10px; }
-    #chat-input { flex: 1; padding: 5px; font-size: 14px; }
+    #region-select {
+      width: 100%;
+      padding: 5px;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    #chat-log {
+      display: none;
+      height: 100px;
+      overflow-y: scroll;
+      border: 1px solid #ccc;
+      padding: 5px;
+      margin-top: 10px;
+      border-radius: 3px;
+      background: #fff;
+    }
+    #chat-input-area {
+      display: flex;
+      margin-top: 10px;
+    }
+    #chat-input {
+      flex: 1;
+      padding: 5px;
+      font-size: 14px;
+    }
     /* HUD-6: 음성 입력 영역 */
     #hud-6 {
       position: fixed;
@@ -37,8 +59,19 @@
       z-index: 25;
       text-align: center;
     }
-    #hud-6 button { padding: 8px 12px; font-size: 14px; border: none; border-radius: 4px; background: #00ffcc; color: #000; cursor: pointer; transition: background 0.3s; }
-    #hud-6 button:hover { background: #00cc99; }
+    #hud-6 button {
+      padding: 8px 12px;
+      font-size: 14px;
+      border: none;
+      border-radius: 4px;
+      background: #00ffcc;
+      color: #000;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    #hud-6 button:hover {
+      background: #00cc99;
+    }
     /* 왼쪽 캘린더 HUD */
     #left-hud {
       position: fixed;
@@ -348,7 +381,7 @@
       recognition.onresult = function(event) {
         const transcript = event.results[0][0].transcript.trim();
         document.getElementById("chat-input").value = transcript;
-        sendChat(); // 음성 입력 후 바로 처리
+        sendChat();
       };
       recognition.onerror = function(event) {
         console.error("음성 인식 오류:", event.error);
