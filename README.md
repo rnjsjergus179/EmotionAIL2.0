@@ -27,7 +27,7 @@
       font-size: 14px;
       margin-bottom: 10px;
     }
-    /* 채팅 로그 (필요시 보이도록 설정) */
+    /* 채팅 로그 */
     #chat-log {
       display: none;
       height: 100px;
@@ -214,7 +214,7 @@
       box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
     
-    /* 지도 또는 유튜브가 표시되는 영역 */
+    /* 지도 또는 유튜브 영역 */
     #hud-3 {
       position: fixed;
       top: 70%;
@@ -250,7 +250,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
   
   <script>
-    /* 전역 키워드 객체 – 자동완성 및 채팅 처리용 */
+    /* 전역 키워드 객체 – 자동완성과 채팅 처리용 */
     const KEYWORDS = {
       greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
       sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
@@ -260,7 +260,8 @@
       weather: ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"],
       calendar: ["일정 알려줘"],
       time: ["시간 알려줘"],
-      map: ["지도 보여줘", "교통정보"]
+      map: ["지도 보여줘", "교통정보"],
+      delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
     };
     
     /* 전역 변수 */
@@ -385,7 +386,7 @@
       document.getElementById("map-iframe").src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
     }
     
-    /* 날씨 API 호출 – 지도와 동일하게 영어 도시명을 사용 */
+    /* 날씨 API 호출 – 영어 도시명 사용 */
     async function getWeather() {
       try {
         const englishCity = regionMap[currentCity] || "Seoul";
@@ -403,7 +404,7 @@
       }
     }
     
-    /* 날씨 효과 업데이트 – 비 효과와 구름 효과를 각각 독립적으로 표시 */
+    /* 날씨 효과 업데이트 – 비 효과와 구름 효과 각각 표시 */
     function updateWeatherEffects() {
       if (!currentWeather) return;
       // 비 효과: "비" 또는 "소나기"가 포함되면
@@ -465,7 +466,7 @@
       };
     }
     
-    /* 채팅 처리 – KEYWORDS 객체를 이용해 중복 키워드를 통합 */
+    /* 채팅 처리 함수 – KEYWORDS 객체를 활용하여 명령어 분기 처리 */
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -502,7 +503,18 @@
         await updateWeatherAndEffects();
       }
       
-      // 각 키워드 그룹별 처리 (KEYWORDS 사용)
+      // 하루 일정 삭제 관련 (예: "하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관")
+      if (!response && KEYWORDS.delete.some(keyword => lowerInput.includes(keyword))) {
+        const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
+        if(dayStr) {
+          const dayNum = parseInt(dayStr);
+          response = deleteCalendarEvent(dayNum);
+        } else {
+          response = "삭제할 날짜를 입력하지 않으셨습니다.";
+        }
+      }
+      
+      // 각 키워드 그룹별 처리
       if (!response && KEYWORDS.youtube.some(keyword => lowerInput.includes(keyword))) {
         response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
@@ -558,7 +570,7 @@
         return;
       }
       
-      // 감정 및 일반 대화 응답 처리
+      // 감정 및 일반 응답 처리
       if (!response) {
         if (lowerInput.includes("기분") || lowerInput.includes("슬프") || lowerInput.includes("우울") ||
             lowerInput.includes("짜증") || lowerInput.includes("화난") || lowerInput.includes("분노") ||
@@ -640,7 +652,7 @@
     }
     
     window.addEventListener("DOMContentLoaded", function() {
-      // 자동 완성용 datalist – KEYWORDS의 모든 값을 결합
+      // 자동 완성을 위한 datalist – KEYWORDS의 모든 값을 결합
       const chatInput = document.getElementById("chat-input");
       chatInput.setAttribute("list", "chat-keywords");
       const autoCompleteList = document.createElement("datalist");
