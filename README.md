@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -119,7 +120,7 @@
     #month-year-label { 
       font-weight: bold; 
       font-size: 14px; 
-      text-shadow: 0 0 5px #00ffcc; 
+      text-shadow: 0 0 5px #00ffcc;
     }
     #year-select { 
       font-size: 12px; 
@@ -277,20 +278,8 @@
     // 기본 설정 및 복사 방지
     document.addEventListener("contextmenu", event => event.preventDefault());
     let blockUntil = 0;
-    let danceInterval;
     let currentCity = "서울";
     let currentWeather = "";
-    
-    document.addEventListener("copy", function(e) {
-      e.preventDefault();
-      let selectedText = window.getSelection().toString();
-      selectedText = selectedText.replace(/2caa7fa4a66f2f8d150f1da93d306261/g, "HIDDEN");
-      e.clipboardData.setData("text/plain", selectedText);
-      if (Date.now() < blockUntil) return;
-      blockUntil = Date.now() + 3600000;
-      showSpeechBubbleInChunks("1시간동안 차단됩니다.");
-    });
-    
     const weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
     const regionMap = {
       "서울": "Seoul",
@@ -318,6 +307,16 @@
       "김해": "Gimhae"
     };
     const regionList = Object.keys(regionMap);
+    
+    document.addEventListener("copy", function(e) {
+      e.preventDefault();
+      let selectedText = window.getSelection().toString();
+      selectedText = selectedText.replace(/2caa7fa4a66f2f8d150f1da93d306261/g, "HIDDEN");
+      e.clipboardData.setData("text/plain", selectedText);
+      if (Date.now() < blockUntil) return;
+      blockUntil = Date.now() + 3600000;
+      showSpeechBubbleInChunks("1시간동안 차단됩니다.");
+    });
     
     function saveFile() {
       const content = "파일 저장 완료";
@@ -412,7 +411,6 @@
       showSpeechBubbleInChunks(`지역이 ${value}(으)로 변경되었습니다.`);
     }
     
-    // 수동 음성 인식 기능 (HUD‑6 버튼을 통한 실행)
     function startSpeechRecognition() {
       if (!('webkitSpeechRecognition' in window)) {
         alert("이 브라우저는 음성 인식을 지원하지 않습니다.");
@@ -434,43 +432,6 @@
       };
     }
     
-    window.addEventListener("DOMContentLoaded", function() {
-      document.getElementById("chat-input").addEventListener("keydown", function(e) {
-        if (e.key === "Enter") sendChat();
-      });
-      
-      const regionSelect = document.getElementById("region-select");
-      regionList.forEach(region => {
-        const option = document.createElement("option");
-        option.value = region;
-        option.textContent = `${region} (${regionMap[region]})`;
-        if (region === currentCity) option.selected = true;
-        regionSelect.appendChild(option);
-      });
-    });
-    
-    window.addEventListener("resize", function(){
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-    
-    window.addEventListener("load", async () => {
-      initCalendar();
-      showTutorial();
-      updateMap();
-      await updateWeatherAndEffects();
-    });
-    
-    function changeVersion(version) {
-      if (version === "1.3") {
-        window.location.href = "https://aipersonalassistant.neocities.org/";
-      } else if (version === "latest") {
-        window.location.reload();
-      }
-    }
-    
-    // 업그레이드된 캐릭터 대화 처리 함수 (감정, 인삿말, '잘자', '알려줘', 유튜브, 트위터, 네이버 등)
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -510,7 +471,7 @@
         await updateWeatherAndEffects();
       }
       
-      // "유튜브" 관련 키워드 처리 – 페이지 전체를 유튜브로 리디렉션
+      // "유튜브" 관련 키워드 처리
       const youtubeKeywords = ["유튜브", "유트브", "유튜브알려줘", "유튭", "유튜브랑", "유튜브나와줘"];
       if (!response && youtubeKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
         response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
@@ -522,7 +483,7 @@
         return;
       }
       
-      // "트위터" 관련 키워드 처리 – 페이지 전체를 트위터(현재 X) 로그인 페이지로 리디렉션
+      // "트위터" 관련 키워드 처리
       const twitterKeywords = ["트위터", "트위터 보여주게", "트위터 틔위터검색", "트위터보여", "트위터보여줘봐"];
       if (!response && twitterKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
         response = "트위터(현재 X)를 보여드릴게요! 잠시만 기다려 주세요.";
@@ -534,8 +495,8 @@
         return;
       }
       
-      // "네이버" 관련 키워드 처리 – 페이지 전체를 네이버 모바일로 리디렉션
-      const naverKeywords = ["네이버 보여줘", "네이버"];
+      // "네이버" 관련 키워드 처리
+      const naverKeywords = ["네이버 보여줘", "네이버 보여주게", "네이버 검색", "네이버"];
       if (!response && naverKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
         response = "네이버를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
@@ -583,7 +544,7 @@
         }
       }
       
-      // 감정 표현 및 일반 대화 응답 (다양한 상황에 따른 풍부한 응답)
+      // 감정 및 일반 대화 응답 처리
       if (!response) {
         if (lowerInput.includes("기분") || lowerInput.includes("슬프") || lowerInput.includes("우울") ||
             lowerInput.includes("짜증") || lowerInput.includes("화난") || lowerInput.includes("분노") ||
@@ -644,356 +605,6 @@
       inputEl.value = "";
     }
     
-    async function getWeather() {
-      try {
-        const englishCity = regionMap[currentCity] || "Seoul";
-        const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(englishCity)}&appid=${weatherKey}&units=metric&lang=kr`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("날씨 API 호출 실패");
-        const data = await res.json();
-        const description = data.weather[0].description;
-        const temp = data.main.temp;
-        currentWeather = description;
-        let extraComment = "";
-        if (description.indexOf("흐림") !== -1 || description.indexOf("구름") !== -1) {
-          extraComment = " 오늘은 약간 흐린 날씨네요 ☁️";
-        } else if (description.indexOf("맑음") !== -1) {
-          extraComment = " 오늘은 맑은 날씨네요 ☀️";
-        } else if (description.indexOf("비") !== -1 || description.indexOf("소나기") !== -1) {
-          extraComment = " 오늘은 비가 오네요 ☔";
-        }
-        return {
-          message: `오늘 ${currentCity}의 날씨는 ${description}이며, 온도는 ${temp}°C입니다.${extraComment}`
-        };
-      } catch (err) {
-        currentWeather = "";
-        return { message: `죄송합니다, ${currentCity}의 날씨 정보를 가져오지 못했어요.` };
-      }
-    }
-    
-    function updateWeatherEffects() {
-      if (!currentWeather) return;
-      if (currentWeather.indexOf("비") !== -1 || currentWeather.indexOf("소나기") !== -1) {
-        rainGroup.visible = true;
-        houseCloudGroup.visible = false;
-      } else if (currentWeather.indexOf("구름") !== -1 || currentWeather.indexOf("흐림") !== -1) {
-        rainGroup.visible = false;
-        houseCloudGroup.visible = true;
-      } else {
-        rainGroup.visible = false;
-        houseCloudGroup.visible = false;
-      }
-    }
-    
-    function updateLightning() {
-      if (currentWeather.indexOf("번개") !== -1 || currentWeather.indexOf("뇌우") !== -1) {
-        if (Math.random() < 0.001) {
-          lightningLight.intensity = 5;
-          setTimeout(() => { lightningLight.intensity = 0; }, 100);
-        }
-      }
-    }
-    
-    function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 3000) {
-      const bubble = document.getElementById("speech-bubble");
-      const chunks = [];
-      for (let i = 0; i < text.length; i += chunkSize) {
-        chunks.push(text.slice(i, i + chunkSize));
-      }
-      let index = 0;
-      function showNextChunk() {
-        if (index < chunks.length) {
-          bubble.textContent = chunks[index];
-          bubble.style.display = "block";
-          index++;
-          setTimeout(showNextChunk, delay);
-        } else {
-          setTimeout(() => { bubble.style.display = "none"; }, 3000);
-        }
-      }
-      showNextChunk();
-    }
-    
-    window.addEventListener("DOMContentLoaded", function() {
-      // 채팅 입력창 자동 완성을 위한 datalist 설정
-      const chatInput = document.getElementById("chat-input");
-      chatInput.setAttribute("list", "chat-keywords");
-      const autoCompleteList = document.createElement("datalist");
-      autoCompleteList.id = "chat-keywords";
-      const keywords = [
-        "안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네",
-        "잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께",
-        "유튜브 보여줘", "유튜브알려줘", "유트브", "유튜브랑", "유튜브나와줘",
-        "트위터 보여주게", "트위터 틔위터검색", "트위터보여", "트위터보여줘봐", "트위터",
-        "날씨 알려줘", "일정 알려줘", "시간 알려줘",
-        "지도 보여줘", "교통정보", "네이버 보여줘"
-      ];
-      keywords.forEach(kw => {
-        const option = document.createElement("option");
-        option.value = kw;
-        autoCompleteList.appendChild(option);
-      });
-      document.body.appendChild(autoCompleteList);
-      
-      document.getElementById("chat-input").addEventListener("keydown", function(e) {
-        if (e.key === "Enter") sendChat();
-      });
-      
-      const regionSelect = document.getElementById("region-select");
-      regionList.forEach(region => {
-        const option = document.createElement("option");
-        option.value = region;
-        option.textContent = `${region} (${regionMap[region]})`;
-        if (region === currentCity) option.selected = true;
-        regionSelect.appendChild(option);
-      });
-    });
-    
-    window.addEventListener("resize", function(){
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-    
-    window.addEventListener("load", async () => {
-      initCalendar();
-      showTutorial();
-      updateMap();
-      await updateWeatherAndEffects();
-    });
-    
-    function changeVersion(version) {
-      if (version === "1.3") {
-        window.location.href = "https://aipersonalassistant.neocities.org/";
-      } else if (version === "latest") {
-        window.location.reload();
-      }
-    }
-    
-    // 업그레이드된 캐릭터 대화 처리 함수 (감정, 인삿말, '잘자', '알려줘', 유튜브, 트위터, 네이버 등)
-    async function sendChat() {
-      const inputEl = document.getElementById("chat-input");
-      const input = inputEl.value.trim();
-      
-      if (Date.now() < blockUntil) {
-        showSpeechBubbleInChunks("1시간동안 차단됩니다.");
-        inputEl.value = "";
-        return;
-      }
-      
-      if (!input) return;
-      
-      let response = "";
-      const lowerInput = input.toLowerCase();
-      
-      // 지역 변경 처리
-      if (lowerInput.startsWith("지역 ")) {
-        const newCity = lowerInput.replace("지역", "").trim();
-        if(newCity) {
-          if (regionList.includes(newCity)) {
-            currentCity = newCity;
-            document.getElementById("region-select").value = newCity;
-            response = `좋아요, 지역을 ${newCity}(으)로 변경할게요!`;
-            updateMap();
-            await updateWeatherAndEffects();
-          } else {
-            response = "죄송해요, 그 지역은 지원하지 않아요. 드롭다운 메뉴에서 선택해주세요.";
-          }
-        } else {
-          response = "변경할 지역을 입력해 주세요.";
-        }
-      } else if (regionList.includes(input)) {
-        currentCity = input;
-        document.getElementById("region-select").value = input;
-        response = `좋아요, 지역을 ${input}(으)로 변경할게요!`;
-        updateMap();
-        await updateWeatherAndEffects();
-      }
-      
-      // "유튜브" 관련 키워드 처리 – 페이지 전체를 유튜브로 리디렉션
-      const youtubeKeywords = ["유튜브", "유트브", "유튜브알려줘", "유튭", "유튜브랑", "유튜브나와줘"];
-      if (!response && youtubeKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
-        response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
-        showSpeechBubbleInChunks(response);
-        setTimeout(() => {
-          window.location.href = "https://www.youtube.com/";
-        }, 2000);
-        inputEl.value = "";
-        return;
-      }
-      
-      // "트위터" 관련 키워드 처리 – 페이지 전체를 트위터(현재 X) 로그인 페이지로 리디렉션
-      const twitterKeywords = ["트위터", "트위터 보여주게", "트위터 틔위터검색", "트위터보여", "트위터보여줘봐"];
-      if (!response && twitterKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
-        response = "트위터(현재 X)를 보여드릴게요! 잠시만 기다려 주세요.";
-        showSpeechBubbleInChunks(response);
-        setTimeout(() => {
-          window.location.href = "https://x.com/login?lang=ko";
-        }, 2000);
-        inputEl.value = "";
-        return;
-      }
-      
-      // "네이버" 관련 키워드 처리 – 페이지 전체를 네이버 모바일로 리디렉션
-      const naverKeywords = ["네이버 보여줘", "네이버"];
-      if (!response && naverKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
-        response = "네이버를 보여드릴게요! 잠시만 기다려 주세요.";
-        showSpeechBubbleInChunks(response);
-        setTimeout(() => {
-          window.location.href = "https://m.naver.com/";
-        }, 2000);
-        inputEl.value = "";
-        return;
-      }
-      
-      // 인삿말 관련 키워드 처리
-      const greetingKeywords = ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"];
-      if (!response && greetingKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
-        response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
-      }
-      
-      // "잘자" 관련 키워드 처리
-      const sleepKeywords = ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"];
-      if (!response && sleepKeywords.some(keyword => lowerInput.indexOf(keyword) !== -1)) {
-        response = "편안한 밤 되세요, 좋은 꿈 꾸세요~";
-      }
-      
-      // '알려줘' 관련 기능 (날씨, 일정, 시간)
-      if (!response) {
-        if (lowerInput.includes("날씨") &&
-           (lowerInput.includes("알려줘") || lowerInput.includes("어때") || lowerInput.includes("맑아"))) {
-          await updateWeatherAndEffects();
-          inputEl.value = "";
-          return;
-        }
-        if (lowerInput.includes("일정") && lowerInput.includes("알려줘")) {
-          const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
-          if (dateMatch) {
-            const dateStr = dateMatch[0];
-            response = getCalendarEvents(dateStr);
-          } else {
-            response = getCalendarEvents();
-          }
-        }
-        if (lowerInput.includes("시간") || lowerInput.includes("몇시") || lowerInput.includes("현재시간")) {
-          const now = new Date();
-          const hours = now.getHours();
-          const minutes = now.getMinutes();
-          response = `현재 시간은 ${hours}시 ${minutes}분입니다.`;
-        }
-      }
-      
-      // 감정 및 일반 대화 응답 (다양한 상황에 따른 풍부한 응답)
-      if (!response) {
-        if (lowerInput.includes("기분") || lowerInput.includes("슬프") || lowerInput.includes("우울") ||
-            lowerInput.includes("짜증") || lowerInput.includes("화난") || lowerInput.includes("분노") ||
-            lowerInput.includes("놀람") || lowerInput.includes("피곤")) {
-          const sadResponses = [
-            "정말 마음이 아프시네요. 제가 도와드릴 수 있다면 좋겠어요.",
-            "그런 날도 있죠. 힘내시고 천천히 쉬어가세요.",
-            "마음이 많이 힘들어 보이네요. 꼭 회복되시길 바랄게요."
-          ];
-          const happyResponses = [
-            "오늘 정말 즐거워 보이세요! 기분 좋은 일이 가득하길 바랍니다.",
-            "당신의 미소가 전해지네요. 행복한 하루 보내세요!",
-            "기쁨이 넘치는 하루, 함께 기뻐요!"
-          ];
-          const angryResponses = [
-            "화가 치밀어 오시네요. 잠시 심호흡을 해보세요.",
-            "분노를 조금 내려놓고, 잠깐의 휴식 어떠세요?",
-            "감정이 많이 격해지신 것 같아요. 차분해지시길 바랄게요."
-          ];
-          const surprisedResponses = [
-            "오, 놀라운 소식이네요! 자세히 말씀해 주세요.",
-            "정말 놀라워요! 당신의 이야기에 귀 기울이고 있어요."
-          ];
-          const tiredResponses = [
-            "피곤해 보이시네요. 푹 쉬시고 내일 더 힘내세요.",
-            "오늘 하루 수고 많으셨어요. 편안한 밤 되세요."
-          ];
-          if (lowerInput.includes("슬프") || lowerInput.includes("우울")) {
-            response = sadResponses[Math.floor(Math.random() * sadResponses.length)];
-          } else if (lowerInput.includes("기쁘") || lowerInput.includes("행복")) {
-            response = happyResponses[Math.floor(Math.random() * happyResponses.length)];
-          } else if (lowerInput.includes("화난") || lowerInput.includes("분노") || lowerInput.includes("짜증")) {
-            response = angryResponses[Math.floor(Math.random() * angryResponses.length)];
-          } else if (lowerInput.includes("놀람")) {
-            response = surprisedResponses[Math.floor(Math.random() * surprisedResponses.length)];
-          } else if (lowerInput.includes("피곤")) {
-            response = tiredResponses[Math.floor(Math.random() * tiredResponses.length)];
-          } else {
-            const neutralResponses = [
-              "그렇군요, 좀 더 자세히 말씀해 주실 수 있을까요?",
-              "알겠습니다. 추가로 궁금한 점이 있으신가요?",
-              "흥미로운 이야기네요. 더 이야기해 주세요!"
-            ];
-            response = neutralResponses[Math.floor(Math.random() * neutralResponses.length)];
-          }
-        } else {
-          const generalResponses = [
-            "정말 흥미로운 이야기네요. 더 들려주세요!",
-            "알겠습니다. 혹시 다른 궁금한 점은 없으신가요?",
-            "그렇군요. 당신의 의견을 듣고 있으니 저도 많이 배워요.",
-            "그렇게 느끼실 수 있겠네요. 함께 이야기 나눠봐요!"
-          ];
-          response = generalResponses[Math.floor(Math.random() * generalResponses.length)];
-        }
-      }
-      
-      showSpeechBubbleInChunks(response);
-      inputEl.value = "";
-    }
-    
-    async function getWeather() {
-      try {
-        const englishCity = regionMap[currentCity] || "Seoul";
-        const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(englishCity)}&appid=${weatherKey}&units=metric&lang=kr`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("날씨 API 호출 실패");
-        const data = await res.json();
-        const description = data.weather[0].description;
-        const temp = data.main.temp;
-        currentWeather = description;
-        let extraComment = "";
-        if (description.indexOf("흐림") !== -1 || description.indexOf("구름") !== -1) {
-          extraComment = " 오늘은 약간 흐린 날씨네요 ☁️";
-        } else if (description.indexOf("맑음") !== -1) {
-          extraComment = " 오늘은 맑은 날씨네요 ☀️";
-        } else if (description.indexOf("비") !== -1 || description.indexOf("소나기") !== -1) {
-          extraComment = " 오늘은 비가 오네요 ☔";
-        }
-        return {
-          message: `오늘 ${currentCity}의 날씨는 ${description}이며, 온도는 ${temp}°C입니다.${extraComment}`
-        };
-      } catch (err) {
-        currentWeather = "";
-        return { message: `죄송합니다, ${currentCity}의 날씨 정보를 가져오지 못했어요.` };
-      }
-    }
-    
-    function updateWeatherEffects() {
-      if (!currentWeather) return;
-      if (currentWeather.indexOf("비") !== -1 || currentWeather.indexOf("소나기") !== -1) {
-        rainGroup.visible = true;
-        houseCloudGroup.visible = false;
-      } else if (currentWeather.indexOf("구름") !== -1 || currentWeather.indexOf("흐림") !== -1) {
-        rainGroup.visible = false;
-        houseCloudGroup.visible = true;
-      } else {
-        rainGroup.visible = false;
-        houseCloudGroup.visible = false;
-      }
-    }
-    
-    function updateLightning() {
-      if (currentWeather.indexOf("번개") !== -1 || currentWeather.indexOf("뇌우") !== -1) {
-        if (Math.random() < 0.001) {
-          lightningLight.intensity = 5;
-          setTimeout(() => { lightningLight.intensity = 0; }, 100);
-        }
-      }
-    }
-    
     function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 3000) {
       const bubble = document.getElementById("speech-bubble");
       const chunks = [];
@@ -1048,115 +659,6 @@
       } else if (version === "latest") {
         window.location.reload();
       }
-    }
-    
-    // 캘린더 초기화 및 렌더링 함수들
-    function initCalendar() {
-      const now = new Date();
-      currentYear = now.getFullYear();
-      currentMonth = now.getMonth();
-      populateYearSelect();
-      renderCalendar(currentYear, currentMonth);
-      document.getElementById("prev-month").addEventListener("click", () => {
-        currentMonth--;
-        if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-        renderCalendar(currentYear, currentMonth);
-      });
-      document.getElementById("next-month").addEventListener("click", () => {
-        currentMonth++;
-        if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-        renderCalendar(currentYear, currentMonth);
-      });
-      document.getElementById("year-select").addEventListener("change", (e) => {
-        currentYear = parseInt(e.target.value);
-        renderCalendar(currentYear, currentMonth);
-      });
-      
-      document.getElementById("delete-day-event").addEventListener("click", () => {
-        const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
-        if(dayStr) {
-          const dayNum = parseInt(dayStr);
-          const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${dayNum}`);
-          if(eventDiv) {
-            eventDiv.textContent = "";
-            alert(`${currentYear}-${currentMonth+1}-${dayNum} 일정이 삭제되었습니다. 다시 입력할 수 있습니다.`);
-          }
-        }
-      });
-      
-      document.getElementById("save-calendar").addEventListener("click", () => {
-        saveCalendar();
-      });
-    }
-    
-    function populateYearSelect() {
-      const yearSelect = document.getElementById("year-select");
-      yearSelect.innerHTML = "";
-      for(let y = 2020; y <= 2070; y++){
-        const option = document.createElement("option");
-        option.value = y;
-        option.textContent = y;
-        if(y === currentYear) option.selected = true;
-        yearSelect.appendChild(option);
-      }
-    }
-    
-    function renderCalendar(year, month) {
-      const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
-      document.getElementById("month-year-label").textContent = `${year}년 ${monthNames[month]}`;
-      const grid = document.getElementById("calendar-grid");
-      grid.innerHTML = "";
-      const daysOfWeek = ["일","월","화","수","목","금","토"];
-      daysOfWeek.forEach((day) => {
-        const th = document.createElement("div");
-        th.style.fontWeight = "bold";
-        th.style.textAlign = "center";
-        th.textContent = day;
-        th.style.color = "#00ffcc";
-        th.style.textShadow = "0 0 3px #00ffcc";
-        grid.appendChild(th);
-      });
-      const firstDay = new Date(year, month, 1).getDay();
-      const daysInMonth = new Date(year, month+1, 0).getDate();
-      for(let i = 0; i < firstDay; i++){
-        grid.appendChild(document.createElement("div"));
-      }
-      for(let d = 1; d <= daysInMonth; d++){
-        const cell = document.createElement("div");
-        cell.innerHTML = `<div class="day-number">${d}</div>
-                          <div class="event" id="event-${year}-${month+1}-${d}"></div>`;
-        cell.addEventListener("click", () => {
-          const eventText = prompt(`${year}-${month+1}-${d} 일정 입력:`);
-          if(eventText) {
-            const eventDiv = document.getElementById(`event-${year}-${month+1}-${d}`);
-            if(eventDiv.textContent) {
-              eventDiv.textContent += "; " + eventText;
-            } else {
-              eventDiv.textContent = eventText;
-            }
-          }
-        });
-        grid.appendChild(cell);
-      }
-    }
-    
-    function updateBubblePosition() {
-      const bubble = document.getElementById("speech-bubble");
-      const headWorldPos = new THREE.Vector3();
-      head.getWorldPosition(headWorldPos);
-      const screenPos = headWorldPos.project(camera);
-      bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
-      bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
-    }
-    
-    function showTutorial() {
-      const overlay = document.getElementById("tutorial-overlay");
-      overlay.style.display = "flex";
-      setTimeout(() => { overlay.style.opacity = "1"; }, 10);
-      setTimeout(() => {
-        overlay.style.opacity = "0";
-        setTimeout(() => { overlay.style.display = "none"; }, 1000);
-      }, 4000);
     }
   </script>
 </head>
@@ -1172,7 +674,7 @@
     </div>
   </div>
   
-  <!-- HUD-6: 음성 입력 영역 (채팅창과 지도 사이 중앙) -->
+  <!-- HUD-6: 음성 입력 영역 -->
   <div id="hud-6">
     <button onclick="startSpeechRecognition()">🎤 음성 입력</button>
   </div>
@@ -1208,9 +710,9 @@
         <strong>채팅창:</strong> 상단 드롭다운 메뉴에서 지역을 선택하면 지도와 날씨가 업데이트됩니다.<br>
         "유튜브 보여줘", "유튜브알려줘" 등 유튜브 관련 키워드를 입력하면 페이지 전체가 유튜브로 전환됩니다.<br>
         "트위터 보여주게", "트위터 틔위터검색", "트위터보여", "트위터보여줘봐" 등의 키워드가 입력되면 트위터(현재 X) 로그인 페이지(https://x.com/login?lang=ko)로 전환됩니다.<br>
+        "네이버 보여주게", "네이버 보여줘", "네이버 검색" 등의 키워드가 입력되면 네이버 모바일 페이지(https://m.naver.com/)로 전환됩니다.<br>
         "지도 보여줘"를 입력하면 구글 지도가 확대(zoom=18) 모드로 전환되고,<br>
         "교통정보" 또는 "구글 지도 교통상황"을 입력하면 네이버 모바일 교통정보 페이지(https://m.search.naver.com/search.naver?query=%EA%B5%90%ED%86%B5%EC%A0%95%EB%B3%B4&sm=mtp_hty.top&where=m)로 전환됩니다.<br>
-        "네이버 보여줘"를 입력하면 네이버 모바일(https://m.naver.com/)로 전환됩니다.<br>
         "날씨 알려줘", "일정 알려줘", "시간 알려줘" 등 다양한 질문에도 응답하며,<br>
         "잘자", "좋은꿈" 등 잘자 관련, "안녕", "안녕하세요" 등 인삿말에 따른 풍부한 응답을 제공합니다.<br>
         또한, HUD‑6의 음성 입력 버튼을 눌러 음성 입력도 할 수 있고, 채팅 입력창에는 미리 설정된 자동 완성 키워드가 제시됩니다.
@@ -1230,6 +732,7 @@
   <canvas id="canvas"></canvas>
   
   <script>
+    // Three.js Scene, 카메라, 렌더러 설정 및 애니메이션
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas"), alpha: true });
@@ -1614,6 +1117,29 @@
       const screenPos = headWorldPos.project(camera);
       bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
       bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
+    }
+    
+    function updateWeatherEffects() {
+      if (!currentWeather) return;
+      if (currentWeather.indexOf("비") !== -1 || currentWeather.indexOf("소나기") !== -1) {
+        rainGroup.visible = true;
+        houseCloudGroup.visible = false;
+      } else if (currentWeather.indexOf("구름") !== -1 || currentWeather.indexOf("흐림") !== -1) {
+        rainGroup.visible = false;
+        houseCloudGroup.visible = true;
+      } else {
+        rainGroup.visible = false;
+        houseCloudGroup.visible = false;
+      }
+    }
+    
+    function updateLightning() {
+      if (currentWeather.indexOf("번개") !== -1 || currentWeather.indexOf("뇌우") !== -1) {
+        if (Math.random() < 0.001) {
+          lightningLight.intensity = 5;
+          setTimeout(() => { lightningLight.intensity = 0; }, 100);
+        }
+      }
     }
     
     function showTutorial() {
