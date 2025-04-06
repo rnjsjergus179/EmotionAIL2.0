@@ -78,7 +78,6 @@
   <canvas id="canvas"></canvas>
 
   <script>
-    // 키워드 정의
     const KEYWORDS = {
       greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
       sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
@@ -93,7 +92,6 @@
       instagram: ["인스타", "인스타 보여줘", "인스타 나오게", "인스타 검색", "인스타그램"]
     };
 
-    // 전역 변수
     let blockUntil = 0;
     let currentCity = "서울";
     let currentWeather = "";
@@ -107,36 +105,29 @@
     };
     const regionList = Object.keys(regionMap);
 
-    // Three.js 변수
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas"), alpha: true });
     let rainGroup, cloudRainGroup, houseCloudGroup, lightningLight, head;
 
-    // 이벤트 리스너
     document.addEventListener("contextmenu", event => event.preventDefault());
     document.addEventListener("copy", function(e) {
       e.preventDefault();
-      let selectedText = window.getSelection().toString();
-      selectedText = selectedText.replace(/2caa7fa4a66f2f8d150f1da93d306261/g, "HIDDEN");
+      let selectedText = window.getSelection().toString().replace(/2caa7fa4a66f2f8d150f1da93d306261/g, "HIDDEN");
       e.clipboardData.setData("text/plain", selectedText);
       if (Date.now() < blockUntil) return;
       blockUntil = Date.now() + 3600000;
       showSpeechBubbleInChunks("1시간동안 차단됩니다.");
     });
-    window.addEventListener("resize", function(){
+    window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // 함수 정의
     function speakText(text) {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "ko-KR";
-      utterance.volume = 1;
-      utterance.rate = 1;
-      utterance.pitch = 1;
       window.speechSynthesis.speak(utterance);
     }
 
@@ -145,25 +136,19 @@
       const calendarData = {};
       for (let d = 1; d <= daysInMonth; d++) {
         const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${d}`);
-        if (eventDiv && eventDiv.textContent.trim() !== "") {
-          calendarData[`${currentYear}-${currentMonth+1}-${d}`] = eventDiv.textContent;
-        }
+        if (eventDiv && eventDiv.textContent.trim()) calendarData[`${currentYear}-${currentMonth+1}-${d}`] = eventDiv.textContent;
       }
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(calendarData, null, 2));
-      const dlAnchorElem = document.createElement("a");
-      dlAnchorElem.setAttribute("href", dataStr);
-      dlAnchorElem.setAttribute("download", "calendar_events.json");
-      dlAnchorElem.click();
-      document.body.removeChild(dlAnchorElem);
+      const dlAnchor = document.createElement("a");
+      dlAnchor.setAttribute("href", dataStr);
+      dlAnchor.setAttribute("download", "calendar_events.json");
+      dlAnchor.click();
     }
 
     function deleteCalendarEvent(day) {
       const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${day}`);
       if (eventDiv) {
         eventDiv.textContent = "";
-        const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-        delete calendarData[`${currentYear}-${currentMonth+1}-${day}`];
-        localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
         return `${currentYear}-${currentMonth+1}-${day} 일정이 삭제되었습니다.`;
       }
       return "해당 날짜에 일정이 없습니다.";
@@ -242,17 +227,18 @@
       recognition.maxAlternatives = 1;
       recognition.start();
       recognition.onresult = event => {
-        const transcript = event.results[0][0].transcript.trim();
-        document.getElementById("chat-input").value = transcript;
+        document.getElementById("chat-input").value = event.results[0][0].transcript.trim();
         sendChat();
       };
       recognition.onerror = event => console.error("음성 인식 오류:", event.error);
     }
 
     async function callGPTProxy(prompt) {
-      console.log("GPT 호출:", prompt);
+      console.log("GPT 호출 시작:", prompt);
       try {
-        const res = await fetch("http://localhost:3000/api/gpt", { // 서버 URL 명시
+        // 로컬 서버 사용 시: http://localhost:3000/api/gpt
+        // AWS Lambda 사용 시: https://your-api-id.execute-api.region.amazonaws.com/api/gpt
+        const res = await fetch("http://localhost:3000/api/gpt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -262,12 +248,14 @@
             temperature: 0.7
           })
         });
+        console.log("응답 상태:", res.status);
         const data = await res.json();
         console.log("GPT 응답:", data);
-        if (!res.ok) throw new Error(data.error || "GPT 호출 실패");
+        if (!res.ok) throw new Error(data.error?.message || "GPT 호출 실패");
+        if (!data.choices || !data.choices[0]?.message?.content) throw new Error("응답 형식이 예상과 다릅니다.");
         return data.choices[0].message.content.trim();
       } catch (error) {
-        console.error("GPT 오류:", error);
+        console.error("GPT 호출 오류:", error.message);
         return "죄송해요, 응답을 생성하는 데 문제가 생겼습니다.";
       }
     }
@@ -359,6 +347,7 @@
         response = await callGPTProxy(input);
       }
 
+      console.log("최종 응답:", response);
       showSpeechBubbleInChunks(response);
       inputEl.value = "";
     }
@@ -383,7 +372,6 @@
       showNextChunk();
     }
 
-    // Three.js 초기화
     function initThreeJS() {
       renderer.setSize(window.innerWidth, window.innerHeight);
       camera.position.set(5, 5, 10);
@@ -588,7 +576,6 @@
       animate();
     }
 
-    // 캘린더 초기화
     let currentYear, currentMonth;
     function initCalendar() {
       const now = new Date();
@@ -679,7 +666,6 @@
       bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
     }
 
-    // 초기화
     window.addEventListener("DOMContentLoaded", () => {
       const chatInput = document.getElementById("chat-input");
       chatInput.setAttribute("list", "chat-keywords");
