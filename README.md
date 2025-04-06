@@ -477,6 +477,29 @@
       };
     }
     
+    // GPT-3.5 터보 서버리스 프록시를 통한 GPT 호출 함수
+    async function callGPTProxy(prompt) {
+      try {
+        const res = await fetch("/api/gpt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "gpt-3.5-turbo",
+            messages: [{ role: "user", content: prompt }]
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          return data.choices[0].message.content;
+        } else {
+          return `오류: ${data.error.message}`;
+        }
+      } catch (err) {
+        console.error(err);
+        return "요청 중 에러가 발생했습니다.";
+      }
+    }
+    
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -592,24 +615,8 @@
       }
       
       if (!response) {
-        if (lowerInput.includes("기분") || lowerInput.includes("슬프") || lowerInput.includes("우울") ||
-            lowerInput.includes("짜증") || lowerInput.includes("화난") || lowerInput.includes("분노") ||
-            lowerInput.includes("놀람") || lowerInput.includes("피곤")) {
-          const responses = [
-            "정말 마음이 아프시네요. 제가 도와드릴 수 있다면 좋겠어요.",
-            "그런 날도 있죠. 힘내시고 천천히 쉬어가세요.",
-            "오늘 정말 즐거워 보이세요! 기분 좋은 일이 가득하길 바랍니다."
-          ];
-          response = responses[Math.floor(Math.random() * responses.length)];
-        } else {
-          const generalResponses = [
-            "정말 흥미로운 이야기네요. 더 들려주세요!",
-            "알겠습니다. 혹시 다른 궁금한 점은 없으신가요?",
-            "그렇군요. 당신의 의견을 듣고 있으니 저도 많이 배워요.",
-            "그렇게 느끼실 수 있겠네요. 함께 이야기 나눠봐요!"
-          ];
-          response = generalResponses[Math.floor(Math.random() * generalResponses.length)];
-        }
+        // GPT 프록시를 통한 기본 응답 생성
+        response = await callGPTProxy(input);
       }
       
       showSpeechBubbleInChunks(response);
