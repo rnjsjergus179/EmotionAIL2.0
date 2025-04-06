@@ -28,7 +28,7 @@
       font-size: 14px;
       margin-bottom: 10px;
     }
-    /* 채팅 로그를 필요에 따라 보이도록 조정 */
+    /* 채팅 로그 (필요시 보이도록 설정) */
     #chat-log {
       display: none;
       height: 100px;
@@ -370,6 +370,22 @@
       document.getElementById("map-iframe").src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
     }
     
+    // 날씨 API를 통해 현재 날씨 정보를 가져오는 함수 추가 (OpenWeatherMap API 사용)
+    async function getWeather() {
+      try {
+        const response = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(currentCity)}&appid=${weatherKey}&lang=kr&units=metric`
+        );
+        const data = await response.json();
+        currentWeather = data.weather[0].description; // 날씨 설명 (예: 구름 많음, 비 등)
+        const message = `현재 ${currentCity}의 날씨는 ${data.weather[0].description}이고, 기온은 ${data.main.temp}°C 입니다.`;
+        return { message };
+      } catch (error) {
+        console.error(error);
+        return { message: "날씨 정보를 가져오는데 실패했습니다." };
+      }
+    }
+    
     async function updateWeatherAndEffects(sendMessage = true) {
       const weatherData = await getWeather();
       if (sendMessage) {
@@ -409,8 +425,6 @@
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
-      
-      // (여기서는 채팅 로그 업데이트 코드는 생략하거나 별도로 처리)
       
       if (Date.now() < blockUntil) {
         showSpeechBubbleInChunks("1시간동안 차단됩니다.");
@@ -889,9 +903,8 @@
       const geometry = new THREE.BufferGeometry();
       const positions = new Float32Array(cloudRainCount * 3);
       for (let i = 0; i < cloudRainCount; i++) {
-        // raindrop 초기 위치는 구름 내부에서 임의의 위치
         positions[i * 3] = (Math.random()-0.5) * 1.5;
-        positions[i * 3 + 1] = Math.random() * 0.2; // 0 ~ 0.2
+        positions[i * 3 + 1] = Math.random() * 0.2;
         positions[i * 3 + 2] = (Math.random()-0.5) * 1.5;
       }
       geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -901,14 +914,12 @@
     }
     initCloudRain();
     cloudRainGroup.visible = false;
-    // cloudRainGroup를 구름 그룹의 자식으로 추가
     houseCloudGroup.add(cloudRainGroup);
     
     function updateHouseClouds() {
       const headWorldPos = new THREE.Vector3();
       head.getWorldPosition(headWorldPos);
       houseCloudGroup.position.x = headWorldPos.x + Math.sin(Date.now() * 0.001) * 1;
-      // 캐릭터 머리 위로 구름이 더 높게 떠 있도록 y 좌표 조정
       houseCloudGroup.position.y = headWorldPos.y + 2.5;
       houseCloudGroup.position.z = headWorldPos.z;
     }
@@ -1016,13 +1027,12 @@
       updateWeatherEffects();
       updateHouseClouds();
       
-      // 구름에서 내리는 비 효과 업데이트 (날씨가 비일 때)
       if (cloudRainGroup.visible) {
         const particles = cloudRainGroup.children[0];
         let positions = particles.geometry.attributes.position.array;
         for (let i = 0; i < positions.length; i += 3) {
-          positions[i+1] -= 0.02; // 낙하 속도
-          if (positions[i+1] < -0.3) { // 일정 높이 아래로 내려가면 다시 위로
+          positions[i+1] -= 0.02;
+          if (positions[i+1] < -0.3) {
             positions[i+1] = Math.random() * 0.2;
           }
         }
