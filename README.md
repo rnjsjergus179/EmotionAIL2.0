@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -47,7 +46,6 @@
       padding: 5px;
       font-size: 14px;
     }
-    input[type="file"] { margin-top: 10px; }
     
     /* HUD-6: 음성 입력 영역 */
     #hud-6 {
@@ -268,49 +266,12 @@
       delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"],
       instagram: ["인스타", "인스타 보여줘", "인스타 나오게", "인스타 검색", "인스타그램"]
     };
-    
-    /* 학습된 키워드 저장 */
-    let learnedKeywords = {};
-
-    /* 텍스트 파일 업로드 처리 */
-    function handleFileUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const text = e.target.result;
-        processUploadedText(text);
-      };
-      reader.readAsText(file);
-    }
-
-    /* 업로드된 텍스트 처리 (토큰화 및 NLP) */
-    function processUploadedText(text) {
-      const tokens = tokenizeText(text);
-      const wordFreq = {};
-      tokens.forEach(token => {
-        if (token.length > 2) { // 너무 짧은 단어는 제외
-          wordFreq[token] = (wordFreq[token] || 0) + 1;
-        }
-      });
-      const sortedWords = Object.entries(wordFreq).sort((a, b) => b[1] - a[1]).slice(0, 10);
-      sortedWords.forEach(([word, freq]) => {
-        learnedKeywords[word] = freq;
-      });
-      alert("텍스트 파일이 학습되었습니다! 이제 채팅에서 학습된 단어를 활용할 수 있습니다.");
-    }
-
-    /* 텍스트 토큰화 */
-    function tokenizeText(text) {
-      return text.toLowerCase().match(/\b\w+\b/g) || [];
-    }
 
     /* 전역 변수 */
     document.addEventListener("contextmenu", event => event.preventDefault());
     let blockUntil = 0;
     let currentCity = "서울";
     let currentWeather = "";
-    const weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
     const regionMap = {
       "서울": "Seoul",
       "인천": "Incheon",
@@ -341,7 +302,6 @@
     document.addEventListener("copy", function(e) {
       e.preventDefault();
       let selectedText = window.getSelection().toString();
-      selectedText = selectedText.replace(/2caa7fa4a66f2f8d150f1da93d306261/g, "HIDDEN");
       e.clipboardData.setData("text/plain", selectedText);
       if (Date.now() < blockUntil) return;
       blockUntil = Date.now() + 3600000;
@@ -439,9 +399,9 @@
     async function getWeather() {
       try {
         const englishCity = regionMap[currentCity] || "Seoul";
-        const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(englishCity)}&appid=${weatherKey}&units=metric&lang=kr`;
+        const url = `/api/weather?city=${encodeURIComponent(englishCity)}`;
         const res = await fetch(url);
-        if (!res.ok) throw new Error("날씨 API 호출 실패");
+        if (!res.ok) throw new Error("날씨 정보 가져오기 실패");
         const data = await res.json();
         currentWeather = data.weather[0].description;
         const message = `오늘 ${currentCity}의 날씨는 ${data.weather[0].description}이고, 기온은 ${data.main.temp}°C입니다.`;
@@ -450,6 +410,23 @@
         console.error(error);
         currentWeather = "";
         return { message: "날씨 정보를 가져오는데 실패했습니다." };
+      }
+    }
+    
+    async function getGPTResponse(input) {
+      try {
+        const url = `/api/gpt`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: input })
+        });
+        if (!res.ok) throw new Error("GPT 응답 가져오기 실패");
+        const data = await res.json();
+        return data.response;
+      } catch (error) {
+        console.error(error);
+        return "GPT 응답을 가져오는데 실패했습니다.";
       }
     }
     
@@ -508,7 +485,7 @@
       recognition.onresult = function(event) {
         const transcript = event.results[0][0].transcript.trim();
         document.getElementById("chat-input").value = transcript;
-        sendChat(); // 음성 입력 후 바로 처리
+        sendChat();
       };
       recognition.onerror = function(event) {
         console.error("음성 인식 오류:", event.error);
@@ -527,22 +504,14 @@
       let response = "";
       const lowerInput = input.toLowerCase();
       
-      // 학습된 키워드 우선 확인
-      for (let keyword in learnedKeywords) {
-        if (lowerInput.includes(keyword)) {
-          response = `${keyword}에 대해 이야기하셨군요! 더 궁금한 점이 있나요?`;
-          break;
-        }
-      }
-      
-      if (!response && (lowerInput.includes("파일 저장해줘") || lowerInput.includes("캘린더 저장해줘"))) {
+      if (lowerInput.includes("파일 저장해줘") || lowerInput.includes("캘린더 저장해줘")) {
         saveCalendar();
         speakText("캘린더를 저장했습니다.");
         inputEl.value = "";
         return;
       }
       
-      if (!response && lowerInput.startsWith("지역 ")) {
+      if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
         if (newCity) {
           if (regionList.includes(newCity)) {
@@ -557,7 +526,7 @@
         } else {
           response = "변경할 지역을 입력해 주세요.";
         }
-      } else if (!response && regionList.includes(input)) {
+      } else if (regionList.includes(input)) {
         currentCity = input;
         document.getElementById("region-select").value = input;
         response = `좋아요, 지역을 ${input}(으)로 변경할게요!`;
@@ -638,24 +607,7 @@
       }
       
       if (!response) {
-        if (lowerInput.includes("기분") || lowerInput.includes("슬프") || lowerInput.includes("우울") ||
-            lowerInput.includes("짜증") || lowerInput.includes("화난") || lowerInput.includes("분노") ||
-            lowerInput.includes("놀람") || lowerInput.includes("피곤")) {
-          const responses = [
-            "정말 마음이 아프시네요. 제가 도와드릴 수 있다면 좋겠어요.",
-            "그런 날도 있죠. 힘내시고 천천히 쉬어가세요.",
-            "오늘 정말 즐거워 보이세요! 기분 좋은 일이 가득하길 바랍니다."
-          ];
-          response = responses[Math.floor(Math.random() * responses.length)];
-        } else {
-          const generalResponses = [
-            "정말 흥미로운 이야기네요. 더 들려주세요!",
-            "알겠습니다. 혹시 다른 궁금한 점은 없으신가요?",
-            "그렇군요. 당신의 의견을 듣고 있으니 저도 많이 배워요.",
-            "그렇게 느끼실 수 있겠네요. 함께 이야기 나눠봐요!"
-          ];
-          response = generalResponses[Math.floor(Math.random() * generalResponses.length)];
-        }
+        response = await getGPTResponse(input);
       }
       
       showSpeechBubbleInChunks(response);
@@ -673,7 +625,7 @@
         if (index < chunks.length) {
           bubble.textContent = chunks[index];
           bubble.style.display = "block";
-          speakText(chunks[index]); // 음성 출력 추가
+          speakText(chunks[index]);
           index++;
           setTimeout(showNextChunk, delay);
         } else {
@@ -696,13 +648,6 @@
       });
       document.body.appendChild(autoCompleteList);
       
-      // 파일 업로드 요소 추가
-      const fileInput = document.createElement("input");
-      fileInput.type = "file";
-      fileInput.accept = ".txt";
-      fileInput.addEventListener("change", handleFileUpload);
-      document.getElementById("right-hud").appendChild(fileInput);
-
       document.getElementById("chat-input").addEventListener("keydown", function(e) {
         if (e.key === "Enter") sendChat();
       });
