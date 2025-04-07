@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -46,6 +47,7 @@
       padding: 5px;
       font-size: 14px;
     }
+    input[type="file"] { margin-top: 10px; }
     
     /* HUD-6: 음성 입력 영역 */
     #hud-6 {
@@ -267,6 +269,42 @@
       instagram: ["인스타", "인스타 보여줘", "인스타 나오게", "인스타 검색", "인스타그램"]
     };
     
+    /* 학습된 키워드 저장 */
+    let learnedKeywords = {};
+
+    /* 텍스트 파일 업로드 처리 */
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        processUploadedText(text);
+      };
+      reader.readAsText(file);
+    }
+
+    /* 업로드된 텍스트 처리 (토큰화 및 NLP) */
+    function processUploadedText(text) {
+      const tokens = tokenizeText(text);
+      const wordFreq = {};
+      tokens.forEach(token => {
+        if (token.length > 2) { // 너무 짧은 단어는 제외
+          wordFreq[token] = (wordFreq[token] || 0) + 1;
+        }
+      });
+      const sortedWords = Object.entries(wordFreq).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      sortedWords.forEach(([word, freq]) => {
+        learnedKeywords[word] = freq;
+      });
+      alert("텍스트 파일이 학습되었습니다! 이제 채팅에서 학습된 단어를 활용할 수 있습니다.");
+    }
+
+    /* 텍스트 토큰화 */
+    function tokenizeText(text) {
+      return text.toLowerCase().match(/\b\w+\b/g) || [];
+    }
+
     /* 전역 변수 */
     document.addEventListener("contextmenu", event => event.preventDefault());
     let blockUntil = 0;
@@ -489,14 +527,22 @@
       let response = "";
       const lowerInput = input.toLowerCase();
       
-      if (lowerInput.includes("파일 저장해줘") || lowerInput.includes("캘린더 저장해줘")) {
+      // 학습된 키워드 우선 확인
+      for (let keyword in learnedKeywords) {
+        if (lowerInput.includes(keyword)) {
+          response = `${keyword}에 대해 이야기하셨군요! 더 궁금한 점이 있나요?`;
+          break;
+        }
+      }
+      
+      if (!response && (lowerInput.includes("파일 저장해줘") || lowerInput.includes("캘린더 저장해줘"))) {
         saveCalendar();
         speakText("캘린더를 저장했습니다.");
         inputEl.value = "";
         return;
       }
       
-      if (lowerInput.startsWith("지역 ")) {
+      if (!response && lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
         if (newCity) {
           if (regionList.includes(newCity)) {
@@ -511,7 +557,7 @@
         } else {
           response = "변경할 지역을 입력해 주세요.";
         }
-      } else if (regionList.includes(input)) {
+      } else if (!response && regionList.includes(input)) {
         currentCity = input;
         document.getElementById("region-select").value = input;
         response = `좋아요, 지역을 ${input}(으)로 변경할게요!`;
@@ -650,6 +696,13 @@
       });
       document.body.appendChild(autoCompleteList);
       
+      // 파일 업로드 요소 추가
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = ".txt";
+      fileInput.addEventListener("change", handleFileUpload);
+      document.getElementById("right-hud").appendChild(fileInput);
+
       document.getElementById("chat-input").addEventListener("keydown", function(e) {
         if (e.key === "Enter") sendChat();
       });
