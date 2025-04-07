@@ -128,7 +128,7 @@
       background: #333; 
       color: #00ffcc; 
       border: 1px solid #00ffcc; 
-      border-radius: 3px;
+      border-radius: 3px; 
     }
     #calendar-actions {
       margin-top: 5px;
@@ -266,16 +266,7 @@
       delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"],
       instagram: ["인스타", "인스타 보여줘", "인스타 나오게", "인스타 검색", "인스타그램"]
     };
-
-    /* 감정 키워드 */
-    const EMOTION_KEYWORDS = {
-      positive: ["기쁘", "행복", "좋아", "즐거", "최고"],
-      negative: ["슬프", "우울", "화난", "짜증", "피곤", "힘들"]
-    };
-
-    /* 기억 저장소 초기화 */
-    let memory = JSON.parse(localStorage.getItem("chatMemory")) || {};
-
+    
     /* 전역 변수 */
     document.addEventListener("contextmenu", event => event.preventDefault());
     let blockUntil = 0;
@@ -401,53 +392,6 @@
         }
       }
     }
-
-    /* 자연어 처리 함수 */
-    function tokenize(input) {
-      return input.split(/[\s,.!?]+/).filter(token => token.length > 0);
-    }
-
-    function detectIntent(tokens) {
-      let intent = "unknown";
-      for (let token of tokens) {
-        if (KEYWORDS.weather.some(k => token.includes(k))) intent = "weather";
-        else if (KEYWORDS.calendar.some(k => token.includes(k))) intent = "calendar";
-        else if (KEYWORDS.time.some(k => token.includes(k))) intent = "time";
-        else if (KEYWORDS.greetings.some(k => token.includes(k))) intent = "greeting";
-        else if (KEYWORDS.sleep.some(k => token.includes(k))) intent = "sleep";
-        else if (KEYWORDS.youtube.some(k => token.includes(k))) intent = "youtube";
-        else if (KEYWORDS.twitter.some(k => token.includes(k))) intent = "twitter";
-        else if (KEYWORDS.naver.some(k => token.includes(k))) intent = "naver";
-        else if (KEYWORDS.map.some(k => token.includes(k))) intent = "map";
-        else if (KEYWORDS.instagram.some(k => token.includes(k))) intent = "instagram";
-        else if (KEYWORDS.delete.some(k => token.includes(k))) intent = "delete";
-        else if (token.includes("지역")) intent = "changeRegion";
-      }
-      return intent;
-    }
-
-    function detectEmotion(tokens) {
-      for (let token of tokens) {
-        if (EMOTION_KEYWORDS.positive.some(k => token.includes(k))) return "positive";
-        if (EMOTION_KEYWORDS.negative.some(k => token.includes(k))) return "negative";
-      }
-      return "neutral";
-    }
-
-    /* 기억 저장 및 학습 함수 */
-    function saveToMemory(input, response) {
-      if (!memory[input]) {
-        memory[input] = { response, count: 1 };
-      } else {
-        memory[input].count += 1;
-        memory[input].response = response; // 최신 응답으로 업데이트
-      }
-      localStorage.setItem("chatMemory", JSON.stringify(memory));
-    }
-
-    function getFromMemory(input) {
-      return memory[input] ? memory[input].response : null;
-    }
     
     function updateMap() {
       const englishCity = regionMap[currentCity] || "Seoul";
@@ -526,7 +470,7 @@
       recognition.onresult = function(event) {
         const transcript = event.results[0][0].transcript.trim();
         document.getElementById("chat-input").value = transcript;
-        sendChat();
+        sendChat(); // 음성 입력 후 바로 처리
       };
       recognition.onerror = function(event) {
         console.error("음성 인식 오류:", event.error);
@@ -544,30 +488,15 @@
       if (!input) return;
       let response = "";
       const lowerInput = input.toLowerCase();
-      const tokens = tokenize(lowerInput);
-      const intent = detectIntent(tokens);
-      const emotion = detectEmotion(tokens);
-
-      // 기억에서 먼저 확인
-      const rememberedResponse = getFromMemory(input);
-      if (rememberedResponse) {
-        response = rememberedResponse;
-        showSpeechBubbleInChunks(response);
-        inputEl.value = "";
-        return;
-      }
-
+      
       if (lowerInput.includes("파일 저장해줘") || lowerInput.includes("캘린더 저장해줘")) {
         saveCalendar();
         speakText("캘린더를 저장했습니다.");
-        response = "캘린더를 저장했습니다.";
-        saveToMemory(input, response);
-        showSpeechBubbleInChunks(response);
         inputEl.value = "";
         return;
       }
       
-      if (intent === "changeRegion" || lowerInput.startsWith("지역 ")) {
+      if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
         if (newCity) {
           if (regionList.includes(newCity)) {
@@ -590,7 +519,7 @@
         await updateWeatherAndEffects();
       }
       
-      if (!response && intent === "delete") {
+      if (!response && KEYWORDS.delete.some(keyword => lowerInput.includes(keyword))) {
         const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
         if (dayStr) {
           const dayNum = parseInt(dayStr);
@@ -600,39 +529,39 @@
         }
       }
       
-      if (!response && intent === "youtube") {
+      if (!response && KEYWORDS.youtube.some(keyword => lowerInput.includes(keyword))) {
         response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
         setTimeout(() => { window.location.href = "https://www.youtube.com/"; }, 2000);
         inputEl.value = "";
         return;
       }
-      if (!response && intent === "twitter") {
+      if (!response && KEYWORDS.twitter.some(keyword => lowerInput.includes(keyword))) {
         response = "트위터(현재 X)를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
         setTimeout(() => { window.location.href = "https://x.com/login?lang=ko"; }, 2000);
         inputEl.value = "";
         return;
       }
-      if (!response && intent === "naver") {
+      if (!response && KEYWORDS.naver.some(keyword => lowerInput.includes(keyword))) {
         response = "네이버를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
         setTimeout(() => { window.location.href = "https://m.naver.com/"; }, 2000);
         inputEl.value = "";
         return;
       }
-      if (!response && intent === "greeting") {
+      if (!response && KEYWORDS.greetings.some(keyword => lowerInput.includes(keyword))) {
         response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
       }
-      if (!response && intent === "sleep") {
+      if (!response && KEYWORDS.sleep.some(keyword => lowerInput.includes(keyword))) {
         response = "편안한 밤 되세요, 좋은 꿈 꾸세요~";
       }
-      if (!response && intent === "weather") {
+      if (!response && KEYWORDS.weather.some(keyword => lowerInput.includes(keyword))) {
         await updateWeatherAndEffects();
         inputEl.value = "";
         return;
       }
-      if (!response && intent === "calendar") {
+      if (!response && lowerInput.includes("일정") && lowerInput.includes("알려줘")) {
         const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
         if (dateMatch) {
           const dateStr = dateMatch[0];
@@ -641,20 +570,20 @@
           response = getCalendarEvents();
         }
       }
-      if (!response && intent === "time") {
+      if (!response && KEYWORDS.time.some(keyword => lowerInput.includes(keyword))) {
         const now = new Date();
         const hours = now.getHours();
         const minutes = now.getMinutes();
         response = `현재 시간은 ${hours}시 ${minutes}분입니다.`;
       }
-      if (!response && intent === "map") {
+      if (!response && KEYWORDS.map.some(keyword => lowerInput.includes(keyword))) {
         response = "지도를 보여드릴게요!";
         showSpeechBubbleInChunks(response);
         setTimeout(() => { window.location.href = "https://www.google.com/maps"; }, 2000);
         inputEl.value = "";
         return;
       }
-      if (!response && intent === "instagram") {
+      if (!response && KEYWORDS.instagram.some(keyword => lowerInput.includes(keyword))) {
         response = "인스타그램을 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
         setTimeout(() => { window.location.href = "https://www.instagram.com/"; }, 2000);
@@ -663,16 +592,26 @@
       }
       
       if (!response) {
-        if (emotion === "positive") {
-          response = `기쁘다니 저도 덩달아 기뻐요! ${tokens.join(" ")}에 대해 더 이야기해 볼까요?`;
-        } else if (emotion === "negative") {
-          response = `힘들어 보이시네요… ${tokens.join(" ")} 때문에 그런가요? 제가 위로가 될 수 있으면 좋겠어요.`;
+        if (lowerInput.includes("기분") || lowerInput.includes("슬프") || lowerInput.includes("우울") ||
+            lowerInput.includes("짜증") || lowerInput.includes("화난") || lowerInput.includes("분노") ||
+            lowerInput.includes("놀람") || lowerInput.includes("피곤")) {
+          const responses = [
+            "정말 마음이 아프시네요. 제가 도와드릴 수 있다면 좋겠어요.",
+            "그런 날도 있죠. 힘내시고 천천히 쉬어가세요.",
+            "오늘 정말 즐거워 보이세요! 기분 좋은 일이 가득하길 바랍니다."
+          ];
+          response = responses[Math.floor(Math.random() * responses.length)];
         } else {
-          response = `${tokens.join(" ")}라니 흥미롭네요. 조금 더 설명해 주시면 제가 더 잘 이해할게요!`;
+          const generalResponses = [
+            "정말 흥미로운 이야기네요. 더 들려주세요!",
+            "알겠습니다. 혹시 다른 궁금한 점은 없으신가요?",
+            "그렇군요. 당신의 의견을 듣고 있으니 저도 많이 배워요.",
+            "그렇게 느끼실 수 있겠네요. 함께 이야기 나눠봐요!"
+          ];
+          response = generalResponses[Math.floor(Math.random() * generalResponses.length)];
         }
       }
-
-      saveToMemory(input, response);
+      
       showSpeechBubbleInChunks(response);
       inputEl.value = "";
     }
@@ -688,7 +627,7 @@
         if (index < chunks.length) {
           bubble.textContent = chunks[index];
           bubble.style.display = "block";
-          speakText(chunks[index]);
+          speakText(chunks[index]); // 음성 출력 추가
           index++;
           setTimeout(showNextChunk, delay);
         } else {
@@ -736,7 +675,52 @@
       updateMap();
       await updateWeatherAndEffects();
     });
-
+  </script>
+</head>
+<body>
+  <div id="right-hud">
+    <h3>채팅창</h3>
+    <select id="region-select" onchange="changeRegion(this.value)">
+      <option value="" disabled>지역 선택</option>
+    </select>
+    <div id="chat-log"></div>
+    <div id="chat-input-area">
+      <input type="text" id="chat-input" placeholder="채팅 입력..." />
+    </div>
+  </div>
+  
+  <div id="hud-6">
+    <button onclick="startSpeechRecognition()">🎤 음성 입력</button>
+  </div>
+  
+  <div id="hud-3">
+    <iframe id="map-iframe" src="https://www.google.com/maps?q=Seoul&output=embed" frameborder="0" style="width:100%; height:100%; border:0;" allowfullscreen></iframe>
+  </div>
+  
+  <div id="left-hud">
+    <h3>캘린더</h3>
+    <div id="calendar-container">
+      <div id="calendar-header">
+        <button id="prev-month">◀</button>
+        <span id="month-year-label"></span>
+        <button id="next-month">▶</button>
+        <select id="year-select"></select>
+      </div>
+      <div id="calendar-actions">
+        <button id="delete-day-event">하루일정 삭제</button>
+        <button id="save-calendar">바탕화면 저장</button>
+      </div>
+      <div id="calendar-grid"></div>
+    </div>
+  </div>
+  
+  <div id="speech-bubble"></div>
+  
+  <div id="hud-7">버전 2.0 베타</div>
+  
+  <canvas id="canvas"></canvas>
+  
+  <script>
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas"), alpha: true });
@@ -1160,48 +1144,5 @@
       bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
     }
   </script>
-</head>
-<body>
-  <div id="right-hud">
-    <h3>채팅창</h3>
-    <select id="region-select" onchange="changeRegion(this.value)">
-      <option value="" disabled>지역 선택</option>
-    </select>
-    <div id="chat-log"></div>
-    <div id="chat-input-area">
-      <input type="text" id="chat-input" placeholder="채팅 입력..." />
-    </div>
-  </div>
-  
-  <div id="hud-6">
-    <button onclick="startSpeechRecognition()">🎤 음성 입력</button>
-  </div>
-  
-  <div id="hud-3">
-    <iframe id="map-iframe" src="https://www.google.com/maps?q=Seoul&output=embed" frameborder="0" style="width:100%; height:100%; border:0;" allowfullscreen></iframe>
-  </div>
-  
-  <div id="left-hud">
-    <h3>캘린더</h3>
-    <div id="calendar-container">
-      <div id="calendar-header">
-        <button id="prev-month">◀</button>
-        <span id="month-year-label"></span>
-        <button id="next-month">▶</button>
-        <select id="year-select"></select>
-      </div>
-      <div id="calendar-actions">
-        <button id="delete-day-event">하루일정 삭제</button>
-        <button id="save-calendar">바탕화면 저장</button>
-      </div>
-      <div id="calendar-grid"></div>
-    </div>
-  </div>
-  
-  <div id="speech-bubble"></div>
-  
-  <div id="hud-7">버전 2.0 베타</div>
-  
-  <canvas id="canvas"></canvas>
 </body>
 </html>
