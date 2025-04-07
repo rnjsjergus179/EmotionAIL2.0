@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -6,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>3D 캐릭터 HUD, 캘린더, 음성 채팅 & 말풍선</title>
   <style>
-    /* 기존 스타일 유지 */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidden; }
     #right-hud { position: fixed; top: 10%; right: 1%; width: 20%; padding: 1%; background: rgba(255,255,255,0.8); border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); z-index: 20; }
@@ -98,7 +96,7 @@
       negative: {
         keywords: ["슬프", "우울", "짜증", "화나", "피곤", "실망", "걱정", "불안", "힘들", "지치", "고민", "후회", "미안", "아프", "괴롭"],
         subjects: ["오늘 날씨가", "주인님 기분이", "지금 분위기가", "최근 일정이", "요즘 건강 상태가"],
-        adjectives: ["조금 피곤한", "다소 우울한", "상당히 복잡한", "약간 긴장된", "놀라운"],
+        adjectives: ["조금 피곤한", "다소 우울한 BLOK", "상당히 복잡한", "약간 긴장된", "놀라운"],
         endings: ["상황입니다.", "분위기네요.", "상태입니다!", "시기인 것 같아요.", "하루예요."]
       },
       neutral: {
@@ -360,21 +358,27 @@
         if (!response && KEYWORDS.youtube.some(keyword => lowerInput.includes(keyword))) {
           response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
           showSpeechBubbleInChunks(response);
-          setTimeout(() => { window.location.href = "https://www.youtube.com/"; }, 2000);
+          setTimeout(() => {
+            document.getElementById("map-iframe").src = "https://www.youtube.com/embed/";
+          }, 2000);
           inputEl.value = "";
           return;
         }
         if (!response && KEYWORDS.twitter.some(keyword => lowerInput.includes(keyword))) {
           response = "트위터(현재 X)를 보여드릴게요! 잠시만 기다려 주세요.";
           showSpeechBubbleInChunks(response);
-          setTimeout(() => { window.location.href = "https://x.com/login?lang=ko"; }, 2000);
+          setTimeout(() => {
+            document.getElementById("map-iframe").src = "https://x.com/login?lang=ko";
+          }, 2000);
           inputEl.value = "";
           return;
         }
         if (!response && KEYWORDS.naver.some(keyword => lowerInput.includes(keyword))) {
           response = "네이버를 보여드릴게요! 잠시만 기다려 주세요.";
           showSpeechBubbleInChunks(response);
-          setTimeout(() => { window.location.href = "https://m.naver.com/"; }, 2000);
+          setTimeout(() => {
+            document.getElementById("map-iframe").src = "https://m.naver.com/";
+          }, 2000);
           inputEl.value = "";
           return;
         }
@@ -407,14 +411,18 @@
         if (!response && KEYWORDS.map.some(keyword => lowerInput.includes(keyword))) {
           response = "지도를 보여드릴게요!";
           showSpeechBubbleInChunks(response);
-          setTimeout(() => { window.location.href = "https://www.google.com/maps"; }, 2000);
+          setTimeout(() => {
+            document.getElementById("map-iframe").src = "https://www.google.com/maps";
+          }, 2000);
           inputEl.value = "";
           return;
         }
         if (!response && KEYWORDS.instagram.some(keyword => lowerInput.includes(keyword))) {
           response = "인스타그램을 보여드릴게요! 잠시만 기다려 주세요.";
           showSpeechBubbleInChunks(response);
-          setTimeout(() => { window.location.href = "https://www.instagram.com/"; }, 2000);
+          setTimeout(() => {
+            document.getElementById("map-iframe").src = "https://www.instagram.com/";
+          }, 2000);
           inputEl.value = "";
           return;
         }
