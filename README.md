@@ -128,7 +128,7 @@
       background: #333; 
       color: #00ffcc; 
       border: 1px solid #00ffcc; 
-      border-radius: 3px; 
+      border-radius: 3px;
     }
     #calendar-actions {
       margin-top: 5px;
@@ -399,34 +399,36 @@
     async function getWeather() {
       try {
         const englishCity = regionMap[currentCity] || "Seoul";
-        const url = `/api/weather?city=${encodeURIComponent(englishCity)}`;
+        const url = `http://localhost:3000/api/weather?city=${encodeURIComponent(englishCity)}`;
         const res = await fetch(url);
-        if (!res.ok) throw new Error("날씨 정보 가져오기 실패");
+        if (!res.ok) throw new Error('날씨 정보 가져오기 실패');
         const data = await res.json();
         currentWeather = data.weather[0].description;
         const message = `오늘 ${currentCity}의 날씨는 ${data.weather[0].description}이고, 기온은 ${data.main.temp}°C입니다.`;
         return { message };
       } catch (error) {
-        console.error(error);
-        currentWeather = "";
-        return { message: "날씨 정보를 가져오는데 실패했습니다." };
+        console.error('날씨 오류:', error);
+        currentWeather = '';
+        showSpeechBubbleInChunks('날씨 정보를 가져오는데 실패했습니다.');
+        return { message: '' };
       }
     }
     
     async function getGPTResponse(input) {
       try {
-        const url = `/api/gpt`;
+        const url = 'http://localhost:3000/api/gpt';
         const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt: input })
         });
-        if (!res.ok) throw new Error("GPT 응답 가져오기 실패");
+        if (!res.ok) throw new Error('GPT 응답 가져오기 실패');
         const data = await res.json();
         return data.response;
       } catch (error) {
-        console.error(error);
-        return "GPT 응답을 가져오는데 실패했습니다.";
+        console.error('GPT 오류:', error);
+        showSpeechBubbleInChunks('죄송해요, 현재 GPT 응답을 가져올 수 없습니다. 잠시 후 다시 시도해주세요.');
+        return '';
       }
     }
     
@@ -457,7 +459,7 @@
     
     async function updateWeatherAndEffects(sendMessage = true) {
       const weatherData = await getWeather();
-      if (sendMessage) {
+      if (sendMessage && weatherData.message) {
         showSpeechBubbleInChunks(weatherData.message);
       }
       updateWeatherEffects();
