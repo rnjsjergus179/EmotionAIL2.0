@@ -128,7 +128,7 @@
       background: #333; 
       color: #00ffcc; 
       border: 1px solid #00ffcc; 
-      border-radius: 3px; 
+      border-radius: 3px;
     }
     #calendar-actions {
       margin-top: 5px;
@@ -283,14 +283,32 @@
     let currentWeather = "";
     const weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
     const regionMap = {
-      "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
-      "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
-      "안산": "Ansan", "파주": "Paju", "부산": "Busan", "대구": "Daegu", "광주": "Gwangju",
-      "대전": "Daejeon", "울산": "Ulsan", "제주": "Jeju", "전주": "Jeonju", "청주": "Cheongju",
-      "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
+      "서울": "Seoul",
+      "인천": "Incheon",
+      "수원": "Suwon",
+      "고양": "Goyang",
+      "성남": "Seongnam",
+      "용인": "Yongin",
+      "부천": "Bucheon",
+      "안양": "Anyang",
+      "의정부": "Uijeongbu",
+      "광명": "Gwangmyeong",
+      "안산": "Ansan",
+      "파주": "Paju",
+      "부산": "Busan",
+      "대구": "Daegu",
+      "광주": "Gwangju",
+      "대전": "Daejeon",
+      "울산": "Ulsan",
+      "제주": "Jeju",
+      "전주": "Jeonju",
+      "청주": "Cheongju",
+      "포항": "Pohang",
+      "여수": "Yeosu",
+      "김해": "Gimhae"
     };
     const regionList = Object.keys(regionMap);
-
+    
     document.addEventListener("copy", function(e) {
       e.preventDefault();
       let selectedText = window.getSelection().toString();
@@ -300,7 +318,7 @@
       blockUntil = Date.now() + 3600000;
       showSpeechBubbleInChunks("1시간동안 차단됩니다.");
     });
-
+    
     /* 음성 출력 함수 */
     function speakText(text) {
       const utterance = new SpeechSynthesisUtterance(text);
@@ -310,7 +328,7 @@
       utterance.pitch = 1;
       window.speechSynthesis.speak(utterance);
     }
-
+    
     /* 캘린더, 파일 저장 관련 함수들 */
     function saveFile() {
       const content = "파일 저장 완료";
@@ -323,14 +341,14 @@
       link.click();
       document.body.removeChild(link);
     }
-
+    
     function saveCalendar() {
-      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+      const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
       const calendarData = {};
       for (let d = 1; d <= daysInMonth; d++) {
-        const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth + 1}-${d}`);
+        const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${d}`);
         if (eventDiv && eventDiv.textContent.trim() !== "") {
-          calendarData[`${currentYear}-${currentMonth + 1}-${d}`] = eventDiv.textContent;
+          calendarData[`${currentYear}-${currentMonth+1}-${d}`] = eventDiv.textContent;
         }
       }
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(calendarData, null, 2));
@@ -342,20 +360,20 @@
       dlAnchorElem.click();
       document.body.removeChild(dlAnchorElem);
     }
-
+    
     function deleteCalendarEvent(day) {
-      const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth + 1}-${day}`);
+      const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${day}`);
       if (eventDiv) {
         eventDiv.textContent = "";
         const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-        delete calendarData[`${currentYear}-${currentMonth + 1}-${day}`];
+        delete calendarData[`${currentYear}-${currentMonth+1}-${day}`];
         localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
-        return `${currentYear}-${currentMonth + 1}-${day} 일정이 삭제되었습니다.`;
+        return `${currentYear}-${currentMonth+1}-${day} 일정이 삭제되었습니다.`;
       } else {
         return "해당 날짜에 일정이 없습니다.";
       }
     }
-
+    
     function getCalendarEvents(dateStr = null) {
       const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
       if (!Object.keys(calendarData).length) {
@@ -369,7 +387,7 @@
           return `${dateStr}에는 일정이 없습니다.`;
         }
       } else {
-        const currentMonthStr = `${currentYear}-${currentMonth + 1}`;
+        const currentMonthStr = `${currentYear}-${currentMonth+1}`;
         let events = [];
         for (let key in calendarData) {
           if (key.startsWith(currentMonthStr)) {
@@ -430,13 +448,12 @@
     function getFromMemory(input) {
       return memory[input] ? memory[input].response : null;
     }
-
-    /* 날씨 관련 함수 */
+    
     function updateMap() {
       const englishCity = regionMap[currentCity] || "Seoul";
       document.getElementById("map-iframe").src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
     }
-
+    
     async function getWeather() {
       try {
         const englishCity = regionMap[currentCity] || "Seoul";
@@ -453,7 +470,7 @@
         return { message: "날씨 정보를 가져오는데 실패했습니다." };
       }
     }
-
+    
     function updateWeatherEffects() {
       if (!currentWeather) return;
       if (currentWeather.includes("비") || currentWeather.includes("소나기")) {
@@ -469,7 +486,7 @@
         houseCloudGroup.visible = false;
       }
     }
-
+    
     function updateLightning() {
       if (currentWeather.includes("번개") || currentWeather.includes("뇌우")) {
         if (Math.random() < 0.001) {
@@ -478,7 +495,7 @@
         }
       }
     }
-
+    
     async function updateWeatherAndEffects(sendMessage = true) {
       const weatherData = await getWeather();
       if (sendMessage) {
@@ -486,7 +503,7 @@
       }
       updateWeatherEffects();
     }
-
+    
     function changeRegion(value) {
       currentCity = value;
       updateMap();
@@ -495,8 +512,7 @@
       const message = `지역이 ${currentCity} (${englishCity})로 변경되었습니다.`;
       showSpeechBubbleInChunks(message);
     }
-
-    /* 음성 인식 함수 */
+    
     function startSpeechRecognition() {
       if (!('webkitSpeechRecognition' in window)) {
         alert("이 브라우저는 음성 인식을 지원하지 않습니다.");
@@ -516,8 +532,7 @@
         console.error("음성 인식 오류:", event.error);
       };
     }
-
-    /* 대화 처리 함수 */
+    
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -545,10 +560,13 @@
       if (lowerInput.includes("파일 저장해줘") || lowerInput.includes("캘린더 저장해줘")) {
         saveCalendar();
         speakText("캘린더를 저장했습니다.");
+        response = "캘린더를 저장했습니다.";
+        saveToMemory(input, response);
+        showSpeechBubbleInChunks(response);
         inputEl.value = "";
         return;
       }
-
+      
       if (intent === "changeRegion" || lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
         if (newCity) {
@@ -571,7 +589,7 @@
         updateMap();
         await updateWeatherAndEffects();
       }
-
+      
       if (!response && intent === "delete") {
         const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
         if (dayStr) {
@@ -581,7 +599,7 @@
           response = "삭제할 날짜를 입력하지 않으셨습니다.";
         }
       }
-
+      
       if (!response && intent === "youtube") {
         response = "유튜브를 보여드릴게요! 잠시만 기다려 주세요.";
         showSpeechBubbleInChunks(response);
@@ -643,8 +661,7 @@
         inputEl.value = "";
         return;
       }
-
-      // 감정 기반 응답 또는 학습 기반 응답
+      
       if (!response) {
         if (emotion === "positive") {
           response = `기쁘다니 저도 덩달아 기뻐요! ${tokens.join(" ")}에 대해 더 이야기해 볼까요?`;
@@ -653,14 +670,13 @@
         } else {
           response = `${tokens.join(" ")}라니 흥미롭네요. 조금 더 설명해 주시면 제가 더 잘 이해할게요!`;
         }
-        // 기억에 저장
-        saveToMemory(input, response);
       }
 
+      saveToMemory(input, response);
       showSpeechBubbleInChunks(response);
       inputEl.value = "";
     }
-
+    
     function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 3000) {
       const bubble = document.getElementById("speech-bubble");
       const chunks = [];
@@ -681,7 +697,7 @@
       }
       showNextChunk();
     }
-
+    
     window.addEventListener("DOMContentLoaded", function() {
       const chatInput = document.getElementById("chat-input");
       chatInput.setAttribute("list", "chat-keywords");
@@ -708,110 +724,18 @@
         regionSelect.appendChild(option);
       });
     });
-
-    window.addEventListener("resize", function() {
+    
+    window.addEventListener("resize", function(){
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
-
+    
     window.addEventListener("load", async () => {
       initCalendar();
       updateMap();
       await updateWeatherAndEffects();
     });
-
-    let currentYear, currentMonth;
-    function initCalendar() {
-      const now = new Date();
-      currentYear = now.getFullYear();
-      currentMonth = now.getMonth();
-      populateYearSelect();
-      renderCalendar(currentYear, currentMonth);
-      document.getElementById("prev-month").addEventListener("click", () => {
-        currentMonth--;
-        if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-        renderCalendar(currentYear, currentMonth);
-      });
-      document.getElementById("next-month").addEventListener("click", () => {
-        currentMonth++;
-        if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-        renderCalendar(currentYear, currentMonth);
-      });
-      document.getElementById("year-select").addEventListener("change", (e) => {
-        currentYear = parseInt(e.target.value);
-        renderCalendar(currentYear, currentMonth);
-      });
-      document.getElementById("delete-day-event").addEventListener("click", () => {
-        const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
-        if (dayStr) {
-          const dayNum = parseInt(dayStr);
-          const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth + 1}-${dayNum}`);
-          if (eventDiv) {
-            eventDiv.textContent = "";
-            const message = `${currentYear}-${currentMonth + 1}-${dayNum} 일정이 삭제되었습니다. 다시 입력할 수 있습니다.`;
-            alert(message);
-            speakText(message);
-          }
-        }
-      });
-      document.getElementById("save-calendar").addEventListener("click", () => {
-        saveCalendar();
-        speakText("캘린더를 바탕화면에 저장했습니다.");
-      });
-    }
-
-    function populateYearSelect() {
-      const yearSelect = document.getElementById("year-select");
-      yearSelect.innerHTML = "";
-      for (let y = 2020; y <= 2070; y++) {
-        const option = document.createElement("option");
-        option.value = y;
-        option.textContent = y;
-        if (y === currentYear) option.selected = true;
-        yearSelect.appendChild(option);
-      }
-    }
-
-    function renderCalendar(year, month) {
-      const monthNames = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
-      document.getElementById("month-year-label").textContent = `${year}년 ${monthNames[month]}`;
-      const grid = document.getElementById("calendar-grid");
-      grid.innerHTML = "";
-      const daysOfWeek = ["일", "월", "화", "수", "목", "금", "토"];
-      daysOfWeek.forEach((day) => {
-        const th = document.createElement("div");
-        th.style.fontWeight = "bold";
-        th.style.textAlign = "center";
-        th.textContent = day;
-        th.style.color = "#00ffcc";
-        th.style.textShadow = "0 0 3px #00ffcc";
-        grid.appendChild(th);
-      });
-      const firstDay = new Date(year, month, 1).getDay();
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-      for (let i = 0; i < firstDay; i++) {
-        grid.appendChild(document.createElement("div"));
-      }
-      for (let d = 1; d <= daysInMonth; d++) {
-        const cell = document.createElement("div");
-        cell.innerHTML = `<div class="day-number">${d}</div>
-                          <div class="event" id="event-${year}-${month + 1}-${d}"></div>`;
-        cell.addEventListener("click", () => {
-          const eventText = prompt(`${year}-${month + 1}-${d} 일정 입력:`);
-          if (eventText) {
-            const eventDiv = document.getElementById(`event-${year}-${month + 1}-${d}`);
-            if (eventDiv.textContent) {
-              eventDiv.textContent += "; " + eventText;
-            } else {
-              eventDiv.textContent = eventText;
-            }
-            speakText(`${year}-${month + 1}-${d}에 ${eventText} 일정을 추가했습니다.`);
-          }
-        });
-        grid.appendChild(cell);
-      }
-    }
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
@@ -1134,7 +1058,99 @@
       renderer.render(scene, camera);
     }
     animate();
-
+    
+    let currentYear, currentMonth;
+    function initCalendar() {
+      const now = new Date();
+      currentYear = now.getFullYear();
+      currentMonth = now.getMonth();
+      populateYearSelect();
+      renderCalendar(currentYear, currentMonth);
+      document.getElementById("prev-month").addEventListener("click", () => {
+        currentMonth--;
+        if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+        renderCalendar(currentYear, currentMonth);
+      });
+      document.getElementById("next-month").addEventListener("click", () => {
+        currentMonth++;
+        if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+        renderCalendar(currentYear, currentMonth);
+      });
+      document.getElementById("year-select").addEventListener("change", (e) => {
+        currentYear = parseInt(e.target.value);
+        renderCalendar(currentYear, currentMonth);
+      });
+      document.getElementById("delete-day-event").addEventListener("click", () => {
+        const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
+        if (dayStr) {
+          const dayNum = parseInt(dayStr);
+          const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${dayNum}`);
+          if (eventDiv) {
+            eventDiv.textContent = "";
+            const message = `${currentYear}-${currentMonth+1}-${dayNum} 일정이 삭제되었습니다. 다시 입력할 수 있습니다.`;
+            alert(message);
+            speakText(message);
+          }
+        }
+      });
+      document.getElementById("save-calendar").addEventListener("click", () => {
+        saveCalendar();
+        speakText("캘린더를 바탕화면에 저장했습니다.");
+      });
+    }
+    
+    function populateYearSelect() {
+      const yearSelect = document.getElementById("year-select");
+      yearSelect.innerHTML = "";
+      for (let y = 2020; y <= 2070; y++) {
+        const option = document.createElement("option");
+        option.value = y;
+        option.textContent = y;
+        if (y === currentYear) option.selected = true;
+        yearSelect.appendChild(option);
+      }
+    }
+    
+    function renderCalendar(year, month) {
+      const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+      document.getElementById("month-year-label").textContent = `${year}년 ${monthNames[month]}`;
+      const grid = document.getElementById("calendar-grid");
+      grid.innerHTML = "";
+      const daysOfWeek = ["일","월","화","수","목","금","토"];
+      daysOfWeek.forEach((day) => {
+        const th = document.createElement("div");
+        th.style.fontWeight = "bold";
+        th.style.textAlign = "center";
+        th.textContent = day;
+        th.style.color = "#00ffcc";
+        th.style.textShadow = "0 0 3px #00ffcc";
+        grid.appendChild(th);
+      });
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month+1, 0).getDate();
+      for (let i = 0; i < firstDay; i++) {
+        grid.appendChild(document.createElement("div"));
+      }
+      for (let d = 1; d <= daysInMonth; d++) {
+        const cell = document.createElement("div");
+        cell.innerHTML = `<div class="day-number">${d}</div>
+                          <div class="event" id="event-${year}-${month+1}-${d}"></div>`;
+        cell.addEventListener("click", () => {
+          const eventText = prompt(`${year}-${month+1}-${d} 일정 입력:`);
+          if (eventText) {
+            const eventDiv = document.getElementById(`event-${year}-${month+1}-${d}`);
+            if (eventDiv.textContent) {
+              eventDiv.textContent += "; " + eventText;
+            } else {
+              eventDiv.textContent = eventText;
+            }
+            speakText(`${year}-${month+1}-${d}에 ${eventText} 일정을 추가했습니다.`);
+          }
+        });
+        grid.appendChild(cell);
+      }
+    }
+    
     function updateBubblePosition() {
       const bubble = document.getElementById("speech-bubble");
       const headWorldPos = new THREE.Vector3();
