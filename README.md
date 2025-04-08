@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>3D 캐릭터 HUD, 캘린더, 음성 채팅 & 외부 링크 이동</title>
+  <title>EmotionAIL</title>
   <style>
     /* 스타일 */
     * { margin: 0; padding: 0; box-sizing: border-box; }
