@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>EMOTIONAIL</title>
+  <title>3D 캐릭터 HUD, 캘린더, 음성 채팅 & 외부 링크 이동</title>
   <style>
     /* 기본 스타일 */
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -361,7 +361,7 @@
 
     // 도메인 검사
     function checkDomain() {
-      const allowedDomain = 'your-allowed-domain.com'; // 허용된 도메인 설정 (필요 시 수정)
+      const allowedDomain = 'emotionall.site'; // 허용된 도메인 설정
       if (window.location.hostname !== allowedDomain && window.location.hostname !== '') {
         alert('이 페이지는 허용된 도메인에서만 실행할 수 있습니다.');
         window.location.href = 'about:blank';
