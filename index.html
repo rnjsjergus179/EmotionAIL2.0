@@ -359,15 +359,6 @@
       }
     }
 
-    // 도메인 검사
-    function checkDomain() {
-      const allowedDomain = 'emotionall.site'; // 허용된 도메인 설정
-      if (window.location.hostname !== allowedDomain && window.location.hostname !== '') {
-        alert('이 페이지는 허용된 도메인에서만 실행할 수 있습니다.');
-        window.location.href = 'about:blank';
-      }
-    }
-
     // 복사 감지
     document.addEventListener("copy", function(e) {
       e.preventDefault();
@@ -756,9 +747,6 @@
         regionSelect.appendChild(option);
       });
 
-      // 도메인 검사 실행
-      checkDomain();
-      
       // 개발자 도구 감지 주기적 실행
       setInterval(detectDevTools, 1000);
     });
