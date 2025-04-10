@@ -584,12 +584,14 @@
       showSpeechBubbleInChunks(message);
     }
     
+    /* 음성 입력 함수 (SpeechRecognition API 지원) */
     function startSpeechRecognition() {
-      if (!('webkitSpeechRecognition' in window)) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
         alert("이 브라우저는 음성 인식을 지원하지 않습니다.");
         return;
       }
-      const recognition = new webkitSpeechRecognition();
+      const recognition = new SpeechRecognition();
       recognition.lang = "ko-KR";
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
@@ -597,7 +599,7 @@
       recognition.onresult = function(event) {
         const transcript = event.results[0][0].transcript.trim();
         document.getElementById("chat-input").value = transcript;
-        sendChat(); // 음성 입력 후 바로 처리
+        sendChat();
       };
       recognition.onerror = function(event) {
         console.error("음성 인식 오류:", event.error);
@@ -730,14 +732,14 @@
       memoryStorage.save('lastResponse', response);
       
       // 응답 출력 (말풍선 및 음성 출력)
-      showSpeechBubbleInChunks(response); 
+      showSpeechBubbleInChunks(response);
       inputEl.value = "";
       
       // 피드백 옵션 표시
       showFeedbackOptions(input, response);
     }
     
-    // 말풍선 출력 간격을 1500ms로 수정 (chunkSize 기본값 15는 유지)
+    // 말풍선 출력 간격을 1500ms로 수정 (chunkSize는 15 그대로)
     function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 1500) {
       const bubble = document.getElementById("speech-bubble");
       const chunks = [];
