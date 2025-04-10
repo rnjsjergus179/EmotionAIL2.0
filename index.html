@@ -479,7 +479,7 @@
       document.body.removeChild(dlAnchorElem);
     }
     
-    // 파일 불러오기 기능: 파일 입력(input type="file")을 통해 JSON 파일 내용을 localStorage에 저장 후 캘린더를 갱신함
+    // 파일 불러오기: 파일 입력(input type="file")을 통해 캘린더 JSON 파일을 불러와 localStorage에 저장 후 캘린더 갱신
     function loadCalendarFile() {
       let inputFile = document.getElementById("file-input");
       if (!inputFile) {
@@ -523,6 +523,7 @@
       }
     }
     
+    // getCalendarEvents()는 localStorage에 저장된 캘린더 데이터를 읽어와 일정 내용을 문자열로 반환
     function getCalendarEvents(dateStr = null) {
       const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
       if (!Object.keys(calendarData).length) {
@@ -670,13 +671,13 @@
         return;
       }
       
-      // 일정 관련 키워드: "일정 알려줘", "일정 뭐야", "일정 알려줄 수" 등
-      if (!response && (lowerInput.includes("일정 알려줘") || lowerInput.includes("일정 뭐야") || lowerInput.includes("일정 알려줄"))) {
-        // 만약 날짜가 함께 포함되었다면 해당 날짜의 일정도 불러옴
+      // 일정 관련 키워드 (예: "일정 알려줘", "일정 뭐야", "일정 보여줘")
+      if (!response && (lowerInput.includes("일정 알려") ||
+                         lowerInput.includes("일정 뭐") ||
+                         lowerInput.includes("일정 보여"))) {
         const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
         if (dateMatch) {
-          const dateStr = dateMatch[0];
-          response = getCalendarEvents(dateStr);
+          response = getCalendarEvents(dateMatch[0]);
         } else {
           response = getCalendarEvents();
         }
@@ -699,7 +700,7 @@
         response = nlpResponse;
       }
       
-      // 기존 로직 (그 외의 경우)
+      // 추가 로직 (지역 변경, 삭제, 인사, 시간 확인, 기분 관련 대화 등)
       if (!response) {
         if (lowerInput.startsWith("지역 ")) {
           const newCity = lowerInput.replace("지역", "").trim();
@@ -788,7 +789,7 @@
       showFeedbackOptions(input, response);
     }
     
-    // 말풍선 출력 간격을 1500ms로 (chunkSize는 15 유지)
+    // 말풍선 출력 간격 1500ms (chunkSize 15 유지)
     function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 1500) {
       const bubble = document.getElementById("speech-bubble");
       const chunks = [];
@@ -894,7 +895,7 @@
   
   <canvas id="canvas"></canvas>
   
-  <!-- 파일 불러오기용 파일 입력 (항상 숨김) -->
+  <!-- 파일 불러오기용 파일 입력 (숨김) -->
   <input type="file" id="file-input" accept=".json" style="display:none;" />
   
   <script>
