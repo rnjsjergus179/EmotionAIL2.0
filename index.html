@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>EMOTIONAIL</title>
+  <title>emotionail</title>
   <style>
     /* 기본 스타일 */
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -254,14 +255,19 @@
   <script>
     /* 사이트 링크 객체 */
     const SITE_LINKS = {
+      // 검색 엔진
       "구글": "https://www.google.com",
       "빙": "https://www.bing.com",
       "네이버": "https://www.naver.com",
       "다음": "https://www.daum.net",
+      
+      // 동영상 스트리밍
       "유튜브": "https://www.youtube.com",
       "넷플릭스": "https://www.netflix.com",
       "트위치": "https://www.twitch.tv",
       "틱톡": "https://www.tiktok.com",
+      
+      // SNS
       "인스타": "https://www.instagram.com",
       "인스타그램": "https://www.instagram.com",
       "페이스북": "https://www.facebook.com",
@@ -269,24 +275,36 @@
       "엑스": "https://x.com",
       "링크드인": "https://www.linkedin.com",
       "레딧": "https://www.reddit.com",
+      
+      // 쇼핑
       "아마존": "https://www.amazon.com",
       "쿠팡": "https://www.coupang.com",
       "11번가": "https://www.11st.co.kr",
       "지마켓": "https://www.gmarket.co.kr",
+      
+      // 뉴스 및 정보
       "bbc": "https://www.bbc.com",
       "cnn": "https://edition.cnn.com",
       "ytn": "https://www.ytn.co.kr",
       "연합뉴스": "https://www.yna.co.kr",
+      
+      // 기술 및 프로그래밍
       "깃허브": "https://github.com",
       "스택오버플로우": "https://stackoverflow.com",
       "mdn": "https://developer.mozilla.org",
+      
+      // 엔터테인먼트
       "스포티파이": "https://www.spotify.com",
       "멜론": "https://www.melon.com",
       "벅스": "https://music.bugs.co.kr",
       "imdb": "https://www.imdb.com",
+      
+      // 교육
       "유데미": "https://www.udemy.com",
       "코세라": "https://www.coursera.org",
       "칸아카데미": "https://www.khanacademy.org",
+      
+      // 기타
       "위키피디아": "https://www.wikipedia.org",
       "네이버지도": "https://map.naver.com",
       "구글맵": "https://www.google.com/maps",
@@ -335,31 +353,7 @@
       "김해": "Gimhae"
     };
     const regionList = Object.keys(regionMap);
-
-    /* 추가된 보안 기능 */
     
-    // 콘솔 감지
-    (function() {
-      const element = new Image();
-      Object.defineProperty(element, 'id', {
-        get: function() {
-          promptPassword();
-        }
-      });
-      console.log('%c', element);
-    })();
-
-    // 개발자 도구 감지
-    function detectDevTools() {
-      const threshold = 160;
-      const widthThreshold = window.outerWidth - window.innerWidth > threshold;
-      const heightThreshold = window.outerHeight - window.innerHeight > threshold;
-      if (widthThreshold || heightThreshold) {
-        promptPassword();
-      }
-    }
-
-    // 복사 감지
     document.addEventListener("copy", function(e) {
       e.preventDefault();
       let selectedText = window.getSelection().toString();
@@ -369,16 +363,7 @@
       blockUntil = Date.now() + 3600000;
       showSpeechBubbleInChunks("1시간동안 차단됩니다.");
     });
-
-    // 비밀번호 입력 요구
-    function promptPassword() {
-      const password = prompt("콘솔이나 개발자 도구가 감지되었습니다. 비밀번호를 입력하세요:", "");
-      if (password !== "19991192") {
-        alert("비밀번호가 틀렸습니다. 페이지가 닫힙니다.");
-        window.location.href = 'about:blank';
-      }
-    }
-
+    
     /* 기억 학습을 위한 데이터 저장소 */
     const memoryStorage = {
       save: function(key, value) {
@@ -390,9 +375,21 @@
       }
     };
 
-    /* NLP 처리를 위한 간단한 키워드 매칭 함수 */
+    /* NLP 처리를 위한 간단한 키워드 매칭 함수 및 개인화 처리 추가 */
     function processNLP(input) {
       const lowerInput = input.toLowerCase();
+      
+      // 개인화: "내 이름은"이라는 입력에서 사용자 이름 추출 및 저장
+      if (lowerInput.includes("내 이름은")) {
+        let parts = lowerInput.split("내 이름은");
+        if (parts.length > 1) {
+          let namePart = parts[1].trim();
+          let name = namePart.split(" ")[0]; // 첫 단어를 이름으로 사용
+          memoryStorage.save("userName", name);
+          return `${name}님, 앞으로 잘 부탁드립니다!`;
+        }
+      }
+      
       const emotions = {
         positive: ["좋아", "행복", "기쁘", "즐거", "최고"],
         negative: ["슬프", "우울", "짜증", "화나", "피곤"]
@@ -425,6 +422,59 @@
       utterance.rate = 1;
       utterance.pitch = 1;
       window.speechSynthesis.speak(utterance);
+    }
+    
+    /* 피드백 저장 및 옵션 표시 함수 (반복학습 개선) */
+    function saveFeedback(input, response, feedbackType) {
+      let feedbackHistory = memoryStorage.load("feedbackHistory");
+      if (!feedbackHistory) {
+        feedbackHistory = [];
+      }
+      const feedbackEntry = {
+        input: input,
+        response: response,
+        feedback: feedbackType,
+        timestamp: new Date().toISOString()
+      };
+      feedbackHistory.push(feedbackEntry);
+      memoryStorage.save("feedbackHistory", feedbackHistory);
+      alert("피드백이 저장되었습니다.");
+    }
+    
+    function showFeedbackOptions(input, response) {
+      let feedbackContainer = document.getElementById("feedback-options");
+      if (!feedbackContainer) {
+        feedbackContainer = document.createElement("div");
+        feedbackContainer.id = "feedback-options";
+        feedbackContainer.style.position = "fixed";
+        feedbackContainer.style.bottom = "50px";
+        feedbackContainer.style.left = "50%";
+        feedbackContainer.style.transform = "translateX(-50%)";
+        feedbackContainer.style.background = "rgba(255,255,255,0.9)";
+        feedbackContainer.style.padding = "10px";
+        feedbackContainer.style.borderRadius = "5px";
+        feedbackContainer.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
+        feedbackContainer.style.zIndex = "60";
+        document.body.appendChild(feedbackContainer);
+      }
+      feedbackContainer.innerHTML = "";
+      const likeButton = document.createElement("button");
+      likeButton.textContent = "👍 좋음";
+      likeButton.style.marginRight = "10px";
+      const dislikeButton = document.createElement("button");
+      dislikeButton.textContent = "👎 싫음";
+      
+      likeButton.addEventListener("click", function() {
+        saveFeedback(input, response, "positive");
+        feedbackContainer.style.display = "none";
+      });
+      dislikeButton.addEventListener("click", function() {
+        saveFeedback(input, response, "negative");
+        feedbackContainer.style.display = "none";
+      });
+      
+      feedbackContainer.appendChild(likeButton);
+      feedbackContainer.appendChild(dislikeButton);
     }
     
     /* 캘린더, 파일 저장 관련 함수들 */
@@ -595,7 +645,7 @@
         }
       }
 
-      // NLP 처리 먼저 시도
+      // NLP 처리 먼저 시도 (개인화 및 감정 처리 포함)
       const nlpResponse = processNLP(input);
       if (nlpResponse) {
         response = nlpResponse;
@@ -603,48 +653,14 @@
 
       // 기존 로직 (NLP 및 사이트 이동에서 응답이 없을 경우)
       if (!response) {
-        if (lowerInput.includes("파일 저장해줘") || lowerInput.includes("캘린더 저장해줘")) {
-          saveCalendar();
-          speakText("캘린더를 저장했습니다.");
-          inputEl.value = "";
-          return;
-        }
-        
-        if (lowerInput.startsWith("지역 ")) {
-          const newCity = lowerInput.replace("지역", "").trim();
-          if (newCity) {
-            if (regionList.includes(newCity)) {
-              currentCity = newCity;
-              document.getElementById("region-select").value = newCity;
-              response = `좋아요, 지역을 ${newCity}(으)로 변경할게요!`;
-              updateMap();
-              await updateWeatherAndEffects();
-            } else {
-              response = "죄송해요, 그 지역은 지원하지 않아요. 드롭다운 메뉴에서 선택해주세요.";
-            }
+        // 개인화된 인사 처리: 저장된 사용자 이름이 있는 경우 이름 반영
+        if (KEYWORDS.greetings.some(keyword => lowerInput.includes(keyword))) {
+          const savedName = memoryStorage.load("userName");
+          if (savedName) {
+            response = `${savedName}님, 안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?`;
           } else {
-            response = "변경할 지역을 입력해 주세요.";
+            response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
           }
-        } else if (regionList.includes(input)) {
-          currentCity = input;
-          document.getElementById("region-select").value = input;
-          response = `좋아요, 지역을 ${input}(으)로 변경할게요!`;
-          updateMap();
-          await updateWeatherAndEffects();
-        }
-        
-        if (!response && KEYWORDS.delete.some(keyword => lowerInput.includes(keyword))) {
-          const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
-          if (dayStr) {
-            const dayNum = parseInt(dayStr);
-            response = deleteCalendarEvent(dayNum);
-          } else {
-            response = "삭제할 날짜를 입력하지 않으셨습니다.";
-          }
-        }
-        
-        if (!response && KEYWORDS.greetings.some(keyword => lowerInput.includes(keyword))) {
-          response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
         }
         if (!response && KEYWORDS.sleep.some(keyword => lowerInput.includes(keyword))) {
           response = "편안한 밤 되세요, 좋은 꿈 꾸세요~";
@@ -692,12 +708,15 @@
         }
       }
 
-      // 기억 학습 데이터 저장
+      // 반복학습: 사용자의 마지막 입력과 응답, 그리고 (나중에) 피드백을 저장
       memoryStorage.save('lastInput', input);
       memoryStorage.save('lastResponse', response);
-
+      
       showSpeechBubbleInChunks(response);
       inputEl.value = "";
+      
+      // 피드백 옵션 표시 (반복학습 개선)
+      showFeedbackOptions(input, response);
     }
     
     function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 3000) {
@@ -746,9 +765,6 @@
         if (region === currentCity) option.selected = true;
         regionSelect.appendChild(option);
       });
-
-      // 개발자 도구 감지 주기적 실행
-      setInterval(detectDevTools, 1000);
     });
     
     window.addEventListener("resize", function(){
@@ -802,12 +818,14 @@
   </div>
   
   <div id="speech-bubble"></div>
+  <!-- 피드백 옵션을 표시할 영역 (동적으로 생성됨) -->
   
   <div id="hud-7">버전 2.0 베타</div>
   
   <canvas id="canvas"></canvas>
   
   <script>
+    // Three.js 관련 코드 (씬, 카메라, 조명, 오브젝트 생성 등)
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas"), alpha: true });
