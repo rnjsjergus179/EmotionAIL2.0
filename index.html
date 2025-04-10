@@ -459,7 +459,7 @@
       feedbackContainer.appendChild(dislikeButton);
     }
     
-    /* 캘린더 및 파일 저장 함수들 */
+    /* 캘린더 및 파일 저장/불러오기 함수들 */
     function saveCalendar() {
       const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
       const calendarData = {};
@@ -477,6 +477,37 @@
       document.body.appendChild(dlAnchorElem);
       dlAnchorElem.click();
       document.body.removeChild(dlAnchorElem);
+    }
+    
+    // 파일 불러오기 기능: 파일 입력(input type="file")을 통해 JSON 파일 내용을 localStorage에 저장 후 캘린더를 갱신함
+    function loadCalendarFile() {
+      let inputFile = document.getElementById("file-input");
+      if (!inputFile) {
+        inputFile = document.createElement("input");
+        inputFile.type = "file";
+        inputFile.id = "file-input";
+        inputFile.accept = ".json";
+        inputFile.style.display = "none";
+        document.body.appendChild(inputFile);
+        inputFile.addEventListener("change", function(event) {
+          const file = event.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              try {
+                const data = JSON.parse(e.target.result);
+                localStorage.setItem("calendarEvents", JSON.stringify(data));
+                renderCalendar(currentYear, currentMonth);
+                speakText("캘린더 파일이 불러와졌습니다.");
+              } catch (error) {
+                speakText("파일을 불러오는 중 오류가 발생했습니다.");
+              }
+            };
+            reader.readAsText(file);
+          }
+        });
+      }
+      inputFile.click();
     }
     
     function deleteCalendarEvent(day) {
@@ -618,6 +649,39 @@
       let response = "";
       const lowerInput = input.toLowerCase();
       
+      // 캘린더 파일 저장 관련 키워드
+      if (lowerInput.includes("파일 저장") || 
+          lowerInput.includes("파일 일과저장") || 
+          lowerInput.includes("캘린더 저장해줘") ||
+          lowerInput.includes("캘린더 저장")) {
+        saveCalendar();
+        speakText("캘린더를 저장했습니다.");
+        inputEl.value = "";
+        return;
+      }
+      
+      // 캘린더 파일 불러오기 관련 키워드
+      if (lowerInput.includes("파일 불러오기") || 
+          lowerInput.includes("파일 부르기") ||
+          lowerInput.includes("불러오기") || 
+          lowerInput.includes("파일 불러")) {
+        loadCalendarFile();
+        inputEl.value = "";
+        return;
+      }
+      
+      // 일정 관련 키워드: "일정 알려줘", "일정 뭐야", "일정 알려줄 수" 등
+      if (!response && (lowerInput.includes("일정 알려줘") || lowerInput.includes("일정 뭐야") || lowerInput.includes("일정 알려줄"))) {
+        // 만약 날짜가 함께 포함되었다면 해당 날짜의 일정도 불러옴
+        const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
+        if (dateMatch) {
+          const dateStr = dateMatch[0];
+          response = getCalendarEvents(dateStr);
+        } else {
+          response = getCalendarEvents();
+        }
+      }
+      
       // SITE_LINKS 처리
       for (let site in SITE_LINKS) {
         if (lowerInput.includes(site)) {
@@ -628,21 +692,15 @@
           return;
         }
       }
-
+      
       // NLP 처리 (개인화 및 감정 처리 포함)
       const nlpResponse = processNLP(input);
       if (nlpResponse) {
         response = nlpResponse;
       }
-
-      // 기존 로직
+      
+      // 기존 로직 (그 외의 경우)
       if (!response) {
-        if (lowerInput.includes("파일 저장해줘") || lowerInput.includes("캘린더 저장해줘")) {
-          saveCalendar();
-          speakText("캘린더를 저장했습니다.");
-          inputEl.value = "";
-          return;
-        }
         if (lowerInput.startsWith("지역 ")) {
           const newCity = lowerInput.replace("지역", "").trim();
           if (newCity) {
@@ -692,16 +750,7 @@
           inputEl.value = "";
           return;
         }
-        if (!response && lowerInput.includes("일정") && lowerInput.includes("알려줘")) {
-          const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
-          if (dateMatch) {
-            const dateStr = dateMatch[0];
-            response = getCalendarEvents(dateStr);
-          } else {
-            response = getCalendarEvents();
-          }
-        }
-        if (!response && KEYWORDS.time.some(keyword => lowerInput.includes(keyword))) {
+        if (!response && lowerInput.includes("시간")) {
           const now = new Date();
           response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
         }
@@ -739,7 +788,7 @@
       showFeedbackOptions(input, response);
     }
     
-    // 말풍선 출력 간격을 1500ms로 수정 (chunkSize는 15 그대로)
+    // 말풍선 출력 간격을 1500ms로 (chunkSize는 15 유지)
     function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 1500) {
       const bubble = document.getElementById("speech-bubble");
       const chunks = [];
@@ -844,6 +893,9 @@
   <div id="hud-7">버전 2.0 베타</div>
   
   <canvas id="canvas"></canvas>
+  
+  <!-- 파일 불러오기용 파일 입력 (항상 숨김) -->
+  <input type="file" id="file-input" accept=".json" style="display:none;" />
   
   <script>
     // Three.js 관련 코드 시작
