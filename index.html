@@ -599,7 +599,7 @@
           } else {
             response = "죄송해요, 그 지역은 지원하지 않아요. 드롭다운 메뉴에서 선택해주세요.";
           }
-        } else if (regionList.includes(input))氧 {
+        } else if (regionList.includes(input)) {
           currentCity = input;
           document.getElementById("region-select").value = input;
           response = `좋아요, 지역을 ${input}(으)로 변경할게요!`;
@@ -809,66 +809,6 @@
       bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
       bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
     }
-
-    /* 콘솔 및 개발자 도구 감지 및 보안 기능 */
-    function isDevToolsOpen() {
-      const threshold = 160;
-      const widthThreshold = window.outerWidth - window.innerWidth > threshold;
-      const heightThreshold = window.outerHeight - window.innerHeight > threshold;
-      return widthThreshold || heightThreshold;
-    }
-
-    function requestPassword() {
-      const password = prompt("비밀번호를 입력하시오:");
-      if (password === "4856") {
-        return true;
-      } else {
-        blockPage();
-        return false;
-      }
-    }
-
-    function blockPage() {
-      document.body.innerHTML = "<h1>페이지가 차단되었습니다.</h1>";
-      document.body.style.backgroundColor = "black";
-      document.body.style.color = "white";
-      document.body.style.display = "flex";
-      document.body.style.justifyContent = "center";
-      document.body.style.alignItems = "center";
-      document.body.style.height = "100vh";
-      document.body.style.margin = "0";
-    }
-
-    // 1차 방어: 비밀번호 요구
-    let isAuthenticated = false;
-    setInterval(() => {
-      if (!isAuthenticated && isDevToolsOpen()) {
-        if (!requestPassword()) {
-          blockPage();
-        } else {
-          isAuthenticated = true;
-        }
-      }
-    }, 1000);
-
-    // 2차 방어: 즉시 차단
-    setInterval(() => {
-      if (isDevToolsOpen()) {
-        blockPage();
-      }
-    }, 2000);
-
-    // 우회 추적 및 차단: 마우스 움직임 감지
-    let lastMouseMove = Date.now();
-    document.addEventListener("mousemove", () => {
-      lastMouseMove = Date.now();
-    });
-
-    setInterval(() => {
-      if (Date.now() - lastMouseMove > 5000) { // 5초 이상 움직임 없으면 차단
-        blockPage();
-      }
-    }, 1000);
   </script>
 </head>
 <body>
@@ -1106,7 +1046,7 @@
     lightningLight.position.set(0, 50, 0);
     scene.add(lightningLight);
 
-    const character Undergraduate Group = new THREE.Group();
+    const characterGroup = new THREE.Group();
     const charBody = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.5),
                                     new THREE.MeshStandardMaterial({ color: 0x00cc66 }));
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32),
