@@ -134,6 +134,7 @@
       margin-top: 5px;
       text-align: center;
     }
+    /* 파일 저장/불러오기 버튼은 기능에서 제거됨. */
     #calendar-actions button {
       margin: 2px;
       padding: 5px 8px;
@@ -268,31 +269,9 @@
       "트위터": "https://x.com",
       "엑스": "https://x.com",
       "링크드인": "https://www.linkedin.com",
-      "레딧": "https://www.reddit.com",
-      "아마존": "https://www.amazon.com",
-      "쿠팡": "https://www.coupang.com",
-      "11번가": "https://www.11st.co.kr",
-      "지마켓": "https://www.gmarket.co.kr",
-      "bbc": "https://www.bbc.com",
-      "cnn": "https://edition.cnn.com",
-      "ytn": "https://www.ytn.co.kr",
-      "연합뉴스": "https://www.yna.co.kr",
-      "깃허브": "https://github.com",
-      "스택오버플로우": "https://stackoverflow.com",
-      "mdn": "https://developer.mozilla.org",
-      "스포티파이": "https://www.spotify.com",
-      "멜론": "https://www.melon.com",
-      "벅스": "https://music.bugs.co.kr",
-      "imdb": "https://www.imdb.com",
-      "유데미": "https://www.udemy.com",
-      "코세라": "https://www.coursera.org",
-      "칸아카데미": "https://www.khanacademy.org",
-      "위키피디아": "https://www.wikipedia.org",
-      "네이버지도": "https://map.naver.com",
-      "구글맵": "https://www.google.com/maps",
-      "지도": "https://www.google.com/maps"
+      "레딧": "https://www.reddit.com"
     };
-
+    
     /* 전역 키워드 객체 – 자동완성과 채팅 처리용 */
     const KEYWORDS = {
       greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
@@ -346,7 +325,7 @@
       showSpeechBubbleInChunks("1시간동안 차단됩니다.");
     });
     
-    /* 기억 학습용 데이터 저장소 */
+    /* 기억 학습을 위한 데이터 저장소 (localStorage 사용) */
     const memoryStorage = {
       save: function(key, value) {
         localStorage.setItem(key, JSON.stringify(value));
@@ -357,26 +336,13 @@
       }
     };
 
-    /* NLP 및 개인화 처리 */
+    /* NLP 및 간단한 키워드 매칭 */
     function processNLP(input) {
       const lowerInput = input.toLowerCase();
-      
-      // "내 이름은" 처리 → 사용자 이름 저장 및 인사 반환
-      if (lowerInput.includes("내 이름은")) {
-        let parts = lowerInput.split("내 이름은");
-        if (parts.length > 1) {
-          let namePart = parts[1].trim();
-          let name = namePart.split(" ")[0];
-          memoryStorage.save("userName", name);
-          return `${name}님, 앞으로 잘 부탁드립니다!`;
-        }
-      }
-      
       const emotions = {
         positive: ["좋아", "행복", "기쁘", "즐거", "최고"],
         negative: ["슬프", "우울", "짜증", "화나", "피곤"]
       };
-
       let detectedEmotion = null;
       for (let mood in emotions) {
         if (emotions[mood].some(keyword => lowerInput.includes(keyword))) {
@@ -384,7 +350,6 @@
           break;
         }
       }
-
       if (detectedEmotion === "positive") {
         return "기분이 좋으시다니 저도 기쁘네요! 오늘 하루가 더 즐거워지길 바랍니다.";
       } else if (detectedEmotion === "negative") {
@@ -396,7 +361,7 @@
       }
     }
 
-    /* 음성 출력 함수 (속도 rate 1.5) */
+    /* 음성 출력 함수 (속도 rate 1.5 적용) */
     function speakText(text) {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "ko-KR";
@@ -406,72 +371,14 @@
       window.speechSynthesis.speak(utterance);
     }
     
-    /* 피드백 저장 및 표시 함수 */
-    function saveFeedback(input, response, feedbackType) {
-      let feedbackHistory = memoryStorage.load("feedbackHistory");
-      if (!feedbackHistory) {
-        feedbackHistory = [];
-      }
-      const feedbackEntry = {
-        input: input,
-        response: response,
-        feedback: feedbackType,
-        timestamp: new Date().toISOString()
-      };
-      feedbackHistory.push(feedbackEntry);
-      memoryStorage.save("feedbackHistory", feedbackHistory);
-      alert("피드백이 저장되었습니다.");
-    }
-    
-    function showFeedbackOptions(input, response) {
-      let feedbackContainer = document.getElementById("feedback-options");
-      if (!feedbackContainer) {
-        feedbackContainer = document.createElement("div");
-        feedbackContainer.id = "feedback-options";
-        feedbackContainer.style.position = "fixed";
-        feedbackContainer.style.bottom = "50px";
-        feedbackContainer.style.left = "50%";
-        feedbackContainer.style.transform = "translateX(-50%)";
-        feedbackContainer.style.background = "rgba(255,255,255,0.9)";
-        feedbackContainer.style.padding = "10px";
-        feedbackContainer.style.borderRadius = "5px";
-        feedbackContainer.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
-        feedbackContainer.style.zIndex = "60";
-        document.body.appendChild(feedbackContainer);
-      }
-      feedbackContainer.innerHTML = "";
-      const likeButton = document.createElement("button");
-      likeButton.textContent = "👍 좋음";
-      likeButton.style.marginRight = "10px";
-      const dislikeButton = document.createElement("button");
-      dislikeButton.textContent = "👎 싫음";
-      
-      likeButton.addEventListener("click", function() {
-        saveFeedback(input, response, "positive");
-        feedbackContainer.style.display = "none";
-      });
-      dislikeButton.addEventListener("click", function() {
-        saveFeedback(input, response, "negative");
-        feedbackContainer.style.display = "none";
-      });
-      
-      feedbackContainer.appendChild(likeButton);
-      feedbackContainer.appendChild(dislikeButton);
-    }
-    
-    /* 캘린더 관련 함수들 */
-    // 캘린더 일정은 각 날짜 셀 클릭 시 입력되어 localStorage("calendarEvents")에 저장됨
-    function saveCalendar() {
-      // 파일 저장 기능은 제거됨
-      // 이 예시에서는 캘린더 셀 클릭 시 저장되는 데이터를 그대로 활용합니다.
-      speakText("현재 캘린더의 일정은 자동 저장되어 있습니다.");
-    }
-    
+    /* 캘린더 관련 함수들 (파일 저장/불러오기 기능 제거) */
+    // 좌측 캘린더의 각 날짜 셀 클릭 시 prompt로 일정 입력 → 즉시 localStorage("calendarEvents")에 저장
+    // “일정 알려줘” 명령이 입력되면 getCalendarEvents()로 저장된 일정을 읽어와 말풍선에 출력
     function deleteCalendarEvent(day) {
       const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${day}`);
       if (eventDiv) {
         eventDiv.textContent = "";
-        const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+        let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
         delete calendarData[`${currentYear}-${currentMonth+1}-${day}`];
         localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
         return `${currentYear}-${currentMonth+1}-${day} 일정이 삭제되었습니다.`;
@@ -480,13 +387,12 @@
       }
     }
     
-    // getCalendarEvents()는 localStorage에 저장된 캘린더 데이터를 읽어와 문자열로 반환하여 말풍선에 출력
+    // getCalendarEvents() 함수는 localStorage에 저장된 캘린더 일정을 읽어와 문자열로 반환
     function getCalendarEvents(dateStr = null) {
       const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
       if (!Object.keys(calendarData).length) {
-        return "저장된 일정이 없습니다. 먼저 날짜 칸을 클릭하여 일정을 입력해주세요.";
+        return "저장된 일정이 없습니다. 먼저 날짜 셀을 클릭하여 일정을 입력해주세요.";
       }
-      
       if (dateStr) {
         if (calendarData[dateStr]) {
           return `${dateStr}의 일정: ${calendarData[dateStr]}`;
@@ -494,7 +400,7 @@
           return `${dateStr}에는 일정이 없습니다.`;
         }
       } else {
-        // 날짜 정보가 없으면 현재 월 전체 일정을 반환 (여러 날짜의 일정이 있다면 줄바꿈 포함)
+        // 날짜 형식이 없으면 현재 월 전체 일정을 반환 (여러 날짜일 경우 줄바꿈 포함)
         const currentMonthStr = `${currentYear}-${currentMonth+1}`;
         let events = [];
         for (let key in calendarData) {
@@ -610,7 +516,7 @@
       
       // 일정 관련 키워드: "일정 알려줘", "일정 뭐야", "일정 보여줘" 등
       if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
-        // 날짜 입력 형식이 포함되어 있으면 해당 날짜, 없으면 현재 월 전체 일정
+        // 만약 날짜 형식(예: 2022-10-15)이 포함되어 있으면 해당 날짜 일정, 아니면 현재 월 전체 일정
         const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
         if (dateMatch) {
           response = getCalendarEvents(dateMatch[0]);
@@ -630,13 +536,13 @@
         }
       }
       
-      // NLP 처리 (개인화, 감정 등)
+      // NLP 처리 (개인화/감정)
       const nlpResponse = processNLP(input);
       if (nlpResponse) {
         response = nlpResponse;
       }
       
-      // 지역 변경, 삭제, 인사, 시간 등 추가 로직
+      // 지역 변경, 삭제, 인사, 시간 등 추가 처리
       if (!response) {
         if (lowerInput.startsWith("지역 ")) {
           const newCity = lowerInput.replace("지역", "").trim();
@@ -672,8 +578,7 @@
         }
         
         if (!response && KEYWORDS.greetings.some(keyword => lowerInput.includes(keyword))) {
-          const savedName = memoryStorage.load("userName");
-          response = savedName ? `${savedName}님, 안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?` : "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
+          response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
         }
         if (!response && KEYWORDS.sleep.some(keyword => lowerInput.includes(keyword))) {
           response = "편안한 밤 되세요, 좋은 꿈 꾸세요~";
@@ -709,19 +614,15 @@
         }
       }
       
-      // 대화 이력 저장
       memoryStorage.save('lastInput', input);
       memoryStorage.save('lastResponse', response);
       
-      // 응답 출력 (말풍선 및 음성)
       showSpeechBubbleInChunks(response);
       inputEl.value = "";
-      
-      // 피드백 옵션 표시
       showFeedbackOptions(input, response);
     }
     
-    // 말풍선 출력 간격 1500ms (chunkSize는 15 유지)
+    // 말풍선 출력 함수 (기본 chunkSize 15, 출력 간격 1500ms)
     function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 1500) {
       const bubble = document.getElementById("speech-bubble");
       const chunks = [];
@@ -814,14 +715,13 @@
             const message = `${currentYear}-${currentMonth+1}-${dayNum} 일정이 삭제되었습니다. 다시 입력할 수 있습니다.`;
             alert(message);
             speakText(message);
-            // localStorage에 업데이트
             let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
             delete calendarData[`${currentYear}-${currentMonth+1}-${dayNum}`];
             localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
           }
         }
       });
-      // 파일 저장 버튼은 여기서는 기능이 제거됨
+      // 파일 저장/불러오기 기능은 제거하고, 일정은 자동 저장되므로 저장 버튼은 단순 안내 메시지만 출력함.
       document.getElementById("save-calendar").addEventListener("click", () => {
         speakText("캘린더 일정은 자동 저장됩니다.");
       });
@@ -839,7 +739,7 @@
       }
     }
     
-    // renderCalendar() 함수는 localStorage의 "calendarEvents" 데이터를 각 날짜 셀에 반영
+    // renderCalendar()는 localStorage에 저장된 "calendarEvents"를 각 날짜 셀에 반영
     function renderCalendar(year, month) {
       const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
       document.getElementById("month-year-label").textContent = `${year}년 ${monthNames[month]}`;
@@ -874,13 +774,12 @@
               eventDiv.textContent = eventText;
             }
             speakText(`${year}-${month+1}-${d}에 ${eventText} 일정을 추가했습니다.`);
-            // localStorage에 바로 저장
             let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
             calendarData[`${year}-${month+1}-${d}`] = eventDiv.textContent;
             localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
           }
         });
-        // 저장된 일정이 있다면 그대로 반영
+        // 저장된 일정이 있으면 셀에 반영
         let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
         const dateKey = `${year}-${month+1}-${d}`;
         if (calendarData[dateKey]) {
@@ -931,7 +830,8 @@
       </div>
       <div id="calendar-actions">
         <button id="delete-day-event">하루일정 삭제</button>
-        <button id="save-calendar">바탕화면 저장</button>
+        <!-- 저장 버튼은 파일 저장 기능 없이 단순 안내만 -->
+        <button id="save-calendar">저장 안내</button>
       </div>
       <div id="calendar-grid"></div>
     </div>
@@ -944,14 +844,8 @@
   
   <canvas id="canvas"></canvas>
   
-  <!-- 파일 불러오기/저장 관련 요소는 제거됨 -->
-  
   <script>
     // Three.js 및 캘린더, 3D 배경 렌더링 관련 코드 (위의 스크립트와 동일)
-    
-    // (3D 씬, 카메라, 렌더러, 조명, 배경, 건물, 집, 가로등, 캐릭터, 나무 등 생성)
-    // 이 아래부터는 기존 코드를 그대로 유지합니다.
-    
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas"), alpha: true });
@@ -1280,111 +1174,6 @@
       renderer.render(scene, camera);
     }
     animate();
-    
-    let currentYear, currentMonth;
-    function initCalendar() {
-      const now = new Date();
-      currentYear = now.getFullYear();
-      currentMonth = now.getMonth();
-      populateYearSelect();
-      renderCalendar(currentYear, currentMonth);
-      document.getElementById("prev-month").addEventListener("click", () => {
-        currentMonth--;
-        if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-        renderCalendar(currentYear, currentMonth);
-      });
-      document.getElementById("next-month").addEventListener("click", () => {
-        currentMonth++;
-        if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-        renderCalendar(currentYear, currentMonth);
-      });
-      document.getElementById("year-select").addEventListener("change", (e) => {
-        currentYear = parseInt(e.target.value);
-        renderCalendar(currentYear, currentMonth);
-      });
-      document.getElementById("delete-day-event").addEventListener("click", () => {
-        const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
-        if (dayStr) {
-          const dayNum = parseInt(dayStr);
-          const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${dayNum}`);
-          if (eventDiv) {
-            eventDiv.textContent = "";
-            const message = `${currentYear}-${currentMonth+1}-${dayNum} 일정이 삭제되었습니다. 다시 입력할 수 있습니다.`;
-            alert(message);
-            speakText(message);
-            let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-            delete calendarData[`${currentYear}-${currentMonth+1}-${dayNum}`];
-            localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
-          }
-        }
-      });
-      // 파일 저장/불러오기 버튼은 제거되어 있음. 일정은 캘린더 셀 클릭 시 자동 저장됨.
-      document.getElementById("save-calendar").addEventListener("click", () => {
-        speakText("캘린더 일정은 자동 저장됩니다.");
-      });
-    }
-    
-    function populateYearSelect() {
-      const yearSelect = document.getElementById("year-select");
-      yearSelect.innerHTML = "";
-      for (let y = 2020; y <= 2070; y++) {
-        const option = document.createElement("option");
-        option.value = y;
-        option.textContent = y;
-        if (y === currentYear) option.selected = true;
-        yearSelect.appendChild(option);
-      }
-    }
-    
-    // renderCalendar()는 localStorage의 calendarEvents를 읽어와 각 날짜 셀에 반영
-    function renderCalendar(year, month) {
-      const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
-      document.getElementById("month-year-label").textContent = `${year}년 ${monthNames[month]}`;
-      const grid = document.getElementById("calendar-grid");
-      grid.innerHTML = "";
-      const daysOfWeek = ["일","월","화","수","목","금","토"];
-      daysOfWeek.forEach((day) => {
-        const th = document.createElement("div");
-        th.style.fontWeight = "bold";
-        th.style.textAlign = "center";
-        th.textContent = day;
-        th.style.color = "#00ffcc";
-        th.style.textShadow = "0 0 3px #00ffcc";
-        grid.appendChild(th);
-      });
-      const firstDay = new Date(year, month, 1).getDay();
-      const daysInMonth = new Date(year, month+1, 0).getDate();
-      for (let i = 0; i < firstDay; i++) {
-        grid.appendChild(document.createElement("div"));
-      }
-      for (let d = 1; d <= daysInMonth; d++) {
-        const cell = document.createElement("div");
-        cell.innerHTML = `<div class="day-number">${d}</div>
-                          <div class="event" id="event-${year}-${month+1}-${d}"></div>`;
-        cell.addEventListener("click", () => {
-          const eventText = prompt(`${year}-${month+1}-${d} 일정 입력:`);
-          if (eventText) {
-            const eventDiv = document.getElementById(`event-${year}-${month+1}-${d}`);
-            if (eventDiv.textContent) {
-              eventDiv.textContent += "; " + eventText;
-            } else {
-              eventDiv.textContent = eventText;
-            }
-            speakText(`${year}-${month+1}-${d}에 ${eventText} 일정을 추가했습니다.`);
-            let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-            calendarData[`${year}-${month+1}-${d}`] = eventDiv.textContent;
-            localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
-          }
-        });
-        // 이미 저장된 일정 반영
-        const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-        const dateKey = `${year}-${month+1}-${d}`;
-        if (calendarData[dateKey]) {
-          cell.querySelector(`#event-${year}-${month+1}-${d}`).textContent = calendarData[dateKey];
-        }
-        grid.appendChild(cell);
-      }
-    }
     
     function updateBubblePosition() {
       const bubble = document.getElementById("speech-bubble");
