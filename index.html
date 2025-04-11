@@ -810,32 +810,46 @@
       bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
       bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
     }
+  </script>
+</head>
+<body>
+  <div id="right-hud">
+    <h3>채팅창</h3>
+    <select id="region-select" onchange="changeRegion(this.value)">
+      <option value="" disabled>지역 선택</option>
+    </select>
+    <div id="chat-log"></div>
+    <div id="chat-input-area">
+      <input type="text" id="chat-input" placeholder="채팅 입력..." />
+    </div>
+  </div>
+  <div id="hud-6">
+    <button onclick="startSpeechRecognition()">🎤 음성 입력</button>
+  </div>
+  <div id="hud-3">
+    <iframe id="map-iframe" src="https://www.google.com/maps?q=Seoul&output=embed" frameborder="0" style="width:100%; height:100%; border:0;" allowfullscreen></iframe>
+  </div>
+  <div id="left-hud">
+    <h3>캘린더</h3>
+    <div id="calendar-container">
+      <div id="calendar-header">
+        <button id="prev-month">◀</button>
+        <span id="month-year-label"></span>
+        <button id="next-month">▶</button>
+        <select id="year-select"></select>
+      </div>
+      <div id="calendar-actions">
+        <button id="delete-day-event">하루일정 삭제</button>
+      </div>
+      <div id="calendar-grid"></div>
+    </div>
+  </div>
+  <div id="speech-bubble"></div>
+  <div id="hud-7">버전 2.0 베타</div>
+  <canvas id="canvas"></canvas>
 
-    /* 개발자 도구 감지 및 비밀번호 요구 */
-    function isDevToolsOpen() {
-      const threshold = 150; // 창 크기 차이 임계값
-      const widthDiff = window.outerWidth - window.innerWidth;
-      const heightDiff = window.outerHeight - window.innerHeight;
-      return widthDiff > threshold || heightDiff > threshold;
-    }
-
-    function checkPassword() {
-      const password = prompt("개발자 도구가 감지되었습니다. 비밀번호를 입력하시오:");
-      if (password === "4856") {
-        alert("비밀번호가 확인되었습니다.");
-      } else {
-        alert("잘못된 비밀번호입니다!");
-        window.location.href = "about:blank"; // 페이지 차단
-      }
-    }
-
-    setInterval(() => {
-      if (isDevToolsOpen()) {
-        checkPassword();
-      }
-    }, 1000); // 1초마다 감지
-
-    /* Three.js 및 3D 배경 렌더링 */
+  <script>
+    // Three.js 및 3D 배경 렌더링
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas"), alpha: true });
@@ -1144,41 +1158,5 @@
     }
     animate();
   </script>
-</head>
-<body>
-  <div id="right-hud">
-    <h3>채팅창</h3>
-    <select id="region-select" onchange="changeRegion(this.value)">
-      <option value="" disabled>지역 선택</option>
-    </select>
-    <div id="chat-log"></div>
-    <div id="chat-input-area">
-      <input type="text" id="chat-input" placeholder="채팅 입력..." />
-    </div>
-  </div>
-  <div id="hud-6">
-    <button onclick="startSpeechRecognition()">🎤 음성 입력</button>
-  </div>
-  <div id="hud-3">
-    <iframe id="map-iframe" src="https://www.google.com/maps?q=Seoul&output=embed" frameborder="0" style="width:100%; height:100%; border:0;" allowfullscreen></iframe>
-  </div>
-  <div id="left-hud">
-    <h3>캘린더</h3>
-    <div id="calendar-container">
-      <div id="calendar-header">
-        <button id="prev-month">◀</button>
-        <span id="month-year-label"></span>
-        <button id="next-month">▶</button>
-        <select id="year-select"></select>
-      </div>
-      <div id="calendar-actions">
-        <button id="delete-day-event">하루일정 삭제</button>
-      </div>
-      <div id="calendar-grid"></div>
-    </div>
-  </div>
-  <div id="speech-bubble"></div>
-  <div id="hud-7">버전 2.0 베타</div>
-  <canvas id="canvas"></canvas>
 </body>
 </html>
