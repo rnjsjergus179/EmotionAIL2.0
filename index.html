@@ -134,7 +134,6 @@
       margin-top: 5px;
       text-align: center;
     }
-    /* 파일 저장/불러오기 버튼은 제거 (저장은 자동 저장 안내만) */
     #calendar-actions button {
       margin: 2px;
       padding: 5px 8px;
@@ -250,10 +249,8 @@
       }
     }
   </style>
-
   <!-- Three.js 라이브러리 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-
   <script>
     /* 사이트 링크 객체 */
     const SITE_LINKS = {
@@ -354,7 +351,6 @@
           break;
         }
       }
-      // 문장 끝의 느낌표 등으로 놀람 감지
       if (input.trim().match(/!$/)) {
         detectedEmotion = "surprise";
       }
@@ -391,10 +387,7 @@
       window.speechSynthesis.speak(utterance);
     }
 
-    /* 캘린더 관련 함수 – 파일 저장/불러오기 기능은 제거됨.
-       좌측 캘린더의 날짜 셀 클릭 시 prompt로 입력한 일정이 localStorage("calendarEvents")에 자동 저장되고, 
-       “일정 알려줘” 명령 시 저장된 일정이 말풍선에 출력됩니다.
-    */
+    /* 캘린더 관련 함수 */
     function deleteCalendarEvent(day) {
       const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${day}`);
       if (eventDiv) {
@@ -407,7 +400,7 @@
         return "해당 날짜에 일정이 없습니다.";
       }
     }
-    // 저장된 캘린더 일정을 문자열로 반환 (말풍선 출력용)
+
     function getCalendarEvents(dateStr = null) {
       const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
       if (!Object.keys(calendarData).length) {
@@ -420,7 +413,6 @@
           return `${dateStr}에는 일정이 없습니다.`;
         }
       } else {
-        // 날짜 형식 없이 현재 월 전체 일정 반환
         const currentMonthStr = `${currentYear}-${currentMonth+1}`;
         let events = [];
         for (let key in calendarData) {
@@ -428,7 +420,7 @@
             events.push(`${key}: ${calendarData[key]}`);
           }
         }
-        return events.length ? `현재 월(${currentMonthStr})의 일정:\n${events.join("\n")}` 
+        return events.length ? `현재 월(${currentMonthStr})의 일정:\n${events.join("\n")}`
                               : `현재 월(${currentMonthStr})에는 일정이 없습니다.`;
       }
     }
@@ -497,7 +489,7 @@
       showSpeechBubbleInChunks(message);
     }
 
-    /* 음성 인식 (SpeechRecognition API 지원, 확인 단계 포함) */
+    /* 음성 인식 */
     function startSpeechRecognition() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
@@ -521,7 +513,7 @@
       };
     }
 
-    /* 대화 맥락 유지 및 의도 인식, 사용자 피드백 기반 학습 */
+    /* 대화 맥락 유지 및 의도 인식 */
     function updateContext(intent) {
       lastTopic = intent;
       memoryStorage.save("lastTopic", lastTopic);
@@ -539,14 +531,11 @@
       let response = "";
       const lowerInput = input.toLowerCase();
 
-      // 일정 관련 키워드: "일정 알려줘", "일정 뭐야", "일정 보여" 등 → 캘린더에 저장된 일정 읽어서 말풍선에 출력
       if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
-        // 날짜 형식이 있으면 해당 날짜 일정, 없으면 현재 월 전체 일정 반환
         const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
         response = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
       }
 
-      // SITE_LINKS 처리
       for (let site in SITE_LINKS) {
         if (lowerInput.includes(site)) {
           response = `${site} 사이트로 이동합니다! 잠시만 기다려 주세요.`;
@@ -557,16 +546,13 @@
         }
       }
 
-      // NLP 처리 (감정 분석 강화)
       const nlpResponse = processNLP(input);
       if (nlpResponse) {
         response = nlpResponse;
       }
 
-      // 의도 인식: 일정 추가, 날씨 요청, 시간 확인 등
-      const intent = detectIntent ? detectIntent(input) : null;
+      const intent = detectIntent(input);
       if (intent === "addEvent") {
-        // 예: "내일 3시 회의"와 같이 입력 시 정규식을 활용하여 일정 추가
         const eventMatch = input.match(/(오늘|내일|\d{4}-\d{1,2}-\d{1,2})\s*(\d{1,2})시/);
         if (eventMatch) {
           let date;
@@ -597,12 +583,10 @@
         updateContext("time");
       }
 
-      // 대화 맥락 활용 (예: 이전 주제가 날씨인데 "내일" 등 추가 질문 시)
       if (!response && lastTopic === "weather" && lowerInput.includes("내일")) {
         response = "내일 날씨는 비가 올 예정입니다.";
       }
 
-      // 기타 기본 응답 처리
       if (!response) {
         if (lowerInput.startsWith("지역 ")) {
           const newCity = lowerInput.replace("지역", "").trim();
@@ -655,10 +639,8 @@
 
       showSpeechBubbleInChunks(response);
       inputEl.value = "";
-      showFeedbackOptions(input, response);
     }
 
-    // 말풍선 출력 함수 (문자열을 15글자 단위로 나누어 1500ms 간격으로 출력)
     function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 1500) {
       const bubble = document.getElementById("speech-bubble");
       const chunks = [];
@@ -719,7 +701,7 @@
       await updateWeatherAndEffects();
     });
 
-    /* 캘린더 렌더링 및 관련 함수들 (파일 저장/불러오기 기능 제거, 일정은 자동 저장) */
+    /* 캘린더 렌더링 및 관련 함수들 */
     let currentYear, currentMonth;
     function initCalendar() {
       const now = new Date();
@@ -757,12 +739,8 @@
           }
         }
       });
-      // 저장 버튼은 파일 저장 기능 없이 단순 안내 메시지만 출력
-      document.getElementById("save-calendar").addEventListener("click", () => {
-        speakText("캘린더 일정은 자동으로 저장됩니다.");
-      });
     }
-    
+
     function populateYearSelect() {
       const yearSelect = document.getElementById("year-select");
       yearSelect.innerHTML = "";
@@ -774,8 +752,7 @@
         yearSelect.appendChild(option);
       }
     }
-    
-    // renderCalendar()는 localStorage의 "calendarEvents"를 각 날짜 셀에 반영
+
     function renderCalendar(year, month) {
       const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
       document.getElementById("month-year-label").textContent = `${year}년 ${monthNames[month]}`;
@@ -815,7 +792,6 @@
             localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
           }
         });
-        // 이미 저장된 일정이 있으면 반영
         let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
         const dateKey = `${year}-${month+1}-${d}`;
         if (calendarData[dateKey]) {
@@ -846,15 +822,12 @@
       <input type="text" id="chat-input" placeholder="채팅 입력..." />
     </div>
   </div>
-
   <div id="hud-6">
     <button onclick="startSpeechRecognition()">🎤 음성 입력</button>
   </div>
-
   <div id="hud-3">
     <iframe id="map-iframe" src="https://www.google.com/maps?q=Seoul&output=embed" frameborder="0" style="width:100%; height:100%; border:0;" allowfullscreen></iframe>
   </div>
-
   <div id="left-hud">
     <h3>캘린더</h3>
     <div id="calendar-container">
@@ -866,22 +839,16 @@
       </div>
       <div id="calendar-actions">
         <button id="delete-day-event">하루일정 삭제</button>
-        <!-- 저장 버튼은 파일 저장 기능 없이 자동 저장 안내만 -->
-        <button id="save-calendar">저장 안내</button>
       </div>
       <div id="calendar-grid"></div>
     </div>
   </div>
-
   <div id="speech-bubble"></div>
-  <!-- 피드백 옵션은 동적으로 생성됩니다. -->
-
   <div id="hud-7">버전 2.0 베타</div>
-
   <canvas id="canvas"></canvas>
 
   <script>
-    // Three.js, 캘린더, 3D 배경 렌더링 관련 코드 (전체 통합)
+    // Three.js 및 3D 배경 렌더링
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas"), alpha: true });
@@ -1189,15 +1156,6 @@
       renderer.render(scene, camera);
     }
     animate();
-
-    function updateBubblePosition() {
-      const bubble = document.getElementById("speech-bubble");
-      const headWorldPos = new THREE.Vector3();
-      head.getWorldPosition(headWorldPos);
-      const screenPos = headWorldPos.project(camera);
-      bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
-      bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
-    }
   </script>
 </body>
 </html>
