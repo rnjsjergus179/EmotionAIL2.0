@@ -8,7 +8,7 @@
     /* 기본 스타일 */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidden; }
-    
+
     /* 오른쪽 채팅창 HUD */
     #right-hud {
       position: fixed;
@@ -46,7 +46,7 @@
       padding: 5px;
       font-size: 14px;
     }
-    
+
     /* HUD-6: 음성 입력 영역 */
     #hud-6 {
       position: fixed;
@@ -73,7 +73,7 @@
     #hud-6 button:hover {
       background: #00cc99;
     }
-    
+
     /* 왼쪽 캘린더 HUD */
     #left-hud {
       position: fixed;
@@ -314,11 +314,10 @@
     };
     const regionList = Object.keys(regionMap);
 
-    // 데이터 파라미터 전처리 함수 (SITE_LINKS에 추가 메타 데이터를 부여하는 예시)
+    /* 데이터 파라미터 전처리 기능 */
     function preprocessDataParameters() {
       const processedData = {};
       for (const key in SITE_LINKS) {
-        // 소문자 키로 변환하여 저장하고, 링크의 도메인 명 등 간단한 메타데이터 추가
         try {
           const url = new URL(SITE_LINKS[key]);
           processedData[key.toLowerCase()] = {
@@ -326,29 +325,16 @@
             domain: url.hostname
           };
         } catch (err) {
-          // URL 파싱에 실패하면 기본 값으로 저장
           processedData[key.toLowerCase()] = {
             url: SITE_LINKS[key],
             domain: key
           };
         }
       }
-      // 메모리에 저장 (추후 활용 가능)
       memoryStorage.save("processedSiteData", processedData);
       return processedData;
     }
-    // 전처리된 데이터 전역 변수 (초기화 시 한 번 호출)
     let processedSiteData = preprocessDataParameters();
-
-    document.addEventListener("copy", function(e) {
-      e.preventDefault();
-      let selectedText = window.getSelection().toString();
-      selectedText = selectedText.replace(/2caa7fa4a66f2f8d150f1da93d306261/g, "HIDDEN");
-      e.clipboardData.setData("text/plain", selectedText);
-      if (Date.now() < blockUntil) return;
-      blockUntil = Date.now() + 3600000;
-      showSpeechBubbleInChunks("1시간동안 차단됩니다.");
-    });
 
     /* 기억 학습 (localStorage 사용) */
     const memoryStorage = {
@@ -413,7 +399,7 @@
       window.speechSynthesis.speak(utterance);
     }
 
-    /* 캘린더 관련 함수 */
+    /* 캘린더 관련 함수들 */
     function deleteCalendarEvent(day) {
       const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${day}`);
       if (eventDiv) {
@@ -556,8 +542,8 @@
       if (!input) return;
       let response = "";
       const lowerInput = input.toLowerCase();
-
-      // 사이트 링크 판별 시 전처리한 데이터 사용 (키는 모두 소문자)
+      
+      // 사이트 링크 판별 시 전처리된 데이터 활용 (모든 키를 소문자로 비교)
       for (let key in processedSiteData) {
         if (lowerInput.includes(key)) {
           response = `${key} (${processedSiteData[key].domain}) 사이트로 이동합니다! 잠시만 기다려 주세요.`;
@@ -609,11 +595,11 @@
         response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
         updateContext("time");
       }
-
+      
       if (!response && lastTopic === "weather" && lowerInput.includes("내일")) {
         response = "내일 날씨는 비가 올 예정입니다.";
       }
-
+      
       if (!response) {
         if (lowerInput.startsWith("지역 ")) {
           const newCity = lowerInput.replace("지역", "").trim();
@@ -689,162 +675,24 @@
       showNextChunk();
     }
 
-    window.addEventListener("DOMContentLoaded", function() {
-      const chatInput = document.getElementById("chat-input");
-      chatInput.setAttribute("list", "chat-keywords");
-      const autoCompleteList = document.createElement("datalist");
-      autoCompleteList.id = "chat-keywords";
-      const allKeywords = Object.values(KEYWORDS).flat().concat(Object.keys(SITE_LINKS));
-      allKeywords.forEach(kw => {
-        const option = document.createElement("option");
-        option.value = kw;
-        autoCompleteList.appendChild(option);
-      });
-      document.body.appendChild(autoCompleteList);
-
-      document.getElementById("chat-input").addEventListener("keydown", function(e) {
-        if (e.key === "Enter") sendChat();
-      });
-
-      const regionSelect = document.getElementById("region-select");
-      regionList.forEach(region => {
-        const option = document.createElement("option");
-        option.value = region;
-        option.textContent = `${region} (${regionMap[region]})`;
-        if (region === currentCity) option.selected = true;
-        regionSelect.appendChild(option);
-      });
+    // 마우스 움직임 감지 (우회 추적) - 5초 이상 움직임이 없으면 차단
+    let lastMouseMove = Date.now();
+    document.addEventListener("mousemove", () => {
+      lastMouseMove = Date.now();
     });
-
-    window.addEventListener("resize", function(){
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-
-    window.addEventListener("load", async () => {
-      initCalendar();
-      updateMap();
-      await updateWeatherAndEffects();
-    });
-
-    /* 캘린더 렌더링 및 관련 함수들 */
-    let currentYear, currentMonth;
-    function initCalendar() {
-      const now = new Date();
-      currentYear = now.getFullYear();
-      currentMonth = now.getMonth();
-      populateYearSelect();
-      renderCalendar(currentYear, currentMonth);
-      document.getElementById("prev-month").addEventListener("click", () => {
-        currentMonth--;
-        if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-        renderCalendar(currentYear, currentMonth);
-      });
-      document.getElementById("next-month").addEventListener("click", () => {
-        currentMonth++;
-        if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-        renderCalendar(currentYear, currentMonth);
-      });
-      document.getElementById("year-select").addEventListener("change", (e) => {
-        currentYear = parseInt(e.target.value);
-        renderCalendar(currentYear, currentMonth);
-      });
-      document.getElementById("delete-day-event").addEventListener("click", () => {
-        const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
-        if (dayStr) {
-          const dayNum = parseInt(dayStr);
-          const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${dayNum}`);
-          if (eventDiv) {
-            eventDiv.textContent = "";
-            const message = `${currentYear}-${currentMonth+1}-${dayNum} 일정이 삭제되었습니다. 다시 입력할 수 있습니다.`;
-            alert(message);
-            speakText(message);
-            let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-            delete calendarData[`${currentYear}-${currentMonth+1}-${dayNum}`];
-            localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
-          }
-        }
-      });
-    }
-
-    function populateYearSelect() {
-      const yearSelect = document.getElementById("year-select");
-      yearSelect.innerHTML = "";
-      for (let y = 2020; y <= 2070; y++) {
-        const option = document.createElement("option");
-        option.value = y;
-        option.textContent = y;
-        if (y === currentYear) option.selected = true;
-        yearSelect.appendChild(option);
+    setInterval(() => {
+      if (Date.now() - lastMouseMove > 5000) {
+        blockPage();
       }
-    }
+    }, 1000);
 
-    function renderCalendar(year, month) {
-      const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
-      document.getElementById("month-year-label").textContent = `${year}년 ${monthNames[month]}`;
-      const grid = document.getElementById("calendar-grid");
-      grid.innerHTML = "";
-      const daysOfWeek = ["일","월","화","수","목","금","토"];
-      daysOfWeek.forEach((day) => {
-        const th = document.createElement("div");
-        th.style.fontWeight = "bold";
-        th.style.textAlign = "center";
-        th.textContent = day;
-        th.style.color = "#00ffcc";
-        th.style.textShadow = "0 0 3px #00ffcc";
-        grid.appendChild(th);
-      });
-      const firstDay = new Date(year, month, 1).getDay();
-      const daysInMonth = new Date(year, month+1, 0).getDate();
-      for (let i = 0; i < firstDay; i++) {
-        grid.appendChild(document.createElement("div"));
-      }
-      for (let d = 1; d <= daysInMonth; d++) {
-        const cell = document.createElement("div");
-        cell.innerHTML = `<div class="day-number">${d}</div>
-                          <div class="event" id="event-${year}-${month+1}-${d}"></div>`;
-        cell.addEventListener("click", () => {
-          const eventText = prompt(`${year}-${month+1}-${d} 일정 입력:`);
-          if (eventText) {
-            const eventDiv = document.getElementById(`event-${year}-${month+1}-${d}`);
-            if (eventDiv.textContent) {
-              eventDiv.textContent += "; " + eventText;
-            } else {
-              eventDiv.textContent = eventText;
-            }
-            speakText(`${year}-${month+1}-${d}에 ${eventText} 일정이 추가되었습니다.`);
-            let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-            calendarData[`${year}-${month+1}-${d}`] = eventDiv.textContent;
-            localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
-          }
-        });
-        let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-        const dateKey = `${year}-${month+1}-${d}`;
-        if (calendarData[dateKey]) {
-          cell.querySelector(`#event-${year}-${month+1}-${d}`).textContent = calendarData[dateKey];
-        }
-        grid.appendChild(cell);
-      }
-    }
-
-    function updateBubblePosition() {
-      const bubble = document.getElementById("speech-bubble");
-      const headWorldPos = new THREE.Vector3();
-      head.getWorldPosition(headWorldPos);
-      const screenPos = headWorldPos.project(camera);
-      bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
-      bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
-    }
-
-    /* 콘솔 및 개발자 도구 감지 및 보안 기능 */
+    // 개발자 도구 및 콘솔 감지
     function isDevToolsOpen() {
       const threshold = 160;
       const widthThreshold = window.outerWidth - window.innerWidth > threshold;
       const heightThreshold = window.outerHeight - window.innerHeight > threshold;
       return widthThreshold || heightThreshold;
     }
-
     function requestPassword() {
       const password = prompt("비밀번호를 입력하시오:");
       if (password === "4856") {
@@ -854,7 +702,6 @@
         return false;
       }
     }
-
     function blockPage() {
       document.body.innerHTML = "<h1>페이지가 차단되었습니다.</h1>";
       document.body.style.backgroundColor = "black";
@@ -865,21 +712,14 @@
       document.body.style.height = "100vh";
       document.body.style.margin = "0";
     }
-
-    // 개발자 도구 또는 콘솔이 열리면 차단하기 위한 감지 코드
-    // 1. 주기적으로 개발자 도구 열림 여부 확인
+    // 주기적으로 개발자 도구 열림 여부 확인
     setInterval(() => {
-      if (isDevToolsOpen()) {
-        blockPage();
-      }
+      if (isDevToolsOpen()) { blockPage(); }
     }, 1000);
-
-    // 2. 콘솔에 특정 객체의 문자열 변환이 발생하면 차단 (콘솔 열림 감지)
+    // 콘솔 감지 (특정 객체 문자열 변환 시)
     (function() {
       var devtoolsDetector = {};
-      devtoolsDetector.toString = function() {
-        blockPage();
-      };
+      devtoolsDetector.toString = function() { blockPage(); };
       console.log('%c', devtoolsDetector);
     })();
   </script>
