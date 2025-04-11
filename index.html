@@ -334,6 +334,7 @@
     };
     const regionList = Object.keys(regionMap);
     let lastTopic = null;
+    let calendarEvents = {}; // 캘린더 이벤트를 메모리에 저장
     
     document.addEventListener("copy", function(e) {
       e.preventDefault();
@@ -344,17 +345,6 @@
       blockUntil = Date.now() + 3600000;
       showSpeechBubbleInChunks("1시간동안 차단됩니다.");
     });
-    
-    /* 기억 학습을 위한 데이터 저장소 */
-    const memoryStorage = {
-      save: function(key, value) {
-        localStorage.setItem(key, JSON.stringify(value));
-      },
-      load: function(key) {
-        const data = localStorage.getItem(key);
-        return data ? JSON.parse(data) : null;
-      }
-    };
 
     /* 강화된 NLP 처리 */
     function processNLP(input) {
@@ -373,7 +363,6 @@
         }
       }
       
-      // 문장 부호 체크
       if (input.match(/!$/)) detectedEmotions.push("surprise");
       if (input.match(/\?$/)) detectedEmotions.push("curious");
       
@@ -402,7 +391,7 @@
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "ko-KR";
       utterance.volume = 1;
-      utterance.rate = 1.5; // 음성 속도 증가
+      utterance.rate = 1.5;
       utterance.pitch = 1;
       window.speechSynthesis.speak(utterance);
     }
@@ -410,11 +399,9 @@
     /* 캘린더 관련 함수 */
     function deleteCalendarEvent(day) {
       const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${day}`);
-      if (eventDiv) {
+      if (eventDiv && calendarEvents[`${currentYear}-${currentMonth+1}-${day}`]) {
         eventDiv.textContent = "";
-        let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-        delete calendarData[`${currentYear}-${currentMonth+1}-${day}`];
-        localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+        delete calendarEvents[`${currentYear}-${currentMonth+1}-${day}`];
         return `${currentYear}-${currentMonth+1}-${day} 일정이 삭제되었습니다.`;
       } else {
         return "해당 날짜에 일정이 없습니다.";
@@ -422,17 +409,18 @@
     }
     
     function getCalendarEvents(dateStr = null) {
-      const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-      if (!Object.keys(calendarData).length) {
+      if (!Object.keys(calendarEvents).length) {
         return "저장된 일정이 없습니다.";
       }
       if (dateStr) {
-        return calendarData[dateStr] ? `${dateStr}의 일정: ${calendarData[dateStr]}` : `${dateStr}에는 일정이 없습니다.`;
+        return calendarEvents[dateStr] ? `${dateStr}의 일정: ${calendarEvents[dateStr]}` : `${dateStr}에는 일정이 없습니다.`;
       } else {
         const currentMonthStr = `${currentYear}-${currentMonth+1}`;
         let events = [];
-        for (let key in calendarData) {
-          if (key.startsWith(currentMonthStr)) events.push(`${key}: ${calendarData[key]}`);
+        for (let key in calendarEvents) {
+          if (key.startsWith(currentMonthStr)) {
+            events.push(`${key}: ${calendarEvents[key]}`);
+          }
         }
         return events.length ? `현재 월(${currentMonthStr})의 일정:\n${events.join("\n")}` : `현재 월(${currentMonthStr})에는 일정이 없습니다.`;
       }
@@ -545,25 +533,6 @@
       return null;
     }
 
-    /* 피드백 처리 */
-    function showFeedbackOptions(input, response) {
-      const feedbackArea = document.getElementById("feedback-area");
-      feedbackArea.innerHTML = `
-        <button id="feedback-like">좋아요</button>
-        <button id="feedback-dislike">싫어요</button>
-      `;
-      document.getElementById("feedback-like").onclick = () => {
-        memoryStorage.save(`feedback_${input}`, "like");
-        feedbackArea.innerHTML = "피드백 감사합니다!";
-        setTimeout(() => feedbackArea.innerHTML = "", 2000);
-      };
-      document.getElementById("feedback-dislike").onclick = () => {
-        memoryStorage.save(`feedback_${input}`, "dislike");
-        feedbackArea.innerHTML = "피드백 감사합니다! 개선할게요.";
-        setTimeout(() => feedbackArea.innerHTML = "", 2000);
-      };
-    }
-
     async function sendChat() {
       const inputEl = document.getElementById("chat-input");
       const input = inputEl.value.trim();
@@ -596,9 +565,7 @@
         if (intent === "addEvent") {
           const event = parseEvent(input);
           if (event) {
-            let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-            calendarData[event.date] = `${event.time}시: ${event.text}`;
-            localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+            calendarEvents[event.date] = `${event.time}시: ${event.text}`;
             renderCalendar(currentYear, currentMonth);
             response = `${event.date} ${event.time}시에 ${event.text} 추가했어요!`;
           } else {
@@ -606,7 +573,7 @@
           }
         } else if (intent === "getWeather") {
           if (lastTopic === "weather" && lowerInput.includes("내일")) {
-            response = "내일 날씨는 비가 올 예정이에요."; // 예시 응답
+            response = "내일 날씨는 비가 올 예정이에요.";
           } else {
             response = await getWeather();
             lastTopic = "weather";
@@ -625,17 +592,11 @@
           if (dayStr) response = deleteCalendarEvent(parseInt(dayStr));
         } else {
           response = "흥미로운 이야기네요!";
-          const feedback = memoryStorage.load(`feedback_${input}`);
-          if (feedback === "dislike") response = "이전 답변이 마음에 안 드셨다면, 이번엔 더 나은 답변을 드릴게요!";
         }
       }
 
-      memoryStorage.save('lastInput', input);
-      memoryStorage.save('lastResponse', response);
-      memoryStorage.save('lastTopic', lastTopic);
       showSpeechBubbleInChunks(response);
       inputEl.value = "";
-      showFeedbackOptions(input, response);
     }
 
     function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 1000) {
@@ -716,7 +677,7 @@
   </div>
   
   <div id="hud-3">
-    <iframe id="map-iframe" src="https://www.google.com/maps?q=Seoul&output=embed" frameborder="0" style="width:100%; height:100%; border:0;" allowfullscreen></iframe>
+    <iframe id="map-iframe" src="https://www.google.com/maps?q=Seoul&output=embed" frameborder="0" style="width:100%; height:100 #:border:0;" allowfullscreen></iframe>
   </div>
   
   <div id="left-hud">
@@ -730,7 +691,6 @@
       </div>
       <div id="calendar-actions">
         <button id="delete-day-event">하루일정 삭제</button>
-        <button id="save-calendar">바탕화면 저장</button>
       </div>
       <div id="calendar-grid"></div>
     </div>
@@ -1092,17 +1052,14 @@
         if (dayStr) {
           const dayNum = parseInt(dayStr);
           const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${dayNum}`);
-          if (eventDiv) {
+          if (eventDiv && calendarEvents[`${currentYear}-${currentMonth+1}-${dayNum}`]) {
             eventDiv.textContent = "";
+            delete calendarEvents[`${currentYear}-${currentMonth+1}-${dayNum}`];
             const message = `${currentYear}-${currentMonth+1}-${dayNum} 일정이 삭제되었습니다.`;
             alert(message);
             speakText(message);
           }
         }
-      });
-      document.getElementById("save-calendar").addEventListener("click", () => {
-        saveCalendar();
-        speakText("캘린더를 바탕화면에 저장했습니다.");
       });
     }
     
@@ -1151,31 +1108,16 @@
             } else {
               eventDiv.textContent = eventText;
             }
+            calendarEvents[`${year}-${month+1}-${d}`] = eventDiv.textContent;
             speakText(`${year}-${month+1}-${d}에 ${eventText} 일정을 추가했습니다.`);
-            let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-            calendarData[`${year}-${month+1}-${d}`] = eventDiv.textContent;
-            localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
           }
         });
-        let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
         const dateKey = `${year}-${month+1}-${d}`;
-        if (calendarData[dateKey]) {
-          cell.querySelector(`#event-${year}-${month+1}-${d}`).textContent = calendarData[dateKey];
+        if (calendarEvents[dateKey]) {
+          cell.querySelector(`#event-${year}-${month+1}-${d}`).textContent = calendarEvents[dateKey];
         }
         grid.appendChild(cell);
       }
-    }
-    
-    function saveCalendar() {
-      const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(calendarData, null, 2));
-      const dlAnchor = document.createElement("a");
-      dlAnchor.setAttribute("href", dataStr);
-      dlAnchor.setAttribute("download", "calendar_events.json");
-      dlAnchor.style.display = "none";
-      document.body.appendChild(dlAnchor);
-      dlAnchor.click();
-      document.body.removeChild(dlAnchor);
     }
     
     function updateBubblePosition() {
