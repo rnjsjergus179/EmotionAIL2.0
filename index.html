@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>emotionail</title>
+  <title>3D 캐릭터 HUD, 캘린더, 음성 채팅 & 외부 링크 이동</title>
   <style>
     /* 기본 스타일 */
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -479,7 +479,7 @@
       document.body.removeChild(dlAnchorElem);
     }
     
-    // 파일 불러오기 함수: 파일 선택 후, JSON 파일 내용을 localStorage에 저장하고 캘린더 UI를 갱신
+    // 파일 불러오기 함수: JSON 파일 선택 후, 파일 내용을 localStorage에 저장하고 캘린더 UI를 갱신
     function loadCalendarFile() {
       let inputFile = document.getElementById("file-input");
       if (!inputFile) {
@@ -496,13 +496,11 @@
             reader.onload = function(e) {
               try {
                 const data = JSON.parse(e.target.result);
-                // 저장된 JSON 데이터를 localStorage에 저장
                 localStorage.setItem("calendarEvents", JSON.stringify(data));
-                // 캘린더 UI 갱신 (저장된 일정 자동 반영)
                 renderCalendar(currentYear, currentMonth);
                 speakText("캘린더 파일이 불러와졌습니다.");
               } catch (error) {
-                speakText("파일을 불러오는 중 오류가 발생했습니다.");
+                speakText("파일 불러오는 중 오류가 발생했습니다.");
               }
             };
             reader.readAsText(file);
@@ -525,7 +523,7 @@
       }
     }
     
-    // getCalendarEvents() 함수는 localStorage에 저장된 캘린더 데이터를 읽어와 일정 문자열로 반환
+    // getCalendarEvents()는 localStorage에 저장된 캘린더 데이터를 읽어와 문자열로 반환
     function getCalendarEvents(dateStr = null) {
       const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
       if (!Object.keys(calendarData).length) {
@@ -677,6 +675,7 @@
       if (!response && (lowerInput.includes("일정 알려") ||
                          lowerInput.includes("일정 뭐") ||
                          lowerInput.includes("일정 보여"))) {
+        // 날짜 형식이 포함되어 있으면 해당 날짜의 일정, 아니면 현재 월 전체 일정 반환
         const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
         if (dateMatch) {
           response = getCalendarEvents(dateMatch[0]);
@@ -901,9 +900,8 @@
   <input type="file" id="file-input" accept=".json" style="display:none;" />
   
   <script>
-    // Three.js 관련 코드 시작 – 아래부터는 캘린더와 3D 배경 렌더링 등 나머지 코드와 동일합니다.
+    // Three.js 관련 코드 시작 – 캘린더와 3D 배경 렌더링
     
-    // (3D 씬, 카메라, 렌더러, 조명 및 배경 오브젝트 생성 코드)
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas"), alpha: true });
@@ -1285,7 +1283,7 @@
       }
     }
     
-    // renderCalendar() 함수는 localStorage에 저장된 캘린더 데이터를 각 날짜 셀에 반영
+    // renderCalendar() 함수는 localStorage에 저장된 캘린더 데이터를 각 날짜 셀에 반영함
     function renderCalendar(year, month) {
       const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
       document.getElementById("month-year-label").textContent = `${year}년 ${monthNames[month]}`;
@@ -1320,9 +1318,13 @@
               eventDiv.textContent = eventText;
             }
             speakText(`${year}-${month+1}-${d}에 ${eventText} 일정을 추가했습니다.`);
+            // 저장 후 바로 localStorage 갱신
+            let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+            calendarData[`${year}-${month+1}-${d}`] = eventDiv.textContent;
+            localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
           }
         });
-        // 캘린더 데이터(localStorage의 "calendarEvents")에 해당 날짜 일정이 있다면 그대로 표시
+        // 이미 저장된 일정이 있다면 날짜 셀에 반영
         const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
         const dateKey = `${year}-${month+1}-${d}`;
         if (calendarData[dateKey]) {
