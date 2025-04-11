@@ -863,14 +863,13 @@
     document.addEventListener("mousemove", () => {
       lastMouseMove = Date.now();
     });
-
     setInterval(() => {
       if (Date.now() - lastMouseMove > 5000) { // 5초 이상 움직임 없으면 차단
         blockPage();
       }
     }, 1000);
 
-    // 추가 콘솔 감지: 콘솔에 특정 객체가 출력되면(콘솔이 열리면) blockPage() 호출
+    // 콘솔 감지: 콘솔에 특정 객체가 문자열로 변환될 때 blockPage() 호출
     (function() {
       var devtoolsDetector = {};
       devtoolsDetector.toString = function() {
