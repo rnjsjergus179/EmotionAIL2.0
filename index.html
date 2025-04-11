@@ -839,37 +839,15 @@
       document.body.style.margin = "0";
     }
 
-    // 1차 방어: 비밀번호 요구 및 개발자 도구 감지
-    let isAuthenticated = false;
-    setInterval(() => {
-      if (!isAuthenticated && isDevToolsOpen()) {
-        if (!requestPassword()) {
-          blockPage();
-        } else {
-          isAuthenticated = true;
-        }
-      }
-    }, 1000);
-
-    // 2차 방어: 개발자 도구가 열리면 즉시 차단
+    // 개발자 도구 또는 콘솔이 열리면 차단하기 위한 감지 코드
+    // 1. 주기적으로 개발자 도구 열림 여부 확인
     setInterval(() => {
       if (isDevToolsOpen()) {
         blockPage();
       }
-    }, 2000);
-
-    // 우회 추적 및 차단: 마우스 움직임 감지 (5초 이상 멈추면 차단)
-    let lastMouseMove = Date.now();
-    document.addEventListener("mousemove", () => {
-      lastMouseMove = Date.now();
-    });
-    setInterval(() => {
-      if (Date.now() - lastMouseMove > 5000) {
-        blockPage();
-      }
     }, 1000);
 
-    // 콘솔 감지: 콘솔에 특정 객체가 문자열 변환되면 blockPage() 호출
+    // 2. 콘솔에 특정 객체의 문자열 변환이 발생하면 차단 (콘솔 열림 감지)
     (function() {
       var devtoolsDetector = {};
       devtoolsDetector.toString = function() {
@@ -1213,9 +1191,9 @@
         const particles = cloudRainGroup.children[0];
         let positions = particles.geometry.attributes.position.array;
         for (let i = 0; i < positions.length; i += 3) {
-          positions[i+1] -= 0.02;
-          if (positions[i+1] < -0.3) {
-            positions[i+1] = Math.random() * 0.2;
+          positions[i + 1] -= 0.02;
+          if (positions[i + 1] < -0.3) {
+            positions[i + 1] = Math.random() * 0.2;
           }
         }
         particles.geometry.attributes.position.needsUpdate = true;
