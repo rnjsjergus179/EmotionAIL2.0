@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -626,7 +627,6 @@
         } else {
           const generalResponses = [
             "정말 흥미로운 이야기네요. 더 들려주세요!",
-            "알s = window.location.href = "https://www.google.com";
             "알겠습니다. 혹시 다른 궁금한 점은 없으신가요?",
             "그렇군요. 당신의 의견을 듣고 있으니 저도 많이 배워요.",
             "그렇게 느끼실 수 있겠네요. 함께 이야기 나눠봐요!"
@@ -811,105 +811,31 @@
       bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
     }
 
-    /* 콘솔 및 개발자 도구 감지 및 보안 기능 */
+    /* 개발자 도구 감지 및 비밀번호 요구 */
     function isDevToolsOpen() {
-      const threshold = 160;
-      const widthThreshold = window.outerWidth - window.innerWidth > threshold;
-      const heightThreshold = window.outerHeight - window.innerHeight > threshold;
-      return widthThreshold || heightThreshold;
+      const threshold = 150; // 창 크기 차이 임계값
+      const widthDiff = window.outerWidth - window.innerWidth;
+      const heightDiff = window.outerHeight - window.innerHeight;
+      return widthDiff > threshold || heightDiff > threshold;
     }
 
-    function requestPassword() {
-      const password = prompt("비밀번호를 입력하시오:");
+    function checkPassword() {
+      const password = prompt("개발자 도구가 감지되었습니다. 비밀번호를 입력하시오:");
       if (password === "4856") {
-        return true;
+        alert("비밀번호가 확인되었습니다.");
       } else {
-        blockPage();
-        return false;
+        alert("잘못된 비밀번호입니다!");
+        window.location.href = "about:blank"; // 페이지 차단
       }
     }
 
-    function blockPage() {
-      document.body.innerHTML = "<h1>페이지가 차단되었습니다.</h1>";
-      document.body.style.backgroundColor = "black";
-      document.body.style.color = "white";
-      document.body.style.display = "flex";
-      document.body.style.justifyContent = "center";
-      document.body.style.alignItems = "center";
-      document.body.style.height = "100vh";
-      document.body.style.margin = "0";
-    }
-
-    // 1차 방어: 비밀번호 요구
-    let isAuthenticated = false;
-    setInterval(() => {
-      if (!isAuthenticated && isDevToolsOpen()) {
-        if (!requestPassword()) {
-          blockPage();
-        } else {
-          isAuthenticated = true;
-        }
-      }
-    }, 1000);
-
-    // 2차 방어: 즉시 차단
     setInterval(() => {
       if (isDevToolsOpen()) {
-        blockPage();
+        checkPassword();
       }
-    }, 2000);
+    }, 1000); // 1초마다 감지
 
-    // 우회 추적 및 차단: 마우스 움직임 감지
-    let lastMouseMove = Date.now();
-    document.addEventListener("mousemove", () => {
-      lastMouseMove = Date.now();
-    });
-
-    setInterval(() => {
-      if (Date.now() - lastMouseMove > 5000) { // 5초 이상 움직임 없으면 차단
-        blockPage();
-      }
-    }, 1000);
-  </script>
-</head>
-<body>
-  <div id="right-hud">
-    <h3>채팅창</h3>
-    <select id="region-select" onchange="changeRegion(this.value)">
-      <option value="" disabled>지역 선택</option>
-    </select>
-    <div id="chat-log"></div>
-    <div id="chat-input-area">
-      <input type="text" id="chat-input" placeholder="채팅 입력..." />
-    </div>
-  </div>
-  <div id="hud-6">
-    <button onclick="startSpeechRecognition()">🎤 음성 입력</button>
-  </div>
-  <div id="hud-3">
-    <iframe id="map-iframe" src="https://www.google.com/maps?q=Seoul&output=embed" frameborder="0" style="width:100%; height:100%; border:0;" allowfullscreen></iframe>
-  </div>
-  <div id="left-hud">
-    <h3>캘린더</h3>
-    <div id="calendar-container">
-      <div id="calendar-header">
-        <button id="prev-month">◀</button>
-        <span id="month-year-label"></span>
-        <button id="next-month">▶</button>
-        <select id="year-select"></select>
-      </div>
-      <div id="calendar-actions">
-        <button id="delete-day-event">하루일정 삭제</button>
-      </div>
-      <div id="calendar-grid"></div>
-    </div>
-  </div>
-  <div id="speech-bubble"></div>
-  <div id="hud-7">버전 2.0 베타</div>
-  <canvas id="canvas"></canvas>
-
-  <script>
-    // Three.js 및 3D 배경 렌더링
+    /* Three.js 및 3D 배경 렌더링 */
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas"), alpha: true });
@@ -969,7 +895,7 @@
       }
       const doorMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
       const door = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 0.1), doorMat);
-      door.position.set(0, -height/2 + 1, depth/2 + 0s = window.location.href = "https://www.google.com";.01);
+      door.position.set(0, -height/2 + 1, depth/2 + 0.01);
       buildingGroup.add(door);
       return buildingGroup;
     }
@@ -1218,5 +1144,41 @@
     }
     animate();
   </script>
+</head>
+<body>
+  <div id="right-hud">
+    <h3>채팅창</h3>
+    <select id="region-select" onchange="changeRegion(this.value)">
+      <option value="" disabled>지역 선택</option>
+    </select>
+    <div id="chat-log"></div>
+    <div id="chat-input-area">
+      <input type="text" id="chat-input" placeholder="채팅 입력..." />
+    </div>
+  </div>
+  <div id="hud-6">
+    <button onclick="startSpeechRecognition()">🎤 음성 입력</button>
+  </div>
+  <div id="hud-3">
+    <iframe id="map-iframe" src="https://www.google.com/maps?q=Seoul&output=embed" frameborder="0" style="width:100%; height:100%; border:0;" allowfullscreen></iframe>
+  </div>
+  <div id="left-hud">
+    <h3>캘린더</h3>
+    <div id="calendar-container">
+      <div id="calendar-header">
+        <button id="prev-month">◀</button>
+        <span id="month-year-label"></span>
+        <button id="next-month">▶</button>
+        <select id="year-select"></select>
+      </div>
+      <div id="calendar-actions">
+        <button id="delete-day-event">하루일정 삭제</button>
+      </div>
+      <div id="calendar-grid"></div>
+    </div>
+  </div>
+  <div id="speech-bubble"></div>
+  <div id="hud-7">버전 2.0 베타</div>
+  <canvas id="canvas"></canvas>
 </body>
 </html>
