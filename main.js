@@ -226,7 +226,7 @@ function updateMap() {
 async function getWeather() {
   try {
     const englishCity = regionMap[currentCity] || "Seoul";
-    const url = `/api/weather?city=${encodeURIComponent(englishCity)}`; // 백엔드에서 관리
+    const url = `https://내-render주소/api/weather?city=${encodeURIComponent(englishCity)}`; // Render 백엔드 URL로 교체
     const res = await fetch(url);
     if (!res.ok) throw new Error("날씨 API 호출 실패");
     const data = await res.json();
@@ -310,7 +310,7 @@ function updateContext(intent) {
 
 /***** 구글 검색 API 호출 (Custom Search JSON API) *****/
 async function getGoogleSearchResults(query) {
-  const url = `/api/google-search?q=${encodeURIComponent(query)}`; // 백엔드에서 관리
+  const url = `https://내-render주소/api/search?q=${encodeURIComponent(query)}`; // Render 백엔드 URL로 교체
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error("구글 검색 API 호출 실패");
