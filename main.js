@@ -23,15 +23,12 @@ const KEYWORDS = {
   time: ["시간 알려줘"],
   delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
-const GOOGLE_API_KEY = "AIzaSyCI2i_sju-YieGbWgEi-mMG2ISF_HbL5wI";
-const GOOGLE_CSE_ID = "a3af6d0ed6e9641da";
 
 /***** 전역 변수 *****/
 document.addEventListener("contextmenu", event => event.preventDefault());
 let blockUntil = 0;
 let currentCity = "서울";
 let currentWeather = "";
-const weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
 const regionMap = {
   "서울": "Seoul",
   "인천": "Incheon",
@@ -229,7 +226,7 @@ function updateMap() {
 async function getWeather() {
   try {
     const englishCity = regionMap[currentCity] || "Seoul";
-    const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(englishCity)}&appid=${weatherKey}&units=metric&lang=kr`;
+    const url = `/api/weather?city=${encodeURIComponent(englishCity)}`; // 백엔드에서 관리
     const res = await fetch(url);
     if (!res.ok) throw new Error("날씨 API 호출 실패");
     const data = await res.json();
@@ -313,10 +310,7 @@ function updateContext(intent) {
 
 /***** 구글 검색 API 호출 (Custom Search JSON API) *****/
 async function getGoogleSearchResults(query) {
-  if (!GOOGLE_API_KEY || !GOOGLE_CSE_ID) {
-    return "구글 API 키 또는 검색 엔진 ID가 설정되지 않았습니다.";
-  }
-  const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_CSE_ID}&q=${encodeURIComponent(query)}`;
+  const url = `/api/google-search?q=${encodeURIComponent(query)}`; // 백엔드에서 관리
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error("구글 검색 API 호출 실패");
