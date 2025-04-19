@@ -492,7 +492,6 @@ function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 1500) {
 
 /***** DevTools 감지 (모바일은 제외) 및 비밀번호 입력 *****/
 function isDevToolsOpen() {
-  // 모바일 기기에서는 오검지하지 않도록
   if (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) return false;
   const threshold = 160;
   const widthThreshold = window.outerWidth - window.innerWidth > threshold;
@@ -920,7 +919,6 @@ cloudRainGroup.visible = false;
 houseCloudGroup.add(cloudRainGroup);
 
 function updateHouseClouds() {
-  // head가 준비되지 않았을 가능성 대비
   if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
   const headWorldPos = new THREE.Vector3();
   try {
