@@ -1,5 +1,5 @@
 {
-  "name": "EmotionAIL2.0",
+  "name": "emotionail-be",
   "version": "1.0.0",
   "description": "Backend for EmotionAIL2.0",
   "main": "server.js",
