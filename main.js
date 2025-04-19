@@ -215,7 +215,7 @@ function setupScene() {
   const canvasBox = document.getElementById("three-canvas");
   if (!canvasBox) return;
   renderer.setSize(canvasBox.clientWidth, canvasBox.clientHeight);
-  camera.position.set(5, 5, 10);
+  camera.position.set(5, 5, 20); // z 값을 20으로 변경
   camera.lookAt(0, 0, 0);
   const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
   directionalLight.position.set(5, 10, 7).normalize();
