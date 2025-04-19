@@ -222,7 +222,7 @@ function getCalendarEvents(dateStr = null) {
 
 function updateMap() {
   const englishCity = regionMap[currentCity] || "Seoul";
-  document.getElementById("map-iframe").src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
+  document.getElementById("map-iframe").src = `https://emotionail2-0.onrender.com=${encodeURIComponent(englishCity)}&output=embed`;
 }
 
 /***** 날씨 API 호출 (Render 백엔드 통합) *****/
