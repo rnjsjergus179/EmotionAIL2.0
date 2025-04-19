@@ -1,10 +1,7 @@
-"scripts": {
-  "start": "node server.js"
-}
 const express = require('express');
 const dotenv = require('dotenv');
 const axios = require('axios');
-const cors = require('cors'); // CORS를 허용하기 위해
+const cors = require('cors');
 
 // .env 파일에서 환경 변수 로드
 dotenv.config();
@@ -14,7 +11,7 @@ const port = process.env.PORT || 3000;
 
 // CORS 설정: GitHub Pages 도메인을 허용
 app.use(cors({
-  origin: 'http://emotionail.site/', // 실제 GitHub Pages 도메인으로 교체
+  origin: 'http://emotionail.site/' // 실제 GitHub Pages 도메인으로 교체
 }));
 
 // /api/weather 엔드포인트: 도시 이름을 받아 날씨 정보 반환
