@@ -14,7 +14,7 @@ const port = process.env.PORT || 3000;
 
 // CORS 설정: GitHub Pages 도메인을 허용
 app.use(cors({
-  origin: 'http://emotionail.site/', // 실제 GitHub Pages 도메인으로 교체
+  origin: 'https://github.com/rnjsjergus179/EmotionAIL2.0', // 실제 GitHub Pages 도메인으로 교체
 }));
 
 // /api/weather 엔드포인트: 도시 이름을 받아 날씨 정보 반환
