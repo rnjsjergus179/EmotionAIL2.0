@@ -1,5 +1,4 @@
-{
-  "name": "node server.js",
+
   "version": "1.0.0",
   "description": "Backend for EmotionAIL2.0",
   "main": "server.js",
