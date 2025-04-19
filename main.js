@@ -226,7 +226,7 @@ function updateMap() {
 async function getWeather() {
   try {
     const englishCity = regionMap[currentCity] || "Seoul";
-    const url = `https://내-render주소/api/weather?city=${encodeURIComponent(englishCity)}`; // Render 백엔드 URL로 교체
+    const url = `https://emotionail2-0.onrender.com=${encodeURIComponent(englishCity)}`; // Render 백엔드 URL로 교체
     const res = await fetch(url);
     if (!res.ok) throw new Error("날씨 API 호출 실패");
     const data = await res.json();
