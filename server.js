@@ -1,4 +1,10 @@
-
+{
+  "name": "EmotionAIL2.0",
+  "version": "1.0.0",
+  "description": "Backend for EmotionAIL2.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
 const express = require('express');
 const dotenv = require('dotenv');
 const axios = require('axios');
