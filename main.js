@@ -15,6 +15,7 @@ const SITE_LINKS = {
   "링크드인": "https://www.linkedin.com",
   "레딧": "https://www.reddit.com"
 };
+
 const KEYWORDS = {
   greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
   sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
@@ -223,10 +224,12 @@ function updateMap() {
   const englishCity = regionMap[currentCity] || "Seoul";
   document.getElementById("map-iframe").src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
 }
+
+/***** 날씨 API 호출 (Render 백엔드 통합) *****/
 async function getWeather() {
   try {
     const englishCity = regionMap[currentCity] || "Seoul";
-    const url = `https://emotionail2-0.onrender.com=${encodeURIComponent(englishCity)}`; // Render 백엔드 URL로 교체
+    const url = `https://emotionail2-0.onrender.com/api/weather?city=${encodeURIComponent(englishCity)}`; // Render 백엔드 URL로 수정
     const res = await fetch(url);
     if (!res.ok) throw new Error("날씨 API 호출 실패");
     const data = await res.json();
@@ -239,6 +242,7 @@ async function getWeather() {
     return { message: "날씨 정보를 가져오는데 실패했습니다." };
   }
 }
+
 function updateWeatherEffects() {
   if (!currentWeather) return;
   if (currentWeather.includes("비") || currentWeather.includes("소나기")) {
@@ -254,6 +258,7 @@ function updateWeatherEffects() {
     houseCloudGroup.visible = false;
   }
 }
+
 function updateLightning() {
   if (currentWeather.includes("번개") || currentWeather.includes("뇌우")) {
     if (Math.random() < 0.001) {
@@ -262,6 +267,7 @@ function updateLightning() {
     }
   }
 }
+
 async function updateWeatherAndEffects(sendMessage = true) {
   const weatherData = await getWeather();
   if (sendMessage) {
@@ -269,6 +275,7 @@ async function updateWeatherAndEffects(sendMessage = true) {
   }
   updateWeatherEffects();
 }
+
 function changeRegion(value) {
   currentCity = value;
   updateMap();
@@ -308,9 +315,9 @@ function updateContext(intent) {
   memoryStorage.save("lastTopic", lastTopic);
 }
 
-/***** 구글 검색 API 호출 (Custom Search JSON API) *****/
+/***** 구글 검색 API 호출 (Render 백엔드 통합) *****/
 async function getGoogleSearchResults(query) {
-  const url = `https://내-render주소/api/search?q=${encodeURIComponent(query)}`; // Render 백엔드 URL로 교체
+  const url = `https://emotionail2-0.onrender.com/api/search?q=${encodeURIComponent(query)}`; // Render 백엔드 URL로 수정
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error("구글 검색 API 호출 실패");
@@ -352,7 +359,6 @@ async function sendChat() {
       response = "검색어를 입력해주세요. 예: 구글 날씨";
     }
   } else if (isNewsQuery(input)) {
-    // 뉴스 검색 파이프라인
     await pipelineNewsSearch(input);
     inputEl.value = "";
     return;
@@ -458,7 +464,6 @@ async function sendChat() {
       }
     }
   }
-  // 대화 이력 업데이트
   memoryStorage.save('lastInput', input);
   memoryStorage.save('lastResponse', response);
   updateConversationHistory(input, response);
@@ -793,7 +798,6 @@ function createHouse(width, height, depth, baseColor, roofColor) {
   return houseGroup;
 }
 
-// 임의로 20개 빌딩, 10개 주택
 for (let i = 0; i < 20; i++) {
   const width = Math.random() * 4 + 4;
   const height = Math.random() * 20 + 20;
@@ -1037,7 +1041,6 @@ function animate() {
   const angle = (totalMin / 1440) * Math.PI * 2;
   const radius = 3;
 
-  // 해 위치
   const sunPos = new THREE.Vector3(
     headWorldPos.x + Math.cos(angle) * radius,
     headWorldPos.y + Math.sin(angle) * radius,
@@ -1045,7 +1048,6 @@ function animate() {
   );
   sun.position.copy(sunPos);
 
-  // 달 위치
   const moonAngle = angle + Math.PI;
   const moonPos = new THREE.Vector3(
     headWorldPos.x + Math.cos(moonAngle) * radius,
@@ -1085,7 +1087,6 @@ function animate() {
   stars.forEach(s => (s.visible = !isDay));
   fireflies.forEach(f => (f.visible = !isDay));
 
-  // 가로등, 캐릭터 라이트
   characterStreetlight.traverse(child => {
     if (child instanceof THREE.PointLight) {
       child.intensity = isDay ? 0 : 1;
@@ -1094,7 +1095,6 @@ function animate() {
   characterLight.position.copy(characterGroup.position).add(new THREE.Vector3(0, 5, 0));
   characterLight.intensity = isDay ? 0 : 1;
 
-  // 캐릭터 설정
   characterGroup.position.y = -1;
   characterGroup.rotation.x = 0;
 
@@ -1102,7 +1102,6 @@ function animate() {
   updateHouseClouds();
   updateLightning();
 
-  // 캐릭터 옆에 가로등 배치
   characterStreetlight.position.set(
     characterGroup.position.x + 1,
     -2,
@@ -1111,7 +1110,6 @@ function animate() {
 
   updateBubblePosition();
 
-  // 구름 비
   if (cloudRainGroup.visible) {
     const particles = cloudRainGroup.children[0];
     let positions = particles.geometry.attributes.position.array;
