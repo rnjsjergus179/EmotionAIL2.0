@@ -1,0 +1,14 @@
+{
+"name": "EmotionAIL2.0",
+"version":"1.0.0",
+"main": "server.js",
+"scripts":{
+"start": "node server.js"
+},
+"dependencies":{
+  "experss": "^1.8.4",
+  "dotenv": "^16.5.0",
+  "axios":"^1.8.4",
+  "cors":"^2.8.5"
+}
+}

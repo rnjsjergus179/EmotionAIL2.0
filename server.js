@@ -1,12 +1,10 @@
-
+require("dotenv").config();
+console.log('GOOGLE_API_KEY:', process.env.GOOGLE_API_KEY);
+console.log('GOOGLE_CSE_ID:', process.env.GOOGLE_CSE_ID);
 const express = require('express');
 const dotenv = require('dotenv');
 const axios = require('axios');
 const cors = require('cors');
-
-// .env 파일에서 환경 변수 로드
-dotenv.config();
-
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -49,6 +47,10 @@ app.get('/api/search', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch search results' });
   }
 });
+
+app.get("/"),(req, res) => {
+  res.send("server is working");
+};
 
 // 서버 실행
 app.listen(port, () => {
