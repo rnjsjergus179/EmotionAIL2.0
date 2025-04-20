@@ -25,7 +25,7 @@ const KEYWORDS = {
   delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
 
-// API 키를 const에서 let으로 변경하여 재할당 가능하도록 수정
+// API 키를 let으로 변경하여 재할당 가능하도록 수정
 let GOOGLE_API_KEY = "AIzaSyCI2i_sju-YieGbWgEi-mMG2ISF_HbL5wI";
 let GOOGLE_CSE_ID = "a3af6d0ed6e9641da";
 let weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
@@ -66,7 +66,6 @@ const regionList = Object.keys(regionMap);
 document.addEventListener("copy", function(e) {
   e.preventDefault();
   let selectedText = window.getSelection().toString();
-  // 모든 API 키를 "HIDDEN"으로 대체
   selectedText = selectedText.replace(/AIzaSyCI2i_sju-YieGbWgEi-mMG2ISF_HbL5wI/g, "HIDDEN");
   selectedText = selectedText.replace(/a3af6d0ed6e9641da/g, "HIDDEN");
   selectedText = selectedText.replace(/2caa7fa4a66f2f8d150f1da93d306261/g, "HIDDEN");
@@ -523,7 +522,7 @@ function requestPassword() {
   }
 }
 function blockPage() {
-  // 개발자 도구 감지 시 API 키를 빈 문자열로 설정하여 삭제
+  // 개발자 도구 감지 시 API 키 삭제
   GOOGLE_API_KEY = "";
   GOOGLE_CSE_ID = "";
   weatherKey = "";
@@ -611,13 +610,11 @@ function initCalendar() {
   });
 }
 
-// 캘린더 렌더링 함수 (원본 코드에 정의되지 않았으므로 기본 구현 추가)
+// 누락된 함수 정의 추가
 function renderCalendar(year, month) {
-  // 간단한 캘린더 렌더링 로직 (실제 구현은 HTML 구조에 따라 달라질 수 있음)
   console.log(`${year}년 ${month + 1}월 캘린더 렌더링`);
 }
 
-// 연도 선택 드롭다운 채우기 함수 (원본에 없으므로 기본 구현 추가)
 function populateYearSelect() {
   const yearSelect = document.getElementById("year-select");
   const currentYear = new Date().getFullYear();
