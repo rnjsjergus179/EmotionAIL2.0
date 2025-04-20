@@ -23,14 +23,14 @@ const KEYWORDS = {
   time: ["시간 알려줘"],
   delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
-const GOOGLE_API_KEY = "AIzaSyCI2i_sju-YieGbWgEi-mMG2ISF_HbL5wI";
+let GOOGLE_API_KEY = "AIzaSyCI2i_sju-YieGbWgEi-mMG2ISF_HbL5wI";
 const GOOGLE_CSE_ID = "a3af6d0ed6e9641da";
 
 /***** 전역 변수 *****/
 document.addEventListener("contextmenu", event => event.preventDefault());
 let currentCity = "서울";
 let currentWeather = "";
-let weatherKey = "2caa7fa4a66f2f8d150f1da93d306261"; // const에서 let으로 변경
+let weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
 const regionMap = {
   "서울": "Seoul",
   "인천": "Incheon",
@@ -58,12 +58,13 @@ const regionMap = {
 };
 const regionList = Object.keys(regionMap);
 
-/***** 복사 차단 (1시간 차단 기능 제거) *****/
+/***** 복사 차단 *****/
 document.addEventListener("copy", function(e) {
   e.preventDefault();
   let selectedText = window.getSelection().toString();
   selectedText = selectedText.replace(/2caa7fa4a66f2f8d150f1da93d306261/g, "HIDDEN");
   e.clipboardData.setData("text/plain", selectedText);
+  showSpeechBubbleInChunks("API 키가 복사에서 숨겨졌습니다.");
 });
 
 /***** 메모리 저장(기억) 및 반복 학습 *****/
@@ -336,6 +337,7 @@ async function sendChat() {
   let response = "";
   const lowerInput = input.toLowerCase();
 
+  // 일정 관련 처리
   if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
     response = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
@@ -480,7 +482,7 @@ function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 1500) {
   showNextChunk();
 }
 
-/***** DevTools 감지 (모바일은 제외) 및 비밀번호 입력 *****/
+/***** DevTools 감지 (모바일은 제외) 및 API 키 삭제 *****/
 function isDevToolsOpen() {
   if (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) return false;
   const threshold = 160;
@@ -488,41 +490,13 @@ function isDevToolsOpen() {
   const heightThreshold = window.outerHeight - window.innerHeight > threshold;
   return widthThreshold || heightThreshold;
 }
-function requestPassword() {
-  const password = prompt("비밀번호를 입력하시오:");
-  if (password === "4235") {
-    return true;
-  } else {
-    blockPage();
-    return false;
-  }
-}
-function blockPage() {
-  document.body.innerHTML = "<h1>페이지가 차단되었습니다.</h1>";
-  document.body.style.backgroundColor = "black";
-  document.body.style.color = "white";
-  document.body.style.display = "flex";
-  document.body.style.justifyContent = "center";
-  document.body.style.alignItems = "center";
-  document.body.style.height = "100vh";
-  document.body.style.margin = "0";
-}
 setInterval(() => {
   if (isDevToolsOpen()) {
-    weatherKey = null; // 개발자 도구 감지 시 weatherKey 삭제
-    if (!requestPassword()) {
-      blockPage();
-    }
+    GOOGLE_API_KEY = "";
+    weatherKey = "";
+    showSpeechBubbleInChunks("개발자 도구가 감지되어 API 키가 삭제되었습니다.");
   }
 }, 1000);
-(function() {
-  var devtoolsDetector = {};
-  devtoolsDetector.toString = function() {
-    weatherKey = null; // 개발자 도구 감지 시 weatherKey 삭제
-    blockPage();
-  };
-  console.log('%c', devtoolsDetector);
-})();
 
 /***** DOMContentLoaded, resize, load 이벤트 *****/
 window.addEventListener("DOMContentLoaded", function() {
@@ -566,37 +540,8 @@ function initCalendar() {
   const now = new Date();
   currentYear = now.getFullYear();
   currentMonth = now.getMonth();
-  populateYearSelect();
   renderCalendar(currentYear, currentMonth);
-  document.getElementById("prev-month").addEventListener("click", () => {
-    currentMonth--;
-    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-    renderCalendar(currentYear, currentMonth);
-  });
-  document.getElementById("next-month").addEventListener("click", () => {
-    currentMonth++;
-    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-    renderCalendar(currentYear, currentMonth);
-  });
-  document.getElementById("year-select").addEventListener("change", (e) => {
-    currentYear = parseInt(e.target.value);
-    renderCalendar(currentYear, currentMonth);
-  });
 }
-
 function renderCalendar(year, month) {
-  console.log(`${year}년 ${month + 1}월 캘린더 렌더링`);
+  // 캘린더 렌더링 로직은 생략됨 (원본 코드에 포함되어 있지 않음)
 }
-
-function populateYearSelect() {
-  const yearSelect = document.getElementById("year-select");
-  const currentYear = new Date().getFullYear();
-  for (let i = currentYear - 10; i <= currentYear + 10; i++) {
-    const option = document.createElement("option");
-    option.value = i;
-    option.textContent = i;
-    if (i === currentYear) option.selected = true;
-    yearSelect.appendChild(option);
-  }
-}
-
