@@ -540,9 +540,74 @@ function initCalendar() {
   const now = new Date();
   currentYear = now.getFullYear();
   currentMonth = now.getMonth();
+  populateYearSelect();
   renderCalendar(currentYear, currentMonth);
+  document.getElementById("prev-month").addEventListener("click", () => {
+    currentMonth--;
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+    renderCalendar(currentYear, currentMonth);
+  });
+  document.getElementById("next-month").addEventListener("click", () => {
+    currentMonth++;
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    renderCalendar(currentYear, currentMonth);
+  });
+  document.getElementById("year-select").addEventListener("change", (e) => {
+    currentYear = parseInt(e.target.value);
+    renderCalendar(currentYear, currentMonth);
+  });
 }
+
+function populateYearSelect() {
+  const yearSelect = document.getElementById("year-select");
+  const currentYearNow = new Date().getFullYear();
+  for (let year = currentYearNow - 10; year <= currentYearNow + 10; year++) {
+    const option = document.createElement("option");
+    option.value = year;
+    option.textContent = year;
+    if (year === currentYear) option.selected = true;
+    yearSelect.appendChild(option);
+  }
+}
+
 function renderCalendar(year, month) {
-  // 캘린더 렌더링 로직은 원본 코드에 완전히 포함되지 않았으므로 생략됨
+  const calendarBody = document.getElementById("calendar-body");
+  calendarBody.innerHTML = "";
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  let row = document.createElement("tr");
+  for (let i = 0; i < firstDay; i++) {
+    row.appendChild(document.createElement("td"));
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    if (row.children.length === 7) {
+      calendarBody.appendChild(row);
+      row = document.createElement("tr");
+    }
+    const cell = document.createElement("td");
+    cell.textContent = day;
+    cell.addEventListener("click", () => {
+      const eventText = prompt("일정을 입력하세요:");
+      if (eventText) {
+        const dateKey = `${year}-${month+1}-${day}`;
+        let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+        calendarData[dateKey] = eventText;
+        localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+        renderCalendar(year, month);
+      }
+    });
+    const eventDiv = document.createElement("div");
+    eventDiv.id = `event-${year}-${month+1}-${day}`;
+    const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+    if (calendarData[`${year}-${month+1}-${day}`]) {
+      eventDiv.textContent = calendarData[`${year}-${month+1}-${day}`];
+    }
+    cell.appendChild(eventDiv);
+    row.appendChild(cell);
+  }
+  while (row.children.length < 7) {
+    row.appendChild(document.createElement("td"));
+  }
+  calendarBody.appendChild(row);
 }
 
