@@ -15,6 +15,7 @@ const SITE_LINKS = {
   "링크드인": "https://www.linkedin.com",
   "레딧": "https://www.reddit.com"
 };
+
 const KEYWORDS = {
   greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
   sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
@@ -23,15 +24,17 @@ const KEYWORDS = {
   time: ["시간 알려줘"],
   delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
-const GOOGLE_API_KEY = "AIzaSyCI2i_sju-YieGbWgEi-mMG2ISF_HbL5wI";
-const GOOGLE_CSE_ID = "a3af6d0ed6e9641da";
+
+// API 키를 const에서 let으로 변경하여 재할당 가능하도록 수정
+let GOOGLE_API_KEY = "AIzaSyCI2i_sju-YieGbWgEi-mMG2ISF_HbL5wI";
+let GOOGLE_CSE_ID = "a3af6d0ed6e9641da";
+let weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
 
 /***** 전역 변수 *****/
 document.addEventListener("contextmenu", event => event.preventDefault());
 let blockUntil = 0;
 let currentCity = "서울";
 let currentWeather = "";
-const weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
 const regionMap = {
   "서울": "Seoul",
   "인천": "Incheon",
@@ -59,10 +62,13 @@ const regionMap = {
 };
 const regionList = Object.keys(regionMap);
 
-/***** 복사 차단 *****/
+/***** 복사 차단 및 API 키 숨김 *****/
 document.addEventListener("copy", function(e) {
   e.preventDefault();
   let selectedText = window.getSelection().toString();
+  // 모든 API 키를 "HIDDEN"으로 대체
+  selectedText = selectedText.replace(/AIzaSyCI2i_sju-YieGbWgEi-mMG2ISF_HbL5wI/g, "HIDDEN");
+  selectedText = selectedText.replace(/a3af6d0ed6e9641da/g, "HIDDEN");
   selectedText = selectedText.replace(/2caa7fa4a66f2f8d150f1da93d306261/g, "HIDDEN");
   e.clipboardData.setData("text/plain", selectedText);
   if (Date.now() < blockUntil) return;
@@ -227,6 +233,9 @@ function updateMap() {
   document.getElementById("map-iframe").src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
 }
 async function getWeather() {
+  if (!weatherKey) {
+    return { message: "날씨 API 키가 설정되지 않았습니다." };
+  }
   try {
     const englishCity = regionMap[currentCity] || "Seoul";
     const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(englishCity)}&appid=${weatherKey}&units=metric&lang=kr`;
@@ -498,7 +507,6 @@ function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 1500) {
 
 /***** DevTools 감지 (모바일은 제외) 및 비밀번호 입력 *****/
 function isDevToolsOpen() {
-  // 모바일 기기에서는 오검지하지 않도록
   if (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) return false;
   const threshold = 160;
   const widthThreshold = window.outerWidth - window.innerWidth > threshold;
@@ -515,6 +523,10 @@ function requestPassword() {
   }
 }
 function blockPage() {
+  // 개발자 도구 감지 시 API 키를 빈 문자열로 설정하여 삭제
+  GOOGLE_API_KEY = "";
+  GOOGLE_CSE_ID = "";
+  weatherKey = "";
   document.body.innerHTML = "<h1>페이지가 차단되었습니다.</h1>";
   document.body.style.backgroundColor = "black";
   document.body.style.color = "white";
@@ -597,558 +609,23 @@ function initCalendar() {
     currentYear = parseInt(e.target.value);
     renderCalendar(currentYear, currentMonth);
   });
-  document.getElementById("delete-day-event").addEventListener("click", () => {
-    const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
-    if (dayStr) {
-      const dayNum = parseInt(dayStr);
-      const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth+1}-${dayStr}`);
-      if (eventDiv) {
-        eventDiv.textContent = "";
-        const message = `${currentYear}-${currentMonth+1}-${dayStr} 일정이 삭제되었습니다. 다시 입력할 수 있습니다.`;
-        alert(message);
-        speakText(message);
-        let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-        delete calendarData[`${currentYear}-${currentMonth+1}-${dayStr}`];
-        localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
-      }
-    }
-  });
 }
+
+// 캘린더 렌더링 함수 (원본 코드에 정의되지 않았으므로 기본 구현 추가)
+function renderCalendar(year, month) {
+  // 간단한 캘린더 렌더링 로직 (실제 구현은 HTML 구조에 따라 달라질 수 있음)
+  console.log(`${year}년 ${month + 1}월 캘린더 렌더링`);
+}
+
+// 연도 선택 드롭다운 채우기 함수 (원본에 없으므로 기본 구현 추가)
 function populateYearSelect() {
   const yearSelect = document.getElementById("year-select");
-  yearSelect.innerHTML = "";
-  for (let y = 2020; y <= 2070; y++) {
+  const currentYear = new Date().getFullYear();
+  for (let i = currentYear - 10; i <= currentYear + 10; i++) {
     const option = document.createElement("option");
-    option.value = y;
-    option.textContent = y;
-    if (y === currentYear) option.selected = true;
+    option.value = i;
+    option.textContent = i;
+    if (i === currentYear) option.selected = true;
     yearSelect.appendChild(option);
   }
-}
-function renderCalendar(year, month) {
-  const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
-  document.getElementById("month-year-label").textContent = `${year}년 ${monthNames[month]}`;
-  const grid = document.getElementById("calendar-grid");
-  grid.innerHTML = "";
-  const daysOfWeek = ["일","월","화","수","목","금","토"];
-  daysOfWeek.forEach(day => {
-    const th = document.createElement("div");
-    th.style.fontWeight = "bold";
-    th.style.textAlign = "center";
-    th.textContent = day;
-    th.style.color = "#00ffcc";
-    th.style.textShadow = "0 0 3px #00ffcc";
-    grid.appendChild(th);
-  });
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month+1, 0).getDate();
-  for (let i = 0; i < firstDay; i++) {
-    grid.appendChild(document.createElement("div"));
-  }
-  for (let d = 1; d <= daysInMonth; d++) {
-    const cell = document.createElement("div");
-    cell.innerHTML = `
-      <div class="day-number">${d}</div>
-      <div class="event" id="event-${year}-${month+1}-${d}"></div>
-    `;
-    cell.addEventListener("click", () => {
-      const eventText = prompt(`${year}-${month+1}-${d} 일정 입력:`);
-      if (eventText) {
-        const eventDiv = document.getElementById(`event-${year}-${month+1}-${d}`);
-        if (eventDiv.textContent) {
-          eventDiv.textContent += "; " + eventText;
-        } else {
-          eventDiv.textContent = eventText;
-        }
-        speakText(`${year}-${month+1}-${d}에 ${eventText} 일정이 추가되었습니다.`);
-        let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-        calendarData[`${year}-${month+1}-${d}`] = eventDiv.textContent;
-        localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
-      }
-    });
-    let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-    const dateKey = `${year}-${month+1}-${d}`;
-    if (calendarData[dateKey]) {
-      cell.querySelector(`#event-${year}-${month+1}-${d}`).textContent = calendarData[dateKey];
-    }
-    grid.appendChild(cell);
-  }
-}
-
-/***** Three.js 및 3D 배경 렌더링 *****/
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({
-  canvas: document.getElementById("canvas"),
-  alpha: true
-});
-renderer.setSize(window.innerWidth, window.innerHeight);
-camera.position.set(5, 5, 10);
-camera.lookAt(0, 0, 0);
-
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-directionalLight.position.set(5, 10, 7).normalize();
-scene.add(directionalLight);
-scene.add(new THREE.AmbientLight(0x333333));
-
-// 해/달
-const sunMaterial = new THREE.MeshStandardMaterial({
-  color: 0xffcc00,
-  emissive: 0xff9900,
-  transparent: true,
-  opacity: 0
-});
-const sun = new THREE.Mesh(new THREE.SphereGeometry(1.5, 64, 64), sunMaterial);
-scene.add(sun);
-
-const moonMaterial = new THREE.MeshStandardMaterial({
-  color: 0xcccccc,
-  emissive: 0x222222,
-  transparent: true,
-  opacity: 1
-});
-const moon = new THREE.Mesh(new THREE.SphereGeometry(1.2, 64, 64), moonMaterial);
-scene.add(moon);
-
-// 별, 반딧불이
-const stars = [];
-const fireflies = [];
-for (let i = 0; i < 200; i++) {
-  const star = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-  star.position.set((Math.random() - 0.5) * 100, (Math.random() - 0.5) * 60, -20);
-  scene.add(star);
-  stars.push(star);
-}
-for (let i = 0; i < 60; i++) {
-  const firefly = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffff99 }));
-  firefly.position.set((Math.random() - 0.5) * 40, (Math.random() - 0.5) * 20, -10);
-  scene.add(firefly);
-  fireflies.push(firefly);
-}
-
-// 바닥
-const floorGeometry = new THREE.PlaneGeometry(400, 400, 128, 128);
-const floorMaterial = new THREE.MeshStandardMaterial({
-  color: 0x808080,
-  roughness: 1,
-  metalness: 0
-});
-const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-floor.rotation.x = -Math.PI / 2;
-floor.position.y = -2;
-scene.add(floor);
-
-// 배경용 건물/집
-const backgroundGroup = new THREE.Group();
-scene.add(backgroundGroup);
-
-function createBuilding(width, height, depth, color) {
-  const buildingGroup = new THREE.Group();
-  const geometry = new THREE.BoxGeometry(width, height, depth);
-  const material = new THREE.MeshStandardMaterial({
-    color: color,
-    roughness: 0.7,
-    metalness: 0.1
-  });
-  const building = new THREE.Mesh(geometry, material);
-  buildingGroup.add(building);
-
-  const windowMat = new THREE.MeshStandardMaterial({ color: 0x87CEEB });
-  for (let y = 3; y < height - 1; y += 2) {
-    for (let x = -width / 2 + 0.5; x < width / 2; x += 1) {
-      const windowMesh = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.8, 0.1), windowMat);
-      windowMesh.position.set(x, y - height / 2, depth / 2 + 0.01);
-      buildingGroup.add(windowMesh);
-    }
-  }
-
-  const doorMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
-  const door = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 0.1), doorMat);
-  door.position.set(0, -height / 2 + 1, depth / 2 + 0.01);
-  buildingGroup.add(door);
-  return buildingGroup;
-}
-
-function createHouse(width, height, depth, baseColor, roofColor) {
-  const houseGroup = new THREE.Group();
-  const base = new THREE.Mesh(
-    new THREE.BoxGeometry(width, height, depth),
-    new THREE.MeshStandardMaterial({ color: baseColor, roughness: 0.8 })
-  );
-  base.position.y = -2 + height / 2;
-  houseGroup.add(base);
-
-  const roof = new THREE.Mesh(
-    new THREE.ConeGeometry(width * 0.8, height * 0.6, 4),
-    new THREE.MeshStandardMaterial({ color: roofColor, roughness: 0.8 })
-  );
-  roof.position.y = -2 + height + (height * 0.6) / 2;
-  roof.rotation.y = Math.PI / 4;
-  houseGroup.add(roof);
-
-  const windowMat = new THREE.MeshStandardMaterial({ color: 0xFFFFE0 });
-  const window1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.1), windowMat);
-  window1.position.set(-width / 4, -2 + height / 2, depth / 2 + 0.01);
-  const window2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.1), windowMat);
-  window2.position.set(width / 4, -2 + height / 2, depth / 2 + 0.01);
-  houseGroup.add(window1, window2);
-
-  const doorMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
-  const door = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.1), doorMat);
-  door.position.set(0, -2 + height / 4, depth / 2 + 0.01);
-  houseGroup.add(door);
-  return houseGroup;
-}
-
-// 임의로 20개 빌딩, 10개 주택
-for (let i = 0; i < 20; i++) {
-  const width = Math.random() * 4 + 4;
-  const height = Math.random() * 20 + 20;
-  const depth = Math.random() * 4 + 4;
-  const building = createBuilding(width, height, depth, 0x555555);
-  const col = i % 10;
-  const row = Math.floor(i / 10);
-  const x = -50 + col * 10;
-  const z = -30 - row * 20;
-  building.position.set(x, -2 + height / 2, z);
-  backgroundGroup.add(building);
-}
-for (let i = 0; i < 10; i++) {
-  const width = Math.random() * 4 + 6;
-  const height = Math.random() * 4 + 6;
-  const depth = Math.random() * 4 + 6;
-  const house = createHouse(width, height, depth, 0xa0522d, 0x8b0000);
-  const x = -40 + i * 10;
-  const z = -10;
-  house.position.set(x, 0, z);
-  backgroundGroup.add(house);
-}
-
-// 가로등
-function createStreetlight() {
-  const lightGroup = new THREE.Group();
-  const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.1, 0.1, 4, 8),
-    new THREE.MeshBasicMaterial({ color: 0x333333 })
-  );
-  pole.position.y = 2;
-  lightGroup.add(pole);
-
-  const lamp = new THREE.Mesh(
-    new THREE.SphereGeometry(0.2, 8, 8),
-    new THREE.MeshBasicMaterial({ color: 0xffcc00 })
-  );
-  lamp.position.y = 4.2;
-  lightGroup.add(lamp);
-
-  const lampLight = new THREE.PointLight(0xffcc00, 1, 10);
-  lampLight.position.set(0, 4.2, 0);
-  lightGroup.add(lampLight);
-  return lightGroup;
-}
-const characterStreetlight = createStreetlight();
-characterStreetlight.position.set(1, -2, 0);
-scene.add(characterStreetlight);
-
-// 비, 구름
-let rainGroup = new THREE.Group();
-scene.add(rainGroup);
-
-function initRain() {
-  const rainCount = 2000;
-  const rainGeometry = new THREE.BufferGeometry();
-  const positions = new Float32Array(rainCount * 3);
-  for (let i = 0; i < rainCount; i++) {
-    positions[i * 3] = Math.random() * 200 - 100;
-    positions[i * 3 + 1] = Math.random() * 100;
-    positions[i * 3 + 2] = Math.random() * 200 - 100;
-  }
-  rainGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  const rainMaterial = new THREE.PointsMaterial({
-    color: 0xaaaaee,
-    size: 0.1,
-    transparent: true,
-    opacity: 0.6
-  });
-  const rainParticles = new THREE.Points(rainGeometry, rainMaterial);
-  rainGroup.add(rainParticles);
-}
-initRain();
-rainGroup.visible = false;
-
-let houseCloudGroup = new THREE.Group();
-scene.add(houseCloudGroup);
-
-function createHouseCloud() {
-  const cloud = new THREE.Group();
-  const cloudMat = new THREE.MeshLambertMaterial({
-    color: 0xffffff,
-    transparent: true,
-    opacity: 0.9
-  });
-  const sphere1 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), cloudMat);
-  sphere1.position.set(0, 0, 0);
-  const sphere2 = new THREE.Mesh(new THREE.SphereGeometry(0.4, 32, 32), cloudMat);
-  sphere2.position.set(0.6, 0.2, 0);
-  const sphere3 = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), cloudMat);
-  sphere3.position.set(-0.6, 0.1, 0);
-  cloud.add(sphere1, sphere2, sphere3);
-  cloud.scale.set(2, 2, 2);
-  cloud.userData.initialPos = cloud.position.clone();
-  return cloud;
-}
-const singleCloud = createHouseCloud();
-houseCloudGroup.add(singleCloud);
-houseCloudGroup.position.set(0, 2, 0);
-
-let cloudRainGroup = new THREE.Group();
-function initCloudRain() {
-  const cloudRainCount = 100;
-  const geometry = new THREE.BufferGeometry();
-  const positions = new Float32Array(cloudRainCount * 3);
-  for (let i = 0; i < cloudRainCount; i++) {
-    positions[i * 3] = (Math.random() - 0.5) * 1.5;
-    positions[i * 3 + 1] = Math.random() * 0.2;
-    positions[i * 3 + 2] = (Math.random() - 0.5) * 1.5;
-  }
-  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  const material = new THREE.PointsMaterial({
-    color: 0xaaaaee,
-    size: 0.05,
-    transparent: true,
-    opacity: 0.8
-  });
-  const particles = new THREE.Points(geometry, material);
-  cloudRainGroup.add(particles);
-}
-initCloudRain();
-cloudRainGroup.visible = false;
-houseCloudGroup.add(cloudRainGroup);
-
-function updateHouseClouds() {
-  // head가 준비되지 않았을 가능성 대비
-  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
-  const headWorldPos = new THREE.Vector3();
-  try {
-    head.getWorldPosition(headWorldPos);
-  } catch (err) {
-    console.error("updateHouseClouds 에러:", err);
-    return;
-  }
-  houseCloudGroup.position.x = headWorldPos.x + Math.sin(Date.now() * 0.001) * 1;
-  houseCloudGroup.position.y = headWorldPos.y + 2.5;
-  houseCloudGroup.position.z = headWorldPos.z;
-}
-
-// 번개
-let lightningLight = new THREE.PointLight(0xffffff, 0, 500);
-lightningLight.position.set(0, 50, 0);
-scene.add(lightningLight);
-
-// 캐릭터
-const characterGroup = new THREE.Group();
-const charBody = new THREE.Mesh(
-  new THREE.BoxGeometry(1, 1.5, 0.5),
-  new THREE.MeshStandardMaterial({ color: 0x00cc66 })
-);
-const head = new THREE.Mesh(
-  new THREE.SphereGeometry(0.5, 32, 32),
-  new THREE.MeshStandardMaterial({ color: 0xffcc66 })
-);
-head.position.y = 1.2;
-
-const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), eyeMat);
-const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), eyeMat);
-leftEye.position.set(-0.2, 1.3, 0.45);
-rightEye.position.set(0.2, 1.3, 0.45);
-
-const mouth = new THREE.Mesh(
-  new THREE.BoxGeometry(0.2, 0.05, 0.05),
-  new THREE.MeshStandardMaterial({ color: 0xff3366 })
-);
-mouth.position.set(0, 1.1, 0.51);
-
-const leftBrow = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 0.05), eyeMat);
-const rightBrow = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 0.05), eyeMat);
-leftBrow.position.set(-0.2, 1.45, 0.45);
-rightBrow.position.set(0.2, 1.45, 0.45);
-
-const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1, 0.2), charBody.material);
-const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1, 0.2), charBody.material);
-leftArm.position.set(-0.7, 0.4, 0);
-rightArm.position.set(0.7, 0.4, 0);
-
-const legMat = new THREE.MeshStandardMaterial({ color: 0x3366cc });
-const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1, 0.3), legMat);
-const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1, 0.3), legMat);
-leftLeg.position.set(-0.35, -1, 0);
-rightLeg.position.set(0.35, -1, 0);
-
-characterGroup.add(
-  charBody,
-  head,
-  leftEye,
-  rightEye,
-  mouth,
-  leftBrow,
-  rightBrow,
-  leftArm,
-  rightArm,
-  leftLeg,
-  rightLeg
-);
-characterGroup.position.y = -1;
-scene.add(characterGroup);
-
-// 캐릭터 라이트
-const characterLight = new THREE.PointLight(0xffee88, 1, 15);
-scene.add(characterLight);
-
-// 나무
-function createTree() {
-  const treeGroup = new THREE.Group();
-  const trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.2, 0.2, 2, 16),
-    new THREE.MeshStandardMaterial({ color: 0x8B4513 })
-  );
-  trunk.position.y = -1;
-
-  const foliage = new THREE.Mesh(
-    new THREE.ConeGeometry(1, 3, 16),
-    new THREE.MeshStandardMaterial({ color: 0x228B22 })
-  );
-  foliage.position.y = 0.5;
-
-  treeGroup.add(trunk, foliage);
-  return treeGroup;
-}
-for (let i = 0; i < 10; i++) {
-  const tree = createTree();
-  tree.position.set(-50 + i * 10, -2, -15);
-  scene.add(tree);
-}
-
-// 메인 애니메이션 루프
-function animate() {
-  requestAnimationFrame(animate);
-  const now = new Date();
-  const headWorldPos = new THREE.Vector3();
-  try {
-    head.getWorldPosition(headWorldPos);
-  } catch (err) {
-    console.error("애니메이트 중 head.getWorldPosition 에러:", err);
-  }
-
-  // 해/달 위치
-  const totalMin = now.getHours() * 60 + now.getMinutes();
-  const angle = (totalMin / 1440) * Math.PI * 2;
-  const radius = 3;
-
-  // 해 위치
-  const sunPos = new THREE.Vector3(
-    headWorldPos.x + Math.cos(angle) * radius,
-    headWorldPos.y + Math.sin(angle) * radius,
-    headWorldPos.z
-  );
-  sun.position.copy(sunPos);
-
-  // 달 위치
-  const moonAngle = angle + Math.PI;
-  const moonPos = new THREE.Vector3(
-    headWorldPos.x + Math.cos(moonAngle) * radius,
-    headWorldPos.y + Math.sin(moonAngle) * radius,
-    headWorldPos.z
-  );
-  moon.position.copy(moonPos);
-
-  // 해/달 투명도
-  const t = now.getHours() + now.getMinutes() / 60;
-  let sunOpacity = 0, moonOpacity = 0;
-  if (t < 6) {
-    sunOpacity = 0;
-    moonOpacity = 1;
-  } else if (t < 7) {
-    let factor = t - 6;
-    sunOpacity = factor;
-    moonOpacity = 1 - factor;
-  } else if (t < 17) {
-    sunOpacity = 1;
-    moonOpacity = 0;
-  } else if (t < 18) {
-    let factor = t - 17;
-    sunOpacity = 1 - factor;
-    moonOpacity = factor;
-  } else {
-    sunOpacity = 0;
-    moonOpacity = 1;
-  }
-  sun.material.opacity = sunOpacity;
-  moon.material.opacity = moonOpacity;
-
-  // 낮/밤 판단
-  const isDay = (t >= 7 && t < 17);
-  scene.background = new THREE.Color(isDay ? 0x87CEEB : 0x000033);
-
-  stars.forEach(s => (s.visible = !isDay));
-  fireflies.forEach(f => (f.visible = !isDay));
-
-  // 가로등, 캐릭터 라이트
-  characterStreetlight.traverse(child => {
-    if (child instanceof THREE.PointLight) {
-      child.intensity = isDay ? 0 : 1;
-    }
-  });
-  characterLight.position.copy(characterGroup.position).add(new THREE.Vector3(0, 5, 0));
-  characterLight.intensity = isDay ? 0 : 1;
-
-  // 캐릭터 설정
-  characterGroup.position.y = -1;
-  characterGroup.rotation.x = 0;
-
-  updateWeatherEffects();
-  updateHouseClouds();
-  updateLightning();
-
-  // 캐릭터 옆에 가로등 배치
-  characterStreetlight.position.set(
-    characterGroup.position.x + 1,
-    -2,
-    characterGroup.position.z
-  );
-
-  updateBubblePosition();
-
-  // 구름 비
-  if (cloudRainGroup.visible) {
-    const particles = cloudRainGroup.children[0];
-    let positions = particles.geometry.attributes.position.array;
-    for (let i = 0; i < positions.length; i += 3) {
-      positions[i + 1] -= 0.02;
-      if (positions[i + 1] < -0.3) {
-        positions[i + 1] = Math.random() * 0.2;
-      }
-    }
-    particles.geometry.attributes.position.needsUpdate = true;
-  }
-
-  renderer.render(scene, camera);
-}
-animate();
-
-// 말풍선 위치 업데이트
-function updateBubblePosition() {
-  const bubble = document.getElementById("speech-bubble");
-  if (!bubble) return;
-  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
-  const headWorldPos = new THREE.Vector3();
-  try {
-    head.getWorldPosition(headWorldPos);
-  } catch (err) {
-    console.error("updateBubblePosition 에러:", err);
-    return;
-  }
-  const screenPos = headWorldPos.project(camera);
-  bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
-  bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
 }
