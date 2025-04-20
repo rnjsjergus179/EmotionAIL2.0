@@ -543,5 +543,6 @@ function initCalendar() {
   renderCalendar(currentYear, currentMonth);
 }
 function renderCalendar(year, month) {
-  // 캘린더 렌더링 로직은 생략됨 (원본 코드에 포함되어 있지 않음)
+  // 캘린더 렌더링 로직은 원본 코드에 완전히 포함되지 않았으므로 생략됨
 }
+
