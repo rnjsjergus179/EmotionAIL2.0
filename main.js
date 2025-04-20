@@ -15,6 +15,7 @@ const SITE_LINKS = {
   "링크드인": "https://www.linkedin.com",
   "레딧": "https://www.reddit.com"
 };
+
 const KEYWORDS = {
   greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
   sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
@@ -23,15 +24,15 @@ const KEYWORDS = {
   time: ["시간 알려줘"],
   delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
-const GOOGLE_API_KEY = "AIzaSyCI2i_sju-YieGbWgEi-mMG2ISF_HbL5wI";
-const GOOGLE_CSE_ID = "a3af6d0ed6e9641da";
+
+let GOOGLE_API_KEY = "AIzaSyCI2i_sju-YieGbWgEi-mMG2ISF_HbL5wI";
+let GOOGLE_CSE_ID = "a3af6d0ed6e9641da";
+let weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
 
 /***** 전역 변수 *****/
 document.addEventListener("contextmenu", event => event.preventDefault());
-let blockUntil = 0;
 let currentCity = "서울";
 let currentWeather = "";
-const weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
 const regionMap = {
   "서울": "Seoul",
   "인천": "Incheon",
@@ -65,9 +66,6 @@ document.addEventListener("copy", function(e) {
   let selectedText = window.getSelection().toString();
   selectedText = selectedText.replace(/2caa7fa4a66f2f8d150f1da93d306261/g, "HIDDEN");
   e.clipboardData.setData("text/plain", selectedText);
-  if (Date.now() < blockUntil) return;
-  blockUntil = Date.now() + 3600000;
-  showSpeechBubbleInChunks("1시간동안 차단됩니다.");
 });
 
 /***** 메모리 저장(기억) 및 반복 학습 *****/
@@ -227,6 +225,9 @@ function updateMap() {
   document.getElementById("map-iframe").src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
 }
 async function getWeather() {
+  if (!weatherKey) {
+    return { message: "날씨 API 키가 설정되지 않았습니다." };
+  }
   try {
     const englishCity = regionMap[currentCity] || "Seoul";
     const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(englishCity)}&appid=${weatherKey}&units=metric&lang=kr`;
@@ -336,11 +337,6 @@ async function getGoogleSearchResults(query) {
 async function sendChat() {
   const inputEl = document.getElementById("chat-input");
   const input = inputEl.value.trim();
-  if (Date.now() < blockUntil) {
-    showSpeechBubbleInChunks("1시간동안 차단됩니다.");
-    inputEl.value = "";
-    return;
-  }
   if (!input) return;
   let response = "";
   const lowerInput = input.toLowerCase();
@@ -496,45 +492,31 @@ function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 1500) {
   showNextChunk();
 }
 
-/***** DevTools 감지 (모바일은 제외) 및 비밀번호 입력 *****/
+/***** DevTools 감지 (모바일은 제외) 및 API 키 삭제 *****/
 function isDevToolsOpen() {
-  // 모바일 기기에서는 오검지하지 않도록
   if (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) return false;
   const threshold = 160;
   const widthThreshold = window.outerWidth - window.innerWidth > threshold;
   const heightThreshold = window.outerHeight - window.innerHeight > threshold;
   return widthThreshold || heightThreshold;
 }
-function requestPassword() {
-  const password = prompt("비밀번호를 입력하시오:");
-  if (password === "4235") {
-    return true;
-  } else {
-    blockPage();
-    return false;
-  }
-}
-function blockPage() {
-  document.body.innerHTML = "<h1>페이지가 차단되었습니다.</h1>";
-  document.body.style.backgroundColor = "black";
-  document.body.style.color = "white";
-  document.body.style.display = "flex";
-  document.body.style.justifyContent = "center";
-  document.body.style.alignItems = "center";
-  document.body.style.height = "100vh";
-  document.body.style.margin = "0";
-}
+
 setInterval(() => {
   if (isDevToolsOpen()) {
-    if (!requestPassword()) {
-      blockPage();
-    }
+    GOOGLE_API_KEY = "";
+    GOOGLE_CSE_ID = "";
+    weatherKey = "";
+    console.log("DevTools detected, API keys have been cleared.");
   }
 }, 1000);
+
 (function() {
   var devtoolsDetector = {};
   devtoolsDetector.toString = function() {
-    blockPage();
+    GOOGLE_API_KEY = "";
+    GOOGLE_CSE_ID = "";
+    weatherKey = "";
+    console.log("DevTools detected, API keys have been cleared.");
   };
   console.log('%c', devtoolsDetector);
 })();
@@ -780,7 +762,7 @@ function createHouse(width, height, depth, baseColor, roofColor) {
 
   const roof = new THREE.Mesh(
     new THREE.ConeGeometry(width * 0.8, height * 0.6, 4),
-    new THREE.MeshStandardMaterial({ color: roofColor, roughness: 0.8 })
+    new THREE.MeshStandardMaterial({ color: roofColor, roughness: /dataset: 0.8 })
   );
   roof.position.y = -2 + height + (height * 0.6) / 2;
   roof.rotation.y = Math.PI / 4;
@@ -926,7 +908,6 @@ cloudRainGroup.visible = false;
 houseCloudGroup.add(cloudRainGroup);
 
 function updateHouseClouds() {
-  // head가 준비되지 않았을 가능성 대비
   if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
   const headWorldPos = new THREE.Vector3();
   try {
