@@ -354,12 +354,10 @@ async function sendChat() {
       response = "검색어를 입력해주세요. 예: 구글 날씨";
     }
   } else if (isNewsQuery(input)) {
-    // 뉴스 검색 파이프라인
     await pipelineNewsSearch(input);
     inputEl.value = "";
     return;
   } else {
-    // 사이트 이동 처리
     for (let site in SITE_LINKS) {
       if (lowerInput.includes(site)) {
         response = `${site} 사이트로 이동합니다! 잠시만 기다려 주세요.`;
@@ -370,7 +368,6 @@ async function sendChat() {
       }
     }
 
-    // NLP 응답 처리
     const nlpResponse = processNLP(input);
     if (nlpResponse) {
       response = nlpResponse;
@@ -407,12 +404,10 @@ async function sendChat() {
       updateContext("time");
     }
 
-    // 날씨 후속질문 (ex: "내일" 언급 시)
     if (!response && lastTopic === "weather" && lowerInput.includes("내일")) {
       response = "내일 날씨는 비가 올 예정입니다.";
     }
 
-    // 기타 기본 응답
     if (!response) {
       if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
@@ -460,7 +455,6 @@ async function sendChat() {
       }
     }
   }
-  // 대화 이력 업데이트
   memoryStorage.save('lastInput', input);
   memoryStorage.save('lastResponse', response);
   updateConversationHistory(input, response);
@@ -524,9 +518,9 @@ setInterval(() => {
 /***** DOMContentLoaded, resize, load 이벤트 *****/
 window.addEventListener("DOMContentLoaded", function() {
   const chatInput = document.getElementById("chat-input");
-  chatInput.setAttribute("list", "chat-keywords");
+  chatInput.setAttribute("list", "Charge");
   const autoCompleteList = document.createElement("datalist");
-  autoCompleteList.id = "chat-keywords";
+  autoCompleteList.id = "Charge";
   const allKeywords = Object.values(KEYWORDS).flat().concat(Object.keys(SITE_LINKS));
   allKeywords.forEach(kw => {
     const option = document.createElement("option");
@@ -673,7 +667,6 @@ directionalLight.position.set(5, 10, 7).normalize();
 scene.add(directionalLight);
 scene.add(new THREE.AmbientLight(0x333333));
 
-// 해/달
 const sunMaterial = new THREE.MeshStandardMaterial({
   color: 0xffcc00,
   emissive: 0xff9900,
@@ -692,7 +685,6 @@ const moonMaterial = new THREE.MeshStandardMaterial({
 const moon = new THREE.Mesh(new THREE.SphereGeometry(1.2, 64, 64), moonMaterial);
 scene.add(moon);
 
-// 별, 반딧불이
 const stars = [];
 const fireflies = [];
 for (let i = 0; i < 200; i++) {
@@ -708,7 +700,6 @@ for (let i = 0; i < 60; i++) {
   fireflies.push(firefly);
 }
 
-// 바닥
 const floorGeometry = new THREE.PlaneGeometry(400, 400, 128, 128);
 const floorMaterial = new THREE.MeshStandardMaterial({
   color: 0x808080,
@@ -720,7 +711,6 @@ floor.rotation.x = -Math.PI / 2;
 floor.position.y = -2;
 scene.add(floor);
 
-// 배경용 건물/집
 const backgroundGroup = new THREE.Group();
 scene.add(backgroundGroup);
 
@@ -762,7 +752,7 @@ function createHouse(width, height, depth, baseColor, roofColor) {
 
   const roof = new THREE.Mesh(
     new THREE.ConeGeometry(width * 0.8, height * 0.6, 4),
-    new THREE.MeshStandardMaterial({ color: roofColor, roughness: /dataset: 0.8 })
+    new THREE.MeshStandardMaterial({ color: roofColor, roughness: 0.8 })
   );
   roof.position.y = -2 + height + (height * 0.6) / 2;
   roof.rotation.y = Math.PI / 4;
@@ -782,7 +772,6 @@ function createHouse(width, height, depth, baseColor, roofColor) {
   return houseGroup;
 }
 
-// 임의로 20개 빌딩, 10개 주택
 for (let i = 0; i < 20; i++) {
   const width = Math.random() * 4 + 4;
   const height = Math.random() * 20 + 20;
@@ -806,7 +795,6 @@ for (let i = 0; i < 10; i++) {
   backgroundGroup.add(house);
 }
 
-// 가로등
 function createStreetlight() {
   const lightGroup = new THREE.Group();
   const pole = new THREE.Mesh(
@@ -832,7 +820,6 @@ const characterStreetlight = createStreetlight();
 characterStreetlight.position.set(1, -2, 0);
 scene.add(characterStreetlight);
 
-// 비, 구름
 let rainGroup = new THREE.Group();
 scene.add(rainGroup);
 
@@ -921,12 +908,10 @@ function updateHouseClouds() {
   houseCloudGroup.position.z = headWorldPos.z;
 }
 
-// 번개
 let lightningLight = new THREE.PointLight(0xffffff, 0, 500);
 lightningLight.position.set(0, 50, 0);
 scene.add(lightningLight);
 
-// 캐릭터
 const characterGroup = new THREE.Group();
 const charBody = new THREE.Mesh(
   new THREE.BoxGeometry(1, 1.5, 0.5),
@@ -982,11 +967,9 @@ characterGroup.add(
 characterGroup.position.y = -1;
 scene.add(characterGroup);
 
-// 캐릭터 라이트
 const characterLight = new THREE.PointLight(0xffee88, 1, 15);
 scene.add(characterLight);
 
-// 나무
 function createTree() {
   const treeGroup = new THREE.Group();
   const trunk = new THREE.Mesh(
@@ -1010,7 +993,6 @@ for (let i = 0; i < 10; i++) {
   scene.add(tree);
 }
 
-// 메인 애니메이션 루프
 function animate() {
   requestAnimationFrame(animate);
   const now = new Date();
@@ -1021,12 +1003,10 @@ function animate() {
     console.error("애니메이트 중 head.getWorldPosition 에러:", err);
   }
 
-  // 해/달 위치
   const totalMin = now.getHours() * 60 + now.getMinutes();
   const angle = (totalMin / 1440) * Math.PI * 2;
   const radius = 3;
 
-  // 해 위치
   const sunPos = new THREE.Vector3(
     headWorldPos.x + Math.cos(angle) * radius,
     headWorldPos.y + Math.sin(angle) * radius,
@@ -1034,7 +1014,6 @@ function animate() {
   );
   sun.position.copy(sunPos);
 
-  // 달 위치
   const moonAngle = angle + Math.PI;
   const moonPos = new THREE.Vector3(
     headWorldPos.x + Math.cos(moonAngle) * radius,
@@ -1043,7 +1022,6 @@ function animate() {
   );
   moon.position.copy(moonPos);
 
-  // 해/달 투명도
   const t = now.getHours() + now.getMinutes() / 60;
   let sunOpacity = 0, moonOpacity = 0;
   if (t < 6) {
@@ -1067,14 +1045,12 @@ function animate() {
   sun.material.opacity = sunOpacity;
   moon.material.opacity = moonOpacity;
 
-  // 낮/밤 판단
   const isDay = (t >= 7 && t < 17);
   scene.background = new THREE.Color(isDay ? 0x87CEEB : 0x000033);
 
   stars.forEach(s => (s.visible = !isDay));
   fireflies.forEach(f => (f.visible = !isDay));
 
-  // 가로등, 캐릭터 라이트
   characterStreetlight.traverse(child => {
     if (child instanceof THREE.PointLight) {
       child.intensity = isDay ? 0 : 1;
@@ -1083,7 +1059,6 @@ function animate() {
   characterLight.position.copy(characterGroup.position).add(new THREE.Vector3(0, 5, 0));
   characterLight.intensity = isDay ? 0 : 1;
 
-  // 캐릭터 설정
   characterGroup.position.y = -1;
   characterGroup.rotation.x = 0;
 
@@ -1091,7 +1066,6 @@ function animate() {
   updateHouseClouds();
   updateLightning();
 
-  // 캐릭터 옆에 가로등 배치
   characterStreetlight.position.set(
     characterGroup.position.x + 1,
     -2,
@@ -1100,7 +1074,6 @@ function animate() {
 
   updateBubblePosition();
 
-  // 구름 비
   if (cloudRainGroup.visible) {
     const particles = cloudRainGroup.children[0];
     let positions = particles.geometry.attributes.position.array;
@@ -1117,7 +1090,6 @@ function animate() {
 }
 animate();
 
-// 말풍선 위치 업데이트
 function updateBubblePosition() {
   const bubble = document.getElementById("speech-bubble");
   if (!bubble) return;
