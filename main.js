@@ -25,7 +25,7 @@ const KEYWORDS = {
   delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
 
-// API 키를 let으로 변경하여 재할당 가능하도록 수정
+// API 키를 let으로 선언하여 재할당 가능하도록 설정
 let GOOGLE_API_KEY = "AIzaSyCI2i_sju-YieGbWgEi-mMG2ISF_HbL5wI";
 let GOOGLE_CSE_ID = "a3af6d0ed6e9641da";
 let weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
@@ -353,7 +353,6 @@ async function sendChat() {
   let response = "";
   const lowerInput = input.toLowerCase();
 
-  // 일정 관련 처리
   if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
     response = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
@@ -366,12 +365,10 @@ async function sendChat() {
       response = "검색어를 입력해주세요. 예: 구글 날씨";
     }
   } else if (isNewsQuery(input)) {
-    // 뉴스 검색 파이프라인
     await pipelineNewsSearch(input);
     inputEl.value = "";
     return;
   } else {
-    // 사이트 이동 처리
     for (let site in SITE_LINKS) {
       if (lowerInput.includes(site)) {
         response = `${site} 사이트로 이동합니다! 잠시만 기다려 주세요.`;
@@ -382,7 +379,6 @@ async function sendChat() {
       }
     }
 
-    // NLP 응답 처리
     const nlpResponse = processNLP(input);
     if (nlpResponse) {
       response = nlpResponse;
@@ -419,12 +415,10 @@ async function sendChat() {
       updateContext("time");
     }
 
-    // 날씨 후속질문 (ex: "내일" 언급 시)
     if (!response && lastTopic === "weather" && lowerInput.includes("내일")) {
       response = "내일 날씨는 비가 올 예정입니다.";
     }
 
-    // 기타 기본 응답
     if (!response) {
       if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
@@ -472,7 +466,6 @@ async function sendChat() {
       }
     }
   }
-  // 대화 이력 업데이트
   memoryStorage.save('lastInput', input);
   memoryStorage.save('lastResponse', response);
   updateConversationHistory(input, response);
@@ -522,7 +515,7 @@ function requestPassword() {
   }
 }
 function blockPage() {
-  // 개발자 도구 감지 시 API 키 삭제
+  // API 키 삭제
   GOOGLE_API_KEY = "";
   GOOGLE_CSE_ID = "";
   weatherKey = "";
@@ -610,7 +603,6 @@ function initCalendar() {
   });
 }
 
-// 누락된 함수 정의 추가
 function renderCalendar(year, month) {
   console.log(`${year}년 ${month + 1}월 캘린더 렌더링`);
 }
@@ -626,3 +618,4 @@ function populateYearSelect() {
     yearSelect.appendChild(option);
   }
 }
+
