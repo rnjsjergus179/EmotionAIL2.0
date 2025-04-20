@@ -15,6 +15,7 @@ const SITE_LINKS = {
   "링크드인": "https://www.linkedin.com",
   "레딧": "https://www.reddit.com"
 };
+
 const KEYWORDS = {
   greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
   sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
@@ -23,14 +24,16 @@ const KEYWORDS = {
   time: ["시간 알려줘"],
   delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
+
+// API 키를 let으로 선언하여 재할당 가능하도록 설정
 let GOOGLE_API_KEY = "AIzaSyCI2i_sju-YieGbWgEi-mMG2ISF_HbL5wI";
-const GOOGLE_CSE_ID = "a3af6d0ed6e9641da";
+let GOOGLE_CSE_ID = "a3af6d0ed6e9641da";
+let weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
 
 /***** 전역 변수 *****/
 document.addEventListener("contextmenu", event => event.preventDefault());
 let currentCity = "서울";
 let currentWeather = "";
-let weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
 const regionMap = {
   "서울": "Seoul",
   "인천": "Incheon",
@@ -58,10 +61,13 @@ const regionMap = {
 };
 const regionList = Object.keys(regionMap);
 
-/***** 복사 차단 *****/
+/***** 복사 차단 및 API 키 숨김 *****/
 document.addEventListener("copy", function(e) {
   e.preventDefault();
   let selectedText = window.getSelection().toString();
+  // 모든 API 키를 "HIDDEN"으로 대체
+  selectedText = selectedText.replace(/AIzaSyCI2i_sju-YieGbWgEi-mMG2ISF_HbL5wI/g, "HIDDEN");
+  selectedText = selectedText.replace(/a3af6d0ed6e9641da/g, "HIDDEN");
   selectedText = selectedText.replace(/2caa7fa4a66f2f8d150f1da93d306261/g, "HIDDEN");
   e.clipboardData.setData("text/plain", selectedText);
   showSpeechBubbleInChunks("API 키가 복사에서 숨겨졌습니다.");
@@ -224,6 +230,9 @@ function updateMap() {
   document.getElementById("map-iframe").src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
 }
 async function getWeather() {
+  if (!weatherKey) {
+    return { message: "날씨 API 키가 설정되지 않았습니다." };
+  }
   try {
     const englishCity = regionMap[currentCity] || "Seoul";
     const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(englishCity)}&appid=${weatherKey}&units=metric&lang=kr`;
@@ -482,7 +491,7 @@ function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 1500) {
   showNextChunk();
 }
 
-/***** DevTools 감지 (모바일은 제외) 및 API 키 삭제 *****/
+/***** DevTools 감지 및 API 키 삭제 *****/
 function isDevToolsOpen() {
   if (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) return false;
   const threshold = 160;
@@ -493,6 +502,7 @@ function isDevToolsOpen() {
 setInterval(() => {
   if (isDevToolsOpen()) {
     GOOGLE_API_KEY = "";
+    GOOGLE_CSE_ID = "";
     weatherKey = "";
     showSpeechBubbleInChunks("개발자 도구가 감지되어 API 키가 삭제되었습니다.");
   }
@@ -500,6 +510,12 @@ setInterval(() => {
 
 /***** DOMContentLoaded, resize, load 이벤트 *****/
 window.addEventListener("DOMContentLoaded", function() {
+  // 캐릭터와 기본 UI 렌더링
+  const characterContainer = document.getElementById("character-container");
+  if (characterContainer) {
+    characterContainer.style.display = "block"; // 캐릭터 표시
+  }
+
   const chatInput = document.getElementById("chat-input");
   chatInput.setAttribute("list", "chat-keywords");
   const autoCompleteList = document.createElement("datalist");
@@ -524,9 +540,11 @@ window.addEventListener("DOMContentLoaded", function() {
   });
 });
 window.addEventListener("resize", function(){
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  if (typeof camera !== "undefined" && typeof renderer !== "undefined") {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
 });
 window.addEventListener("load", async () => {
   initCalendar();
@@ -556,18 +574,6 @@ function initCalendar() {
     currentYear = parseInt(e.target.value);
     renderCalendar(currentYear, currentMonth);
   });
-}
-
-function populateYearSelect() {
-  const yearSelect = document.getElementById("year-select");
-  const currentYearNow = new Date().getFullYear();
-  for (let year = currentYearNow - 10; year <= currentYearNow + 10; year++) {
-    const option = document.createElement("option");
-    option.value = year;
-    option.textContent = year;
-    if (year === currentYear) option.selected = true;
-    yearSelect.appendChild(option);
-  }
 }
 
 function renderCalendar(year, month) {
@@ -611,3 +617,14 @@ function renderCalendar(year, month) {
   calendarBody.appendChild(row);
 }
 
+function populateYearSelect() {
+  const yearSelect = document.getElementById("year-select");
+  const currentYearNow = new Date().getFullYear();
+  for (let year = currentYearNow - 10; year <= currentYearNow + 10; year++) {
+    const option = document.createElement("option");
+    option.value = year;
+    option.textContent = year;
+    if (year === currentYear) option.selected = true;
+    yearSelect.appendChild(option);
+  }
+}
