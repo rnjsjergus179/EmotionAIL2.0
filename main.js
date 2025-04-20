@@ -32,6 +32,7 @@ let weatherKey = "2caa7fa4a66f2f8d150f1da93d306261";
 
 /***** 전역 변수 *****/
 document.addEventListener("contextmenu", event => event.preventDefault());
+let blockUntil = 0;
 let currentCity = "서울";
 let currentWeather = "";
 const regionMap = {
@@ -70,6 +71,9 @@ document.addEventListener("copy", function(e) {
   selectedText = selectedText.replace(/a3af6d0ed6e9641da/g, "HIDDEN");
   selectedText = selectedText.replace(/2caa7fa4a66f2f8d150f1da93d306261/g, "HIDDEN");
   e.clipboardData.setData("text/plain", selectedText);
+  if (Date.now() < blockUntil) return;
+  blockUntil = Date.now() + 3600000;
+  showSpeechBubbleInChunks("1시간동안 차단됩니다.");
 });
 
 /***** 메모리 저장(기억) 및 반복 학습 *****/
@@ -341,6 +345,11 @@ async function getGoogleSearchResults(query) {
 async function sendChat() {
   const inputEl = document.getElementById("chat-input");
   const input = inputEl.value.trim();
+  if (Date.now() < blockUntil) {
+    showSpeechBubbleInChunks("1시간동안 차단됩니다.");
+    inputEl.value = "";
+    return;
+  }
   if (!input) return;
   let response = "";
   const lowerInput = input.toLowerCase();
@@ -496,7 +505,7 @@ function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 1500) {
   showNextChunk();
 }
 
-/***** DevTools 감지 (모바일은 제외) 및 API 키 삭제 *****/
+/***** DevTools 감지 (모바일은 제외) 및 비밀번호 입력 *****/
 function isDevToolsOpen() {
   if (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) return false;
   const threshold = 160;
@@ -504,23 +513,40 @@ function isDevToolsOpen() {
   const heightThreshold = window.outerHeight - window.innerHeight > threshold;
   return widthThreshold || heightThreshold;
 }
-
+function requestPassword() {
+  const password = prompt("비밀번호를 입력하시오:");
+  if (password === "4235") {
+    return true;
+  } else {
+    blockPage();
+    return false;
+  }
+}
+function blockPage() {
+  // 개발자 도구 감지 시 API 키를 빈 문자열로 설정하여 삭제
+  GOOGLE_API_KEY = "";
+  GOOGLE_CSE_ID = "";
+  weatherKey = "";
+  document.body.innerHTML = "<h1>페이지가 차단되었습니다.</h1>";
+  document.body.style.backgroundColor = "black";
+  document.body.style.color = "white";
+  document.body.style.display = "flex";
+  document.body.style.justifyContent = "center";
+  document.body.style.alignItems = "center";
+  document.body.style.height = "100vh";
+  document.body.style.margin = "0";
+}
 setInterval(() => {
   if (isDevToolsOpen()) {
-    GOOGLE_API_KEY = "";
-    GOOGLE_CSE_ID = "";
-    weatherKey = "";
-    console.log("DevTools detected, API keys have been cleared.");
+    if (!requestPassword()) {
+      blockPage();
+    }
   }
 }, 1000);
-
 (function() {
   var devtoolsDetector = {};
   devtoolsDetector.toString = function() {
-    GOOGLE_API_KEY = "";
-    GOOGLE_CSE_ID = "";
-    weatherKey = "";
-    console.log("DevTools detected, API keys have been cleared.");
+    blockPage();
   };
   console.log('%c', devtoolsDetector);
 })();
@@ -603,3 +629,4 @@ function populateYearSelect() {
     yearSelect.appendChild(option);
   }
 }
+
