@@ -125,7 +125,7 @@ function processNLP(input) {
   }
   let emotionCount = memoryStorage.load("emotionCount") || { positive: 0, negative: 0, surprise: 0 };
   if (detectedEmotion) {
-    emotionCount[detectedEmotion] = (emotionCount[detectEmotion] || 0) + 1;
+    emotionCount[detectedEmotion] = (emotionCount[detectedEmotion] || 0) + 1;
     memoryStorage.save("emotionCount", emotionCount);
   }
   let enhancedResponse = "";
@@ -395,11 +395,26 @@ async function sendChat() {
   } else {
     for (let site in SITE_LINKS) {
       if (lowerInput.includes(site)) {
-        response = `${site} 사이트로 이동합니다! 잠시만 기다려 주세요.`;
-        showSpeechBubbleInChunks(response);
-        setTimeout(() => { window.location.href = SITE_LINKS[site]; }, 2000);
-        inputEl.value = "";
-        return;
+        if (site === "유튜브" || site === "youtube") {
+          // 유튜브 키워드가 포함된 경우, 검색어 추출 및 API 호출
+          const query = lowerInput.replace(new RegExp(intents.youtubeSearch.join("|"), "gi"), "").trim();
+          if (query) {
+            const youtubeResults = await getYouTubeSearchResults(query);
+            response = youtubeResults;
+            isHTML = true;
+            inputEl.value = `${query} 비디오`; // 입력창에 "고양이 비디오" 형태로 표시
+          } else {
+            response = "유튜브 검색어를 입력해주세요. 예: 고양이 비디오";
+          }
+          updateContext("youtubeSearch");
+        } else {
+          response = `${site} 사이트로 이동합니다! 잠시만 기다려 주세요.`;
+          showSpeechBubbleInChunks(response);
+          setTimeout(() => { window.location.href = SITE_LINKS[site]; }, 2000);
+          inputEl.value = "";
+          return;
+        }
+        break;
       }
     }
 
@@ -408,7 +423,7 @@ async function sendChat() {
       response = nlpResponse;
     }
     const intent = detectIntent(input);
-    if (intent === "addEvent") {
+    if (!response && intent === "addEvent") {
       const eventMatch = input.match(/(오늘|내일|\d{4}-\d{1,2}-\d{1,2})\s*(\d{1,2})시/);
       if (eventMatch) {
         let date;
@@ -429,24 +444,25 @@ async function sendChat() {
         response = `${dateKey}에 "${eventText}" 일정이 추가되었습니다.`;
         updateContext("addEvent");
       }
-    } else if (intent === "getWeather") {
+    } else if (!response && intent === "getWeather") {
       const weatherData = await getWeather();
       response = weatherData.message;
       updateContext("weather");
-    } else if (intent === "getTime") {
+    } else if (!response && intent === "getTime") {
       const now = new Date();
       response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
       updateContext("time");
-    } else if (intent === "youtubeSearch") {
+    } else if (!response && intent === "youtubeSearch") {
       const query = lowerInput.replace(new RegExp(intents.youtubeSearch.join("|"), "gi"), "").trim();
       if (query) {
         const youtubeResults = await getYouTubeSearchResults(query);
         response = youtubeResults;
         isHTML = true;
+        inputEl.value = `${query} 비디오`; // 입력창에 "고양이 비디오" 형태로 표시
+        updateContext("youtubeSearch");
       } else {
-        response = "유튜브 검색어를 입력해주세요. 예: 유튜브 고양이";
+        response = "유튜브 검색어를 입력해주세요. 예: 고양이 비디오";
       }
-      updateContext("youtubeSearch");
     }
 
     if (!response && lastTopic === "weather" && lowerInput.includes("내일")) {
@@ -506,7 +522,6 @@ async function sendChat() {
   learnFromInteractions();
 
   showSpeechBubbleInChunks(response, isHTML);
-  inputEl.value = "";
 }
 
 /***** 말풍선(버블) 여러 줄 출력 *****/
