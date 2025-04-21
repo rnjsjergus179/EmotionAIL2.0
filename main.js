@@ -125,7 +125,7 @@ function processNLP(input) {
   }
   let emotionCount = memoryStorage.load("emotionCount") || { positive: 0, negative: 0, surprise: 0 };
   if (detectedEmotion) {
-    emotionCount[detectedEmotion] = (emotionCount[detectedEmotion] || 0) + 1;
+    emotionCount[detectedEmotion] = (emotionCount[detectEmotion] || 0) + 1;
     memoryStorage.save("emotionCount", emotionCount);
   }
   let enhancedResponse = "";
@@ -148,8 +148,10 @@ function processNLP(input) {
 const intents = {
   addEvent: ["일정", "추가", "예약", "회의"],
   getWeather: ["날씨", "어때"],
-  getTime: ["시간", "몇 시"]
+  getTime: ["시간", "몇 시"],
+  youtubeSearch: ["유튜브", "youtube", "동영상", "비디오", "영상"]
 };
+
 function detectIntent(input) {
   const lowerInput = input.toLowerCase();
   for (let intent in intents) {
@@ -159,10 +161,12 @@ function detectIntent(input) {
   }
   return null;
 }
+
 function isNewsQuery(input) {
   const newsKeywords = ["뉴스", "속보", "보도", "언론", "이슈", "사건", "정치", "사회", "경제"];
   return newsKeywords.some(keyword => input.includes(keyword));
 }
+
 async function pipelineNewsSearch(userInput) {
   let query = userInput;
   if (isNewsQuery(userInput)) {
@@ -196,6 +200,7 @@ function deleteCalendarEvent(day) {
     return "해당 날짜에 일정이 없습니다.";
   }
 }
+
 function getCalendarEvents(dateStr = null) {
   const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
   if (!Object.keys(calendarData).length) {
@@ -224,6 +229,7 @@ function updateMap() {
   const englishCity = regionMap[currentCity] || "Seoul";
   document.getElementById("map-iframe").src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
 }
+
 async function getWeather() {
   if (!weatherKey) {
     return { message: "날씨 API 키가 설정되지 않았습니다." };
@@ -243,6 +249,7 @@ async function getWeather() {
     return { message: "날씨 정보를 가져오는데 실패했습니다." };
   }
 }
+
 function updateWeatherEffects() {
   if (!currentWeather) return;
   if (currentWeather.includes("비") || currentWeather.includes("소나기")) {
@@ -258,6 +265,7 @@ function updateWeatherEffects() {
     houseCloudGroup.visible = false;
   }
 }
+
 function updateLightning() {
   if (currentWeather.includes("번개") || currentWeather.includes("뇌우")) {
     if (Math.random() < 0.001) {
@@ -266,6 +274,7 @@ function updateLightning() {
     }
   }
 }
+
 async function updateWeatherAndEffects(sendMessage = true) {
   const weatherData = await getWeather();
   if (sendMessage) {
@@ -273,6 +282,7 @@ async function updateWeatherAndEffects(sendMessage = true) {
   }
   updateWeatherEffects();
 }
+
 function changeRegion(value) {
   currentCity = value;
   updateMap();
@@ -333,12 +343,37 @@ async function getGoogleSearchResults(query) {
   }
 }
 
+/***** YouTube API 호출 *****/
+async function getYouTubeSearchResults(query) {
+  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=3&key=${GOOGLE_API_KEY}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("유튜브 API 호출 실패");
+    const data = await res.json();
+    if (data.items && data.items.length > 0) {
+      const results = data.items.map(item => {
+        const title = item.snippet.title;
+        const videoId = item.id.videoId;
+        const url = `https://www.youtube.com/watch?v=${videoId}`;
+        return `<a href="${url}" target="_blank">${title}</a>`;
+      });
+      return results.join("<br>");
+    } else {
+      return "검색 결과가 없습니다.";
+    }
+  } catch (error) {
+    console.error(error);
+    return "유튜브 검색 결과를 가져오는데 실패했습니다.";
+  }
+}
+
 /***** 채팅 전송 및 파이프라인 처리 *****/
 async function sendChat() {
   const inputEl = document.getElementById("chat-input");
   const input = inputEl.value.trim();
   if (!input) return;
   let response = "";
+  let isHTML = false;
   const lowerInput = input.toLowerCase();
 
   // 일정 관련 처리
@@ -402,6 +437,16 @@ async function sendChat() {
       const now = new Date();
       response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
       updateContext("time");
+    } else if (intent === "youtubeSearch") {
+      const query = lowerInput.replace(new RegExp(intents.youtubeSearch.join("|"), "gi"), "").trim();
+      if (query) {
+        const youtubeResults = await getYouTubeSearchResults(query);
+        response = youtubeResults;
+        isHTML = true;
+      } else {
+        response = "유튜브 검색어를 입력해주세요. 예: 유튜브 고양이";
+      }
+      updateContext("youtubeSearch");
     }
 
     if (!response && lastTopic === "weather" && lowerInput.includes("내일")) {
@@ -460,30 +505,43 @@ async function sendChat() {
   updateConversationHistory(input, response);
   learnFromInteractions();
 
-  showSpeechBubbleInChunks(response);
+  showSpeechBubbleInChunks(response, isHTML);
   inputEl.value = "";
 }
 
 /***** 말풍선(버블) 여러 줄 출력 *****/
-function showSpeechBubbleInChunks(text, chunkSize = 15, delay = 1500) {
+function showSpeechBubbleInChunks(text, isHTML = false, chunkSize = 15, delay = 1500) {
   const bubble = document.getElementById("speech-bubble");
-  const chunks = [];
-  for (let i = 0; i < text.length; i += chunkSize) {
-    chunks.push(text.slice(i, i + chunkSize));
+  let parts;
+  if (isHTML) {
+    parts = text.split("<br>");
+  } else {
+    parts = [];
+    for (let i = 0; i < text.length; i += chunkSize) {
+      parts.push(text.slice(i, i + chunkSize));
+    }
   }
   let index = 0;
-  function showNextChunk() {
-    if (index < chunks.length) {
-      bubble.textContent = chunks[index];
+  bubble.innerHTML = "";
+  function showNextPart() {
+    if (index < parts.length) {
+      if (isHTML) {
+        bubble.innerHTML += parts[index] + "<br>";
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = parts[index];
+        speakText(tempDiv.textContent);
+      } else {
+        bubble.textContent += parts[index];
+        speakText(parts[index]);
+      }
       bubble.style.display = "block";
-      speakText(chunks[index]);
       index++;
-      setTimeout(showNextChunk, delay);
+      setTimeout(showNextPart, delay);
     } else {
       setTimeout(() => { bubble.style.display = "none"; }, 3000);
     }
   }
-  showNextChunk();
+  showNextPart();
 }
 
 /***** DevTools 감지 (모바일은 제외) 및 API 키 삭제 *****/
@@ -540,11 +598,13 @@ window.addEventListener("DOMContentLoaded", function() {
     regionSelect.appendChild(option);
   });
 });
+
 window.addEventListener("resize", function(){
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
 window.addEventListener("load", async () => {
   initCalendar();
   updateMap();
@@ -590,6 +650,7 @@ function initCalendar() {
     }
   });
 }
+
 function populateYearSelect() {
   const yearSelect = document.getElementById("year-select");
   yearSelect.innerHTML = "";
@@ -601,6 +662,7 @@ function populateYearSelect() {
     yearSelect.appendChild(option);
   }
 }
+
 function renderCalendar(year, month) {
   const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
   document.getElementById("month-year-label").textContent = `${year}년 ${monthNames[month]}`;
