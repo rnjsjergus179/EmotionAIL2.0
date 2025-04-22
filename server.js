@@ -8,10 +8,10 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// 라우트 연결
-const searchRoute = require('./routes/search');
-const weatherRoute = require('./routes/weather');
-const youtubeRoute = require('./routes/youtube');
+// 라우트 연결 (루트 경로 기준으로 수정)
+const searchRoute = require('./search');
+const weatherRoute = require('./weather');
+const youtubeRoute = require('./youtube');
 app.use('/api', searchRoute);
 app.use('/api', weatherRoute);
 app.use('/api', youtubeRoute);
