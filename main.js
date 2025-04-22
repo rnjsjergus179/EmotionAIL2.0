@@ -86,6 +86,9 @@ const regionMap = {
 };
 const regionList = Object.keys(regionMap);
 
+// 백엔드 API 기본 URL 정의
+const API_BASE_URL = 'https://emotionail2-0.onrender.com';
+
 /***** 복사 차단 *****/
 document.addEventListener("copy", function(e) {
   e.preventDefault();
@@ -270,7 +273,7 @@ async function getWeather() {
   if (isFunctionDisabled) return { message: "기능이 정지되었습니다." };
   try {
     const englishCity = regionMap[currentCity] || "Seoul";
-    const response = await fetch(`/api/weather?city=${encodeURIComponent(englishCity)}`);
+    const response = await fetch(`${API_BASE_URL}/api/weather?city=${encodeURIComponent(englishCity)}`);
     if (!response.ok) throw new Error("서버 응답 오류");
     const data = await response.json();
     currentWeather = data.description;
@@ -286,7 +289,7 @@ async function getWeather() {
 async function getGoogleSearchResults(query) {
   if (isFunctionDisabled) return "기능이 정지되었습니다.";
   try {
-    const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+    const response = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}`);
     if (!response.ok) throw new Error("서버 응답 오류");
     const data = await response.json();
     if (data.length > 0) {
@@ -303,7 +306,7 @@ async function getGoogleSearchResults(query) {
 async function getYouTubeSearchResults(query) {
   if (isFunctionDisabled) return "기능이 정지되었습니다.";
   try {
-    const response = await fetch(`/api/youtube-search?q=${encodeURIComponent(query)}`);
+    const response = await fetch(`${API_BASE_URL}/api/youtube-search?q=${encodeURIComponent(query)}`);
     if (!response.ok) throw new Error("서버 응답 오류");
     const data = await response.json();
     if (data.items && data.items.length > 0) {
@@ -429,7 +432,7 @@ async function sendChat() {
     for (let site in SITE_LINKS) {
       if (lowerInput.includes(site)) {
         if (site === "유튜브" || site === "youtube") {
-          const query = lowerInput.replace(new RegExp(intents.youtubeSearch.join("|"), "gi"), "").trim();
+          const query = lowerInput.replace(new RegRegExp(intents.youtubeSearch.join("|"), "gi"), "").trim();
           if (query) {
             const youtubeResults = await getYouTubeSearchResults(query);
             response = youtubeResults;
@@ -783,7 +786,7 @@ for (let i = 0; i < 200; i++) {
 for (let i = 0; i < 60; i++) {
   const firefly = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffff99 }));
   firefly.position.set((Math.random() - 0.5) * 40, (Math.random() - 0.5) * 20, -10);
-  scene.add(firefly);
+  scenecaffolding.add(firefly);
   fireflies.push(firefly);
 }
 
