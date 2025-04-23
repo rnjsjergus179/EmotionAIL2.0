@@ -20,7 +20,7 @@ const KEYWORDS = {
   greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
   sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
   weather: ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"],
-  calendar: ["일정 알려줘"],
+  calendar: ["일정 알려줘", "일정 알려주게", "일정 좀 알려줘", "오늘 일정", "일정 뭐야", "일정 보여줘"],
   time: ["시간 알려줘"],
   delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
@@ -426,9 +426,20 @@ async function sendChat() {
   let isHTML = false;
   const lowerInput = input.toLowerCase();
 
-  if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
+  // 일정 관련 키워드 처리
+  if (KEYWORDS.calendar.some(keyword => lowerInput.includes(keyword))) {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
-    response00 = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
+    let dateStr;
+    if (dateMatch) {
+      dateStr = dateMatch[0];
+    } else {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      dateStr = `${year}-${month}-${day}`;
+    }
+    response = getCalendarEvents(dateStr);
   } else if (lowerInput.startsWith("구글 ")) {
     const query = input.replace("구글 ", "").trim();
     if (query) {
@@ -572,6 +583,7 @@ async function sendChat() {
   learnFromInteractions();
 
   showSpeechBubbleInChunks(response, isHTML);
+  inputEl.value = ""; // 입력창 초기화
 }
 
 /***** 말풍선(버블) 여러 줄 출력 *****/
@@ -829,7 +841,7 @@ for (let i = 0; i < 200; i++) {
 for (let i = 0; i < 60; i++) {
   const firefly = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffff99 }));
   firefly.position.set((Math.random() - 0.5) * 40, (Math.random() - 0.5) * 20, -10);
-  scene.add(firefly); // 수정: scenecaffolding -> scene
+  scene.add(firefly);
   fireflies.push(firefly);
 }
 
@@ -1241,3 +1253,4 @@ function updateBubblePosition() {
   bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
   bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
 }
+
