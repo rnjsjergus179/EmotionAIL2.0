@@ -1,28 +1,13 @@
 /***** 사이트 링크 및 키워드 설정 *****/
-const SITE_LINKS = {
-  "빙": "https://www.bing.com",
-  "네이버": "https://www.naver.com",
-  "다음": "https://www.daum.net",
-  "유튜브": "https://www.youtube.com",
-  "넷플릭스": "https://www.netflix.com",
-  "트위치": "https://www.twitch.tv",
-  "틱톡": "https://www.tiktok.com",
-  "인스타": "https://www.instagram.com",
-  "인스타그램": "https://www.instagram.com",
-  "페이스북": "https://www.facebook.com",
-  "트위터": "https://x.com",
-  "엑스": "https://x.com",
-  "링크드인": "https://www.linkedin.com",
-  "레딧": "https://www.reddit.com"
-};
-
+// SITE_LINKS는 리다이렉트 기능 제거로 인해 필요 없어졌습니다.
 const KEYWORDS = {
   greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
   sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
   weather: ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"],
   calendar: ["일정 알려줘"],
   time: ["시간 알려줘"],
-  delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
+  delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"],
+  youtubeSearch: ["유튜브", "youtube", "동영상", "비디오", "영상"]
 };
 
 /***** 전역 변수 *****/
@@ -95,17 +80,18 @@ function updateConversationHistory(input, response) {
 function learnFromInteractions() {
   let history = memoryStorage.load("conversationHistory") || [];
   let emotionCount = memoryStorage.load("emotionCount") || { positive: 0, negative: 0, surprise: 0 };
-  if (emotionCount["negative"] && emotionCount["negative"] >= 5) {
+  if (emotionCount["negative"] >= 5) {
     if (!KEYWORDS.negativeComfort) {
       KEYWORDS.negativeComfort = ["힘내세요!", "당신은 혼자가 아니에요.", "괜찮을 거예요."];
     }
   }
 }
 
-/***** NLP (감정 분석) + 의도 인식 + 뉴스 파이프라인 *****/
+/***** NLP (감정 분석) + 의도 인식 *****/
 let lastTopic = memoryStorage.load("lastTopic") || "";
 function processNLP(input) {
   const lowerInput = input.toLowerCase();
+  const tokens = lowerInput.split(" "); // 토큰화 추가
   const emotions = {
     positive: ["좋아", "행복", "기쁘", "즐거", "최고"],
     negative: ["슬프", "우울", "짜증", "화나", "피곤"],
@@ -113,7 +99,7 @@ function processNLP(input) {
   };
   let detectedEmotion = null;
   for (let mood in emotions) {
-    if (emotions[mood].some(keyword => lowerInput.includes(keyword))) {
+    if (emotions[mood].some(keyword => tokens.some(token => token.includes(keyword)))) {
       detectedEmotion = mood;
       break;
     }
@@ -131,14 +117,22 @@ function processNLP(input) {
     enhancedResponse = "기분이 좋으시다니 저도 기뻐요!";
   } else if (detectedEmotion === "negative") {
     enhancedResponse = "마음이 힘드시다니 안타깝네요. 제가 위로해드릴게요.";
+    if (emotionCount["negative"] >= 3) {
+      enhancedResponse += " 여러 번 우울한 감정을 느끼셨네요. 괜찮으신가요?";
+    }
+    if (emotionCount["negative"] >= 5 && KEYWORDS.negativeComfort) {
+      enhancedResponse += " " + KEYWORDS.negativeComfort[Math.floor(Math.random() * KEYWORDS.negativeComfort.length)];
+    }
   } else if (detectedEmotion === "surprise") {
     enhancedResponse = "정말 놀라운 일이네요!";
   }
-  if (detectedEmotion === "negative" && emotionCount["negative"] >= 3) {
-    enhancedResponse += " 여러 번 우울한 감정을 느끼셨네요. 혹시 도움이 필요하시면 전문가와 상담해보시는 건 어떨까요?";
-  }
-  if (lowerInput.includes("뭐해") || lowerInput.includes("무엇을")) {
+  if (tokens.includes("뭐해") || tokens.includes("무엇을")) {
     enhancedResponse = "저는 여기서 당신과 대화 중이에요!";
+  }
+  // 대화 이력 기반 컨텍스트 반영
+  let history = memoryStorage.load("conversationHistory") || [];
+  if (history.length > 0 && lastTopic === "weather" && tokens.includes("더")) {
+    enhancedResponse = "날씨에 대해 더 알고 싶으신가요? 추가 정보를 드릴게요.";
   }
   return enhancedResponse || null;
 }
@@ -152,22 +146,13 @@ const intents = {
 
 function detectIntent(input) {
   const lowerInput = input.toLowerCase();
+  const tokens = lowerInput.split(" "); // 토큰화 추가
   for (let intent in intents) {
-    if (intents[intent].some(keyword => lowerInput.includes(keyword))) {
+    if (intents[intent].some(keyword => tokens.some(token => token.includes(keyword)))) {
       return intent;
     }
   }
   return null;
-}
-
-function isNewsQuery(input) {
-  const newsKeywords = ["뉴스", "속보", "보도", "언론", "이슈", "사건", "정치", "사회", "경제"];
-  return newsKeywords.some(keyword => input.includes(keyword));
-}
-
-async function pipelineNewsSearch(userInput) {
-  // 뉴스 검색 기능은 구글 검색 API를 사용하지 않도록 제거하고, 간단한 메시지로 대체
-  showSpeechBubbleInChunks("뉴스 검색 기능은 현재 지원하지 않습니다.");
 }
 
 /***** 음성 출력 *****/
@@ -245,13 +230,13 @@ async function getWeather() {
 
 async function getYouTubeSearchResults(query) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query)} site:youtube.com`);
+    const response = await fetch(`${API_BASE_URL}/api/youtube-search?q=${encodeURIComponent(query)}`);
     if (!response.ok) throw new Error("서버 응답 오류");
     const data = await response.json();
-    if (data.length > 0) {
-      const results = data.map(item => {
+    if (data.items && data.items.length > 0) {
+      const results = data.items.map(item => {
         const title = item.title;
-        const url = item.link;
+        const url = item.url;
         return `<a href="${url}" target="_blank">${title}</a>`;
       });
       return results.join("<br>");
@@ -353,35 +338,7 @@ async function sendChat() {
   if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
     response = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
-  } else if (isNewsQuery(input)) {
-    await pipelineNewsSearch(input);
-    inputEl.value = "";
-    return;
   } else {
-    for (let site in SITE_LINKS) {
-      if (lowerInput.includes(site)) {
-        if (site === "유튜브" || site === "youtube") {
-          const query = lowerInput.replace(new RegExp(intents.youtubeSearch.join("|"), "gi"), "").trim();
-          if (query) {
-            const youtubeResults = await getYouTubeSearchResults(query);
-            response = youtubeResults;
-            isHTML = true;
-            inputEl.value = `${query} 비디오`;
-          } else {
-            response = "유튜브 검색어를 입력해주세요. 예: 고양이 비디오";
-          }
-          updateContext("youtubeSearch");
-        } else {
-          response = `${site} 사이트로 이동합니다! 잠시만 기다려 주세요.`;
-          showSpeechBubbleInChunks(response);
-          setTimeout(() => { window.location.href = SITE_LINKS[site]; }, 2000);
-          inputEl.value = "";
-          return;
-        }
-        break;
-      }
-    }
-
     const nlpResponse = processNLP(input);
     if (nlpResponse) {
       response = nlpResponse;
@@ -430,7 +387,7 @@ async function sendChat() {
     }
 
     if (!response && lastTopic === "weather" && lowerInput.includes("내일")) {
-      response = "내일 날씨는 비가 올 예정입니다.";
+      response = "내일 날씨는 비가 올 예정입니다."; // 단순 예시, 실제 데이터 필요 시 백엔드 호출 추가 가능
     }
 
     if (!response) {
@@ -537,7 +494,7 @@ window.addEventListener("DOMContentLoaded", function() {
   }
   const autoCompleteList = document.createElement("datalist");
   autoCompleteList.id = "Charge";
-  const allKeywords = Object.values(KEYWORDS).flat().concat(Object.keys(SITE_LINKS));
+  const allKeywords = Object.values(KEYWORDS).flat(); // SITE_LINKS 제거
   allKeywords.forEach(kw => {
     const option = document.createElement("option");
     option.value = kw;
