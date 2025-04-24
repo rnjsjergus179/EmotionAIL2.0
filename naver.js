@@ -1,20 +1,19 @@
-// naver.js
+const express = require('express');
+const fetch = require('node-fetch');
+const router = express.Router();
 
-const fetch = require('node-fetch'); // fetch 모듈 필요 (설치: npm install node-fetch)
-
-// 네이버 API 설정 (환경 변수에서 키 가져옴)
+// 환경 변수에서 네이버 API 정보 가져오기
 const NAVER_API = {
   clientId: process.env.NAVER_CLIENT_ID,
   clientSecret: process.env.NAVER_CLIENT_SECRET,
-  baseUrl: 'https://openapi.naver.com/v1/search/webkr.json' // 웹 검색 API
+  baseUrl: 'https://openapi.naver.com/v1/search/webkr.json'
 };
 
-/**
- * 네이버 검색 API 호출 함수
- * @param {string} query - 검색어
- * @returns {Promise<object>} - 검색 결과 반환
- */
-async function searchNaver(query) {
+// GET /api/naver-search?q=검색어
+router.get('/naver-search', async (req, res) => {
+  const query = req.query.q;
+  if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
+
   try {
     const response = await fetch(`${NAVER_API.baseUrl}?query=${encodeURIComponent(query)}&display=5&start=1`, {
       method: 'GET',
@@ -25,16 +24,12 @@ async function searchNaver(query) {
       }
     });
 
-    if (!response.ok) {
-      throw new Error(`네이버 API 오류: ${response.status}`);
-    }
-
     const data = await response.json();
-    return data;
+    res.json(data);
   } catch (error) {
-    console.error("네이버 검색 오류:", error);
-    throw error;
+    console.error('네이버 검색 오류:', error);
+    res.status(500).json({ error: '네이버 검색 실패' });
   }
-}
+});
 
-module.exports = { searchNaver };
+module.exports = router;
