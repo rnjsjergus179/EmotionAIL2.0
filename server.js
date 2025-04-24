@@ -12,11 +12,9 @@ app.use(express.json());
 const searchRoute = require('./search');
 const weatherRoute = require('./weather');
 const youtubeRoute = require('./youtube');
-const googleRoute = require('./google');  // 구글 검색 API 라우트 추가
 app.use('/api', searchRoute);
 app.use('/api', weatherRoute);
 app.use('/api', youtubeRoute);
-app.use('/api', googleRoute);  // 구글 검색 API 라우트 연결
 
 // 정적 파일 서빙 (클라이언트 파일)
 app.use(express.static(path.join(__dirname, '../public')));
