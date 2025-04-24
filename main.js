@@ -22,9 +22,11 @@ const KEYWORDS = {
   weather: ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"],
   calendar: ["일정 알려줘"],
   time: ["시간 알려줘"],
-  delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"],
-  youtubeSearch: ["유튜브", "youtube", "동영상", "비디오", "영상"]
+  delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
+
+// 백엔드 API 기본 URL 정의
+const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 
 /***** 전역 변수 *****/
 document.addEventListener("contextmenu", event => event.preventDefault());
@@ -56,9 +58,6 @@ const regionMap = {
   "김해": "Gimhae"
 };
 const regionList = Object.keys(regionMap);
-
-// 백엔드 API 기본 URL 정의
-const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 
 /***** 복사 차단 *****/
 document.addEventListener("copy", function(e) {
@@ -96,18 +95,17 @@ function updateConversationHistory(input, response) {
 function learnFromInteractions() {
   let history = memoryStorage.load("conversationHistory") || [];
   let emotionCount = memoryStorage.load("emotionCount") || { positive: 0, negative: 0, surprise: 0 };
-  if (emotionCount["negative"] >= 5) {
+  if (emotionCount["negative"] && emotionCount["negative"] >= 5) {
     if (!KEYWORDS.negativeComfort) {
       KEYWORDS.negativeComfort = ["힘내세요!", "당신은 혼자가 아니에요.", "괜찮을 거예요."];
     }
   }
 }
 
-/***** NLP (감정 분석) + 의도 인식 *****/
+/***** NLP (감정 분석) + 의도 인식 + 뉴스 파이프라인 *****/
 let lastTopic = memoryStorage.load("lastTopic") || "";
 function processNLP(input) {
   const lowerInput = input.toLowerCase();
-  const tokens = lowerInput.split(" "); // 토큰화
   const emotions = {
     positive: ["좋아", "행복", "기쁘", "즐거", "최고"],
     negative: ["슬프", "우울", "짜증", "화나", "피곤"],
@@ -115,7 +113,7 @@ function processNLP(input) {
   };
   let detectedEmotion = null;
   for (let mood in emotions) {
-    if (emotions[mood].some(keyword => tokens.some(token => token.includes(keyword)))) {
+    if (emotions[mood].some(keyword => lowerInput.includes(keyword))) {
       detectedEmotion = mood;
       break;
     }
@@ -133,16 +131,13 @@ function processNLP(input) {
     enhancedResponse = "기분이 좋으시다니 저도 기뻐요!";
   } else if (detectedEmotion === "negative") {
     enhancedResponse = "마음이 힘드시다니 안타깝네요. 제가 위로해드릴게요.";
-    if (emotionCount["negative"] >= 3) {
-      enhancedResponse += " 여러 번 우울한 감정을 느끼셨네요. 괜찮으신가요?";
-    }
-    if (emotionCount["negative"] >= 5 && KEYWORDS.negativeComfort) {
-      enhancedResponse += " " + KEYWORDS.negativeComfort[Math.floor(Math.random() * KEYWORDS.negativeComfort.length)];
-    }
   } else if (detectedEmotion === "surprise") {
     enhancedResponse = "정말 놀라운 일이네요!";
   }
-  if (tokens.includes("뭐해") || tokens.includes("무엇을")) {
+  if (detectedEmotion === "negative" && emotionCount["negative"] >= 3) {
+    enhancedResponse += " 여러 번 우울한 감정을 느끼셨네요. 혹시 도움이 필요하시면 전문가와 상담해보시는 건 어떨까요?";
+  }
+  if (lowerInput.includes("뭐해") || lowerInput.includes("무엇을")) {
     enhancedResponse = "저는 여기서 당신과 대화 중이에요!";
   }
   return enhancedResponse || null;
@@ -157,13 +152,27 @@ const intents = {
 
 function detectIntent(input) {
   const lowerInput = input.toLowerCase();
-  const tokens = lowerInput.split(" "); // 토큰화
   for (let intent in intents) {
-    if (intents[intent].some(keyword => tokens.some(token => token.includes(keyword)))) {
+    if (intents[intent].some(keyword => lowerInput.includes(keyword))) {
       return intent;
     }
   }
   return null;
+}
+
+function isNewsQuery(input) {
+  const newsKeywords = ["뉴스", "속보", "보도", "언론", "이슈", "사건", "정치", "사회", "경제"];
+  return newsKeywords.some(keyword => input.includes(keyword));
+}
+
+async function pipelineNewsSearch(userInput) {
+  let query = userInput;
+  if (isNewsQuery(userInput)) {
+    query += " site:news.google.com OR site:n.news.naver.com";
+  }
+  const results = await getGoogleSearchResults(query);
+  const summary = results.split(", ").slice(0, 5).join("\n- ");
+  showSpeechBubbleInChunks("뉴스 요약:\n- " + summary);
 }
 
 /***** 음성 출력 *****/
@@ -239,6 +248,22 @@ async function getWeather() {
   }
 }
 
+async function getGoogleSearchResults(query) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}`);
+    if (!response.ok) throw new Error("서버 응답 오류");
+    const data = await response.json();
+    if (data.length > 0) {
+      return data.map(item => item.title).join(", ");
+    } else {
+      return "검색 결과가 없습니다.";
+    }
+  } catch (error) {
+    console.error(error);
+    return "검색 결과를 가져오는데 실패했습니다.";
+  }
+}
+
 async function getYouTubeSearchResults(query) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/youtube-search?q=${encodeURIComponent(query)}`);
@@ -257,18 +282,6 @@ async function getYouTubeSearchResults(query) {
   } catch (error) {
     console.error(error);
     return "유튜브 검색 결과를 가져오는데 실패했습니다.";
-  }
-}
-
-async function getSearchWidgetUrl(query) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/search-widget?q=${encodeURIComponent(query)}`);
-    if (!response.ok) throw new Error("서버 응답 오류");
-    const data = await response.json();
-    return data.searchUrl;
-  } catch (error) {
-    console.error("검색 위젯 URL 가져오기 실패:", error);
-    return null;
   }
 }
 
@@ -361,32 +374,43 @@ async function sendChat() {
   if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
     response = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
-  } else if (lowerInput.includes("검색")) {
-    const query = input.replace("검색", "").trim();
+  } else if (lowerInput.startsWith("구글 ")) {
+    const query = input.replace("구글 ", "").trim();
     if (query) {
-      const searchUrl = await getSearchWidgetUrl(query);
-      if (searchUrl) {
-        const widgetContainer = document.getElementById("widget-container");
-        if (!widgetContainer) {
-          const newWidgetContainer = document.createElement("div");
-          newWidgetContainer.id = "widget-container";
-          document.getElementById("right-hud").appendChild(newWidgetContainer);
-        }
-        const iframe = document.createElement("iframe");
-        iframe.src = searchUrl;
-        iframe.style.width = "100%";
-        iframe.style.height = "300px";
-        iframe.style.border = "none";
-        document.getElementById("widget-container").innerHTML = "";
-        document.getElementById("widget-container").appendChild(iframe);
-        response = `"${query}" 검색 결과를 위젯에 표시했습니다.`;
-      } else {
-        response = "검색 위젯을 불러오는데 실패했습니다.";
-      }
+      const searchResults = await getGoogleSearchResults(query);
+      response = searchResults ? `구글 검색 결과: ${searchResults}` : "검색 결과를 가져오는데 실패했습니다.";
     } else {
-      response = "검색어를 입력해주세요. 예: 고양이 검색";
+      response = "검색어를 입력해주세요. 예: 구글 날씨";
     }
+  } else if (isNewsQuery(input)) {
+    await pipelineNewsSearch(input);
+    inputEl.value = "";
+    return;
   } else {
+    for (let site in SITE_LINKS) {
+      if (lowerInput.includes(site)) {
+        if (site === "유튜브" || site === "youtube") {
+          const query = lowerInput.replace(new RegExp(intents.youtubeSearch.join("|"), "gi"), "").trim();
+          if (query) {
+            const youtubeResults = await getYouTubeSearchResults(query);
+            response = youtubeResults;
+            isHTML = true;
+            inputEl.value = `${query} 비디오`;
+          } else {
+            response = "유튜브 검색어를 입력해주세요. 예: 고양이 비디오";
+          }
+          updateContext("youtubeSearch");
+        } else {
+          response = `${site} 사이트로 이동합니다! 잠시만 기다려 주세요.`;
+          showSpeechBubbleInChunks(response);
+          setTimeout(() => { window.location.href = SITE_LINKS[site]; }, 2000);
+          inputEl.value = "";
+          return;
+        }
+        break;
+      }
+    }
+
     const nlpResponse = processNLP(input);
     if (nlpResponse) {
       response = nlpResponse;
@@ -542,7 +566,7 @@ window.addEventListener("DOMContentLoaded", function() {
   }
   const autoCompleteList = document.createElement("datalist");
   autoCompleteList.id = "Charge";
-  const allKeywords = Object.values(KEYWORDS).flat();
+  const allKeywords = Object.values(KEYWORDS).flat().concat(Object.keys(SITE_LINKS));
   allKeywords.forEach(kw => {
     const option = document.createElement("option");
     option.value = kw;
