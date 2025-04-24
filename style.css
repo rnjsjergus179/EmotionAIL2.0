@@ -147,6 +147,8 @@ html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidd
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 2px;
+  position: relative;
+  z-index: 1; /* 캘린더의 쌓임 순서를 낮게 설정 */
 }
 #calendar-grid div {
   background: rgba(255,255,255,0.1);
@@ -236,9 +238,16 @@ html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidd
   overflow: hidden;
 }
 
+/* 검색 결과 위젯 */
+#google-search-widget {
+  position: absolute;
+  top: 50px;
+  left: 50px;
+  z-index: 9999; /* 검색 결과가 항상 위에 보이도록 설정 */
+}
+
 @media (max-width: 480px) {
   #right-hud, #left-hud, #hud-3, #hud-6 {
     width: 90%; left: 5%; right: 5%; top: 5%;
   }
 }
-
