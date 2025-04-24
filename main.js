@@ -13,7 +13,7 @@ const SITE_LINKS = {
   "트위터": "https://x.com",
   "엑스": "https://x.com",
   "링크드인": "https://www.linkedin.com",
-  "레딧": "https://www.reddit.com"
+  "레딧": "https://www.reddit.com",
 };
 
 const KEYWORDS = {
@@ -166,13 +166,9 @@ function isNewsQuery(input) {
 }
 
 async function pipelineNewsSearch(userInput) {
-  let query = userInput;
-  if (isNewsQuery(userInput)) {
-    query += " site:news.google.com OR site:n.news.naver.com";
-  }
-  const results = await getGoogleSearchResults(query);
-  const summary = results.split(", ").slice(0, 5).join("\n- ");
-  showSpeechBubbleInChunks("뉴스 요약:\n- " + summary);
+  const query = userInput + " news";
+  const results = await getDuckDuckGoSearchResults(query);
+  showSpeechBubbleInChunks("뉴스 요약:\n- " + results);
 }
 
 /***** 음성 출력 *****/
@@ -248,13 +244,17 @@ async function getWeather() {
   }
 }
 
-async function getGoogleSearchResults(query) {
+async function getDuckDuckGoSearchResults(query) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}`);
-    if (!response.ok) throw new Error("서버 응답 오류");
+    const response = await fetch(`http://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json`);
+    if (!response.ok) throw new Error("DuckDuckGo API 응답 오류");
     const data = await response.json();
-    if (data.length > 0) {
-      return data.map(item => item.title).join(", ");
+    if (data.Abstract) {
+      return data.Abstract;
+    } else if (data.Results && data.Results.length > 0) {
+      return data.Results.slice(0, 5).map(result => result.Text).join("\n- ");
+    } else if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+      return data.RelatedTopics.slice(0, 5).map(topic => topic.Text).join("\n- ");
     } else {
       return "검색 결과가 없습니다.";
     }
@@ -374,14 +374,6 @@ async function sendChat() {
   if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
     response = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
-  } else if (lowerInput.startsWith("구글 ")) {
-    const query = input.replace("구글 ", "").trim();
-    if (query) {
-      const searchResults = await getGoogleSearchResults(query);
-      response = searchResults ? `구글 검색 결과: ${searchResults}` : "검색 결과를 가져오는데 실패했습니다.";
-    } else {
-      response = "검색어를 입력해주세요. 예: 구글 날씨";
-    }
   } else if (isNewsQuery(input)) {
     await pipelineNewsSearch(input);
     inputEl.value = "";
@@ -400,6 +392,14 @@ async function sendChat() {
             response = "유튜브 검색어를 입력해주세요. 예: 고양이 비디오";
           }
           updateContext("youtubeSearch");
+        } else if (site === "덕덕고") {
+          const query = lowerInput.replace(site, "").trim();
+          if (query) {
+            const searchResults = await getDuckDuckGoSearchResults(query);
+            response = searchResults ? `검색 결과: ${searchResults}` : "검색 결과를 가져오는데 실패했습니다.";
+          } else {
+            response = "검색어를 입력해주세요. 예: 덕덕고 날씨";
+          }
         } else {
           response = `${site} 사이트로 이동합니다! 잠시만 기다려 주세요.`;
           showSpeechBubbleInChunks(response);
@@ -1162,7 +1162,7 @@ function animate() {
 animate();
 
 function updateBubblePosition() {
-  const bubble = document.getElementById("speech-bubble");
+  const bubble = document.getElementById("speech czynności);
   if (!bubble) return;
   if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
   const headWorldPos = new THREE.Vector3();
