@@ -17,7 +17,7 @@ app.use(express.json());
 const searchRoute = require('./search');
 const weatherRoute = require('./weather');
 const youtubeRoute = require('./youtube');
-const searchWidgetRoute = require('./searchWidget');
+const searchWidgetRoute = require('./searchwidget');
 
 app.use('/api', searchRoute);
 app.use('/api', weatherRoute);
