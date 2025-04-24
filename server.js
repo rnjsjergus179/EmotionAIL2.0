@@ -1,11 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const dotenv = require('dotenv');
-
-// 환경 변수 로드
-dotenv.config();
-
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -13,16 +8,15 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// 라우트 연결
+// 라우트 연결 (루트 경로 기준으로 수정)
 const searchRoute = require('./search');
 const weatherRoute = require('./weather');
 const youtubeRoute = require('./youtube');
-const searchWidgetRoute = require('./searchwidget');
-
+const googleRoute = require('./google');  // 구글 검색 API 라우트 추가
 app.use('/api', searchRoute);
 app.use('/api', weatherRoute);
 app.use('/api', youtubeRoute);
-app.use('/api', searchWidgetRoute);
+app.use('/api', googleRoute);  // 구글 검색 API 라우트 연결
 
 // 정적 파일 서빙 (클라이언트 파일)
 app.use(express.static(path.join(__dirname, '../public')));
