@@ -12,9 +12,11 @@ app.use(express.json());
 const searchRoute = require('./search');
 const weatherRoute = require('./weather');
 const youtubeRoute = require('./youtube');
+const naverRoute = require('./naver');
 app.use('/api', searchRoute);
 app.use('/api', weatherRoute);
 app.use('/api', youtubeRoute);
+app.use('/api', naverRoute);
 
 // 정적 파일 서빙 (클라이언트 파일)
 app.use(express.static(path.join(__dirname, '../public')));
