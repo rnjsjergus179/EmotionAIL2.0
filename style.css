@@ -5,9 +5,9 @@ html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidd
 /* 오른쪽 채팅창 HUD */
 #right-hud {
   position: fixed;
-  top: 5%; /* 위로 올리기 위해 10%에서 5%로 변경 */
+  top: 5%;
   right: 1%;
-  width: 18%; /* 크기를 줄이기 위해 20%에서 18%로 변경 */
+  width: 18%;
   padding: 1%;
   background: rgba(255,255,255,0.8);
   border-radius: 5px;
@@ -38,6 +38,8 @@ html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidd
   flex: 1;
   padding: 5px;
   font-size: 14px;
+  top: 85%;
+  transform: scale(0.9);
 }
 
 /* HUD-6: 음성 입력 영역 */
@@ -69,19 +71,21 @@ html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidd
 
 /* 왼쪽 캘린더 HUD */
 #left-hud {
-  position: absolute; /* fixed에서 absolute로 변경 */
-  top: 20%; /* 검색 결과와 겹치지 않도록 위치 조정 */
+  position: absolute;
+  top: 5%; /* 위로 올리기 위해 20%에서 5%로 변경 */
   left: 1%;
-  width: 18%; /* 너비를 줄여 공간 확보 */
+  width: 18%;
   padding: 1%;
-  background: rgba(0,0,0,0.3); /* 배경을 더 투명하게 */
+  background: rgba(0,0,0,0.3);
   border: 2px solid #00ffcc;
   border-radius: 10px;
   box-shadow: 0 0 15px rgba(0,255,204,0.5);
-  z-index: 10; /* 검색 결과(z-index: 9999)보다 낮게 설정 */
+  z-index: 10;
   max-height: 80vh;
   overflow-y: auto;
   color: #00ffcc;
+  transform: scale(0.85); /* 크기를 85%로 축소 */
+  transform-origin: top left; /* 축소 기준점을 왼쪽 상단으로 설정 */
 }
 #left-hud h3 {
   margin-bottom: 5px;
@@ -148,7 +152,7 @@ html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidd
   grid-template-columns: repeat(7, 1fr);
   gap: 2px;
   position: relative;
-  z-index: 1; /* 캘린더의 쌓임 순서를 낮게 설정 */
+  z-index: 1;
 }
 #calendar-grid div {
   background: rgba(255,255,255,0.1);
@@ -243,7 +247,7 @@ html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidd
   position: absolute;
   top: 50px;
   left: 50px;
-  z-index: 9999; /* 검색 결과가 항상 위에 보이도록 설정 */
+  z-index: 9999;
 }
 
 @media (max-width: 480px) {
