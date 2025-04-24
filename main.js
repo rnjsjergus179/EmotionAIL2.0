@@ -25,6 +25,21 @@ const KEYWORDS = {
   delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
 
+// 지도 검색 키워드 추출 함수
+function extractMapKeyword(input) {
+  const words = input.split(/\s+/);
+  const index = words.indexOf("지도");
+  if (index === -1) {
+    return null;
+  } else if (index < words.length - 1) {
+    const keyword = words.slice(index + 1).join(" ");
+    return keyword.trim();
+  } else {
+    const keyword = words.slice(0, index).join(" ");
+    return keyword.trim();
+  }
+}
+
 // 기능 정지 플래그 및 사용 시간 설정
 const EIGHT_HOURS = 8 * 60 * 60 * 1000; // 8시간 (밀리초 단위)
 let isFunctionDisabled = false;
@@ -388,8 +403,20 @@ async function sendChat() {
   let isHTML = false;
   const lowerInput = input.toLowerCase();
 
+  // 네이버 지도 검색 처리
+  if (lowerInput.includes("네이버") || lowerInput.includes("지도")) {
+    const keyword = extractMapKeyword(input) || (lowerInput === "네이버" || lowerInput === "지도" ? "" : input.replace(/네이버|지도/g, "").trim());
+    if (keyword || lowerInput === "네이버" || lowerInput === "지도") {
+      const encodedKeyword = encodeURIComponent(keyword + " 지도");
+      const iframeSrc = `https://m.search.naver.com/search.naver?query=${encodedKeyword}`;
+      response = `<iframe src="${iframeSrc}" width="600" height="400"></iframe>`;
+      isHTML = true;
+    } else {
+      response = "지도 검색을 위해 키워드를 입력해주세요. 예: 지도 강남역";
+    }
+  }
   // Google 검색 처리
-  if (lowerInput.startsWith("구글 ")) {
+  else if (lowerInput.startsWith("구글 ")) {
     const query = input.replace("구글 ", "").trim();
     if (query) {
       const searchResults = await getGoogleSearchResults(query);
@@ -402,7 +429,8 @@ async function sendChat() {
     } else {
       response = "검색어를 입력해주세요. 예: 구글 날씨";
     }
-  } else if (KEYWORDS.calendar.some(keyword => lowerInput.includes(keyword))) {
+  } 
+  else if (KEYWORDS.calendar.some(keyword => lowerInput.includes(keyword))) {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
     let dateStr;
     if (dateMatch) {
@@ -415,11 +443,13 @@ async function sendChat() {
       dateStr = `${year}-${month}-${day}`;
     }
     response = getCalendarEvents(dateStr);
-  } else if (isNewsQuery(input)) {
+  } 
+  else if (isNewsQuery(input)) {
     await pipelineNewsSearch(input);
     inputEl.value = "";
     return;
-  } else {
+  } 
+  else {
     for (let site in SITE_LINKS) {
       if (lowerInput.includes(site)) {
         if (site === "유튜브" || site === "youtube") {
