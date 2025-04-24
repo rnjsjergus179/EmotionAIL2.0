@@ -15,7 +15,6 @@ const SITE_LINKS = {
   "링크드인": "https://www.linkedin.com",
   "레딧": "https://www.reddit.com",
 };
-
 const KEYWORDS = {
   greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
   sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
