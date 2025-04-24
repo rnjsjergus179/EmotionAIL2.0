@@ -260,6 +260,18 @@ async function getYouTubeSearchResults(query) {
   }
 }
 
+async function getSearchWidgetUrl(query) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/search-widget?q=${encodeURIComponent(query)}`);
+    if (!response.ok) throw new Error("서버 응답 오류");
+    const data = await response.json();
+    return data.searchUrl;
+  } catch (error) {
+    console.error("검색 위젯 URL 가져오기 실패:", error);
+    return null;
+  }
+}
+
 function updateWeatherEffects() {
   if (!currentWeather || typeof rainGroup === 'undefined' || typeof cloudRainGroup === 'undefined' || typeof houseCloudGroup === 'undefined') return;
   if (currentWeather.includes("비") || currentWeather.includes("소나기")) {
@@ -352,8 +364,25 @@ async function sendChat() {
   } else if (lowerInput.includes("검색")) {
     const query = input.replace("검색", "").trim();
     if (query) {
-      window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
-      response = `"${query}" 검색 결과를 새로운 창에서 열었습니다.`;
+      const searchUrl = await getSearchWidgetUrl(query);
+      if (searchUrl) {
+        const widgetContainer = document.getElementById("widget-container");
+        if (!widgetContainer) {
+          const newWidgetContainer = document.createElement("div");
+          newWidgetContainer.id = "widget-container";
+          document.getElementById("right-hud").appendChild(newWidgetContainer);
+        }
+        const iframe = document.createElement("iframe");
+        iframe.src = searchUrl;
+        iframe.style.width = "100%";
+        iframe.style.height = "300px";
+        iframe.style.border = "none";
+        document.getElementById("widget-container").innerHTML = "";
+        document.getElementById("widget-container").appendChild(iframe);
+        response = `"${query}" 검색 결과를 위젯에 표시했습니다.`;
+      } else {
+        response = "검색 위젯을 불러오는데 실패했습니다.";
+      }
     } else {
       response = "검색어를 입력해주세요. 예: 고양이 검색";
     }
@@ -531,16 +560,6 @@ window.addEventListener("DOMContentLoaded", function() {
       regionSelect.appendChild(option);
     });
   }
-
-  // 구글 위젯 추가
-  const chatContainer = document.getElementById("chat-container") || document.body;
-  const googleWidget = document.createElement("iframe");
-  googleWidget.id = "google-widget";
-  googleWidget.src = "https://www.google.com/search?q=&igu=1"; // 입력란 없는 상태로 초기화
-  googleWidget.style.width = "100%";
-  googleWidget.style.height = "300px";
-  googleWidget.style.border = "none";
-  chatContainer.appendChild(googleWidget);
 });
 
 window.addEventListener("resize", function() {
