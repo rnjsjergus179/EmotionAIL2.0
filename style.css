@@ -5,9 +5,9 @@ html, body { height: 100%; font-family: 'Courier New', monospace; overflow: hidd
 /* 오른쪽 채팅창 HUD */
 #right-hud {
   position: fixed;
-  top: 10%;
+  top: 5%; /* 위로 올리기 위해 10%에서 5%로 변경 */
   right: 1%;
-  width: 20%;
+  width: 18%; /* 크기를 줄이기 위해 20%에서 18%로 변경 */
   padding: 1%;
   background: rgba(255,255,255,0.8);
   border-radius: 5px;
