@@ -29,39 +29,7 @@ const KEYWORDS = {
 const EIGHT_HOURS = 8 * 60 * 60 * 1000; // 8시간 (밀리초 단위)
 let isFunctionDisabled = false;
 
-if (!localStorage.getItem('startTime')) {
-  localStorage.setItem('startTime', Date.now());
-}
-
-function checkUsageTime() {
-  const startTime = parseInt(localStorage.getItem('startTime'), 10);
-  const currentTime = Date.now();
-  if (currentTime - startTime >= EIGHT_HOURS) {
-    disableFunctions();
-  }
-}
-
-setTimeout(() => {
-  disableFunctions();
-  window.location.href = 'http://emotionailpremiumservice.site/';
-}, EIGHT_HOURS);
-
-function disableFunctions() {
-  isFunctionDisabled = true;
-  const chatInput = document.getElementById("chat-input");
-  const regionSelect = document.getElementById("region-select");
-  const calendarGrid = document.getElementById("calendar-grid");
-  const speechBubble = document.getElementById("speech-bubble");
-
-  if (chatInput) chatInput.disabled = true;
-  if (regionSelect) regionSelect.disabled = true;
-  if (calendarGrid) calendarGrid.style.pointerEvents = 'none';
-  if (speechBubble) speechBubble.style.display = 'none';
-  alert("8시간 사용 제한이 초과되어 모든 기능이 정지되었습니다. 결제 페이지로 이동합니다.");
-}
-
 /***** 전역 변수 *****/
-document.addEventListener("contextmenu", event => event.preventDefault());
 let currentCity = "서울";
 let currentWeather = "";
 const regionMap = {
@@ -93,13 +61,6 @@ const regionList = Object.keys(regionMap);
 
 // 백엔드 API 기본 URL 정의
 const API_BASE_URL = 'https://emotionail2-0.onrender.com';
-
-/***** 복사 차단 *****/
-document.addEventListener("copy", function(e) {
-  e.preventDefault();
-  let selectedText = window.getSelection().toString();
-  e.clipboardData.setData("text/plain", selectedText);
-});
 
 /***** 메모리 저장(기억) 및 반복 학습 *****/
 const memoryStorage = {
