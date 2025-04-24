@@ -14,4 +14,4 @@ router.get('/google-search', async (req, res) => {
 
   try {
     if (!GOOGLE_API_KEY || !GOOGLE_CSE_ID) {
-      return res.status(500).json({ error: 'Google API 키
+      return res.status(500).json({ error:GOOGLE_API_KEY
