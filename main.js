@@ -20,31 +20,48 @@ const KEYWORDS = {
   greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
   sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
   weather: ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"],
-  calendar: ["일정 알려줘", "일정 알려주게", "일정 좀 알려줘", "오늘 일정", "일정 뭐야", "일정 보여줘"],
+  calendar: ["일정 알려줘"],
   time: ["시간 알려줘"],
   delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
-
-// 지도 검색 키워드 추출 함수
-function extractMapKeyword(input) {
-  const words = input.split(/\s+/);
-  const index = words.indexOf("지도");
-  if (index === -1) {
-    return null;
-  } else if (index < words.length - 1) {
-    const keyword = words.slice(index + 1).join(" ");
-    return keyword.trim();
-  } else {
-    const keyword = words.slice(0, index).join(" ");
-    return keyword.trim();
-  }
-}
 
 // 기능 정지 플래그 및 사용 시간 설정
 const EIGHT_HOURS = 8 * 60 * 60 * 1000; // 8시간 (밀리초 단위)
 let isFunctionDisabled = false;
 
+if (!localStorage.getItem('startTime')) {
+  localStorage.setItem('startTime', Date.now());
+}
+
+function checkUsageTime() {
+  const startTime = parseInt(localStorage.getItem('startTime'), 10);
+  const currentTime = Date.now();
+  if (currentTime - startTime >= EIGHT_HOURS) {
+    disableFunctions();
+  }
+}
+
+setTimeout(() => {
+  disableFunctions();
+  window.location.href = 'http://emotionailpremiumservice.site/';
+}, EIGHT_HOURS);
+
+function disableFunctions() {
+  isFunctionDisabled = true;
+  const chatInput = document.getElementById("chat-input");
+  const regionSelect = document.getElementById("region-select");
+  const calendarGrid = document.getElementById("calendar-grid");
+  const speechBubble = document.getElementById("speech-bubble");
+
+  if (chatInput) chatInput.disabled = true;
+  if (regionSelect) regionSelect.disabled = true;
+  if (calendarGrid) calendarGrid.style.pointerEvents = 'none';
+  if (speechBubble) speechBubble.style.display = 'none';
+  alert("8시간 사용 제한이 초과되어 모든 기능이 정지되었습니다. 결제 페이지로 이동합니다.");
+}
+
 /***** 전역 변수 *****/
+document.addEventListener("contextmenu", event => event.preventDefault());
 let currentCity = "서울";
 let currentWeather = "";
 const regionMap = {
@@ -76,6 +93,13 @@ const regionList = Object.keys(regionMap);
 
 // 백엔드 API 기본 URL 정의
 const API_BASE_URL = 'https://emotionail2-0.onrender.com';
+
+/***** 복사 차단 *****/
+document.addEventListener("copy", function(e) {
+  e.preventDefault();
+  let selectedText = window.getSelection().toString();
+  e.clipboardData.setData("text/plain", selectedText);
+});
 
 /***** 메모리 저장(기억) 및 반복 학습 *****/
 const memoryStorage = {
@@ -188,7 +212,7 @@ async function pipelineNewsSearch(userInput) {
     query += " site:news.google.com OR site:n.news.naver.com";
   }
   const results = await getGoogleSearchResults(query);
-  const summary = results.split("<br>").slice(0, 5).join("\n- ");
+  const summary = results.split(", ").slice(0, 5).join("\n- ");
   showSpeechBubbleInChunks("뉴스 요약:\n- " + summary);
 }
 
@@ -273,12 +297,11 @@ async function getWeather() {
 async function getGoogleSearchResults(query) {
   if (isFunctionDisabled) return "기능이 정지되었습니다.";
   try {
-    const response = await fetch(`${API_BASE_URL}/api/google-search?q=${encodeURIComponent(query)}`);
+    const response = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}`);
     if (!response.ok) throw new Error("서버 응답 오류");
     const data = await response.json();
-    if (data.items && data.items.length > 0) {
-      const results = data.items.map(item => `<a href="${item.link}" target="_blank">${item.title}</a>: ${item.snippet}`);
-      return results.join("<br>");
+    if (data.length > 0) {
+      return data.map(item => item.title).join(", ");
     } else {
       return "검색 결과가 없습니다.";
     }
@@ -403,53 +426,22 @@ async function sendChat() {
   let isHTML = false;
   const lowerInput = input.toLowerCase();
 
-  // 네이버 지도 검색 처리
-  if (lowerInput.includes("네이버") || lowerInput.includes("지도")) {
-    const keyword = extractMapKeyword(input) || (lowerInput === "네이버" || lowerInput === "지도" ? "" : input.replace(/네이버|지도/g, "").trim());
-    if (keyword || lowerInput === "네이버" || lowerInput === "지도") {
-      const encodedKeyword = encodeURIComponent(keyword + " 지도");
-      const iframeSrc = `https://m.search.naver.com/search.naver?query=${encodedKeyword}`;
-      response = `<iframe src="${iframeSrc}" width="600" height="400"></iframe>`;
-      isHTML = true;
-    } else {
-      response = "지도 검색을 위해 키워드를 입력해주세요. 예: 지도 강남역";
-    }
-  }
-  // Google 검색 처리
-  else if (lowerInput.startsWith("구글 ")) {
+  if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
+    const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
+    response00 = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
+  } else if (lowerInput.startsWith("구글 ")) {
     const query = input.replace("구글 ", "").trim();
     if (query) {
       const searchResults = await getGoogleSearchResults(query);
-      if (searchResults) {
-        response = `구글 검색 결과:<br>${searchResults}`;
-        isHTML = true;
-      } else {
-        response = "검색 결과를 가져오는데 실패했습니다.";
-      }
+      response = searchResults ? `구글 검색 결과: ${searchResults}` : "검색 결과를 가져오는데 실패했습니다.";
     } else {
       response = "검색어를 입력해주세요. 예: 구글 날씨";
     }
-  } 
-  else if (KEYWORDS.calendar.some(keyword => lowerInput.includes(keyword))) {
-    const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
-    let dateStr;
-    if (dateMatch) {
-      dateStr = dateMatch[0];
-    } else {
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      dateStr = `${year}-${month}-${day}`;
-    }
-    response = getCalendarEvents(dateStr);
-  } 
-  else if (isNewsQuery(input)) {
+  } else if (isNewsQuery(input)) {
     await pipelineNewsSearch(input);
     inputEl.value = "";
     return;
-  } 
-  else {
+  } else {
     for (let site in SITE_LINKS) {
       if (lowerInput.includes(site)) {
         if (site === "유튜브" || site === "youtube") {
@@ -580,7 +572,6 @@ async function sendChat() {
   learnFromInteractions();
 
   showSpeechBubbleInChunks(response, isHTML);
-  inputEl.value = ""; // 입력창 초기화
 }
 
 /***** 말풍선(버블) 여러 줄 출력 *****/
@@ -838,7 +829,7 @@ for (let i = 0; i < 200; i++) {
 for (let i = 0; i < 60; i++) {
   const firefly = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffff99 }));
   firefly.position.set((Math.random() - 0.5) * 40, (Math.random() - 0.5) * 20, -10);
-  scene.add(firefly);
+  scene.add(firefly); // 수정: scenecaffolding -> scene
   fireflies.push(firefly);
 }
 
