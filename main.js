@@ -1,5 +1,21 @@
 /***** 사이트 링크 및 키워드 설정 *****/
-// SITE_LINKS는 리다이렉트 기능 제거로 인해 필요 없어졌습니다.
+const SITE_LINKS = {
+  "빙": "https://www.bing.com",
+  "네이버": "https://www.naver.com",
+  "다음": "https://www.daum.net",
+  "유튜브": "https://www.youtube.com",
+  "넷플릭스": "https://www.netflix.com",
+  "트위치": "https://www.twitch.tv",
+  "틱톡": "https://www.tiktok.com",
+  "인스타": "https://www.instagram.com",
+  "인스타그램": "https://www.instagram.com",
+  "페이스북": "https://www.facebook.com",
+  "트위터": "https://x.com",
+  "엑스": "https://x.com",
+  "링크드인": "https://www.linkedin.com",
+  "레딧": "https://www.reddit.com"
+};
+
 const KEYWORDS = {
   greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
   sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
@@ -91,7 +107,7 @@ function learnFromInteractions() {
 let lastTopic = memoryStorage.load("lastTopic") || "";
 function processNLP(input) {
   const lowerInput = input.toLowerCase();
-  const tokens = lowerInput.split(" "); // 토큰화 추가
+  const tokens = lowerInput.split(" "); // 토큰화
   const emotions = {
     positive: ["좋아", "행복", "기쁘", "즐거", "최고"],
     negative: ["슬프", "우울", "짜증", "화나", "피곤"],
@@ -129,11 +145,6 @@ function processNLP(input) {
   if (tokens.includes("뭐해") || tokens.includes("무엇을")) {
     enhancedResponse = "저는 여기서 당신과 대화 중이에요!";
   }
-  // 대화 이력 기반 컨텍스트 반영
-  let history = memoryStorage.load("conversationHistory") || [];
-  if (history.length > 0 && lastTopic === "weather" && tokens.includes("더")) {
-    enhancedResponse = "날씨에 대해 더 알고 싶으신가요? 추가 정보를 드릴게요.";
-  }
   return enhancedResponse || null;
 }
 
@@ -146,7 +157,7 @@ const intents = {
 
 function detectIntent(input) {
   const lowerInput = input.toLowerCase();
-  const tokens = lowerInput.split(" "); // 토큰화 추가
+  const tokens = lowerInput.split(" "); // 토큰화
   for (let intent in intents) {
     if (intents[intent].some(keyword => tokens.some(token => token.includes(keyword)))) {
       return intent;
@@ -338,6 +349,14 @@ async function sendChat() {
   if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
     response = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
+  } else if (lowerInput.includes("검색")) {
+    const query = input.replace("검색", "").trim();
+    if (query) {
+      window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+      response = `"${query}" 검색 결과를 새로운 창에서 열었습니다.`;
+    } else {
+      response = "검색어를 입력해주세요. 예: 고양이 검색";
+    }
   } else {
     const nlpResponse = processNLP(input);
     if (nlpResponse) {
@@ -387,7 +406,7 @@ async function sendChat() {
     }
 
     if (!response && lastTopic === "weather" && lowerInput.includes("내일")) {
-      response = "내일 날씨는 비가 올 예정입니다."; // 단순 예시, 실제 데이터 필요 시 백엔드 호출 추가 가능
+      response = "내일 날씨는 비가 올 예정입니다.";
     }
 
     if (!response) {
@@ -494,7 +513,7 @@ window.addEventListener("DOMContentLoaded", function() {
   }
   const autoCompleteList = document.createElement("datalist");
   autoCompleteList.id = "Charge";
-  const allKeywords = Object.values(KEYWORDS).flat(); // SITE_LINKS 제거
+  const allKeywords = Object.values(KEYWORDS).flat();
   allKeywords.forEach(kw => {
     const option = document.createElement("option");
     option.value = kw;
@@ -512,6 +531,16 @@ window.addEventListener("DOMContentLoaded", function() {
       regionSelect.appendChild(option);
     });
   }
+
+  // 구글 위젯 추가
+  const chatContainer = document.getElementById("chat-container") || document.body;
+  const googleWidget = document.createElement("iframe");
+  googleWidget.id = "google-widget";
+  googleWidget.src = "https://www.google.com/search?q=&igu=1"; // 입력란 없는 상태로 초기화
+  googleWidget.style.width = "100%";
+  googleWidget.style.height = "300px";
+  googleWidget.style.border = "none";
+  chatContainer.appendChild(googleWidget);
 });
 
 window.addEventListener("resize", function() {
