@@ -14,7 +14,9 @@ const SITE_LINKS = {
   "엑스": "https://x.com",
   "링크드인": "https://www.linkedin.com",
   "레딧": "https://www.reddit.com",
+  "덕덕고": "https://duckduckgo.com" // DuckDuckGo 추가
 };
+
 const KEYWORDS = {
   greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
   sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
@@ -1161,7 +1163,7 @@ function animate() {
 animate();
 
 function updateBubblePosition() {
-  const bubble = document.getElementById("speech czynności);
+  const bubble = document.getElementById("speech-bubble");
   if (!bubble) return;
   if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
   const headWorldPos = new THREE.Vector3();
