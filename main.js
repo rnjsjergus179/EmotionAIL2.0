@@ -13,8 +13,7 @@ const SITE_LINKS = {
   "트위터": "https://x.com",
   "엑스": "https://x.com",
   "링크드인": "https://www.linkedin.com",
-  "레딧": "https://www.reddit.com",
-  "덕덕고": "https://duckduckgo.com" // DuckDuckGo 추가
+  "레딧": "https://www.reddit.com"
 };
 
 const KEYWORDS = {
@@ -148,7 +147,8 @@ const intents = {
   addEvent: ["일정", "추가", "예약", "회의"],
   getWeather: ["날씨", "어때"],
   getTime: ["시간", "몇 시"],
-  youtubeSearch: ["유튜브", "youtube", "동영상", "비디오", "영상"]
+  youtubeSearch: ["유튜브", "youtube", "동영상", "비디오", "영상"],
+  naverSearch: ["네이버", "naver", "검색", "찾기"]
 };
 
 function detectIntent(input) {
@@ -168,7 +168,7 @@ function isNewsQuery(input) {
 
 async function pipelineNewsSearch(userInput) {
   const query = userInput + " news";
-  const results = await getDuckDuckGoSearchResults(query);
+  const results = await getNaverSearchResults(query);
   showSpeechBubbleInChunks("뉴스 요약:\n- " + results);
 }
 
@@ -245,17 +245,14 @@ async function getWeather() {
   }
 }
 
-async function getDuckDuckGoSearchResults(query) {
+async function getNaverSearchResults(query) {
   try {
-    const response = await fetch(`http://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json`);
-    if (!response.ok) throw new Error("DuckDuckGo API 응답 오류");
+    const response = await fetch(`${API_BASE_URL}/api/naver-search?q=${encodeURIComponent(query)}`);
+    if (!response.ok) throw new Error("서버 응답 오류");
     const data = await response.json();
-    if (data.Abstract) {
-      return data.Abstract;
-    } else if (data.Results && data.Results.length > 0) {
-      return data.Results.slice(0, 5).map(result => result.Text).join("\n- ");
-    } else if (data.RelatedTopics && data.RelatedTopics.length > 0) {
-      return data.RelatedTopics.slice(0, 5).map(topic => topic.Text).join("\n- ");
+    if (data.items && data.items.length > 0) {
+      const results = data.items.map(item => item.title.replace(/<[^>]+>/g, '')).join('\n- ');
+      return results;
     } else {
       return "검색 결과가 없습니다.";
     }
@@ -271,12 +268,8 @@ async function getYouTubeSearchResults(query) {
     if (!response.ok) throw new Error("서버 응답 오류");
     const data = await response.json();
     if (data.items && data.items.length > 0) {
-      const results = data.items.map(item => {
-        const title = item.title;
-        const url = item.url;
-        return `<a href="${url}" target="_blank">${title}</a>`;
-      });
-      return results.join("<br>");
+      const results = data.items.map(item => `<a href="${item.url}" target="_blank">${item.title}</a>`).join('<br>');
+      return results;
     } else {
       return "검색 결과가 없습니다.";
     }
@@ -393,14 +386,15 @@ async function sendChat() {
             response = "유튜브 검색어를 입력해주세요. 예: 고양이 비디오";
           }
           updateContext("youtubeSearch");
-        } else if (site === "덕덕고") {
-          const query = lowerInput.replace(site, "").trim();
+        } else if (site === "네이버" || site === "naver") {
+          const query = lowerInput.replace(new RegExp(intents.naverSearch.join("|"), "gi"), "").trim();
           if (query) {
-            const searchResults = await getDuckDuckGoSearchResults(query);
-            response = searchResults ? `검색 결과: ${searchResults}` : "검색 결과를 가져오는데 실패했습니다.";
+            const naverResults = await getNaverSearchResults(query);
+            response = naverResults ? `검색 결과:\n- ${naverResults}` : "검색 결과를 가져오는데 실패했습니다.";
           } else {
-            response = "검색어를 입력해주세요. 예: 덕덕고 날씨";
+            response = "검색어를 입력해주세요. 예: 네이버 날씨";
           }
+          updateContext("naverSearch");
         } else {
           response = `${site} 사이트로 이동합니다! 잠시만 기다려 주세요.`;
           showSpeechBubbleInChunks(response);
@@ -456,6 +450,15 @@ async function sendChat() {
         updateContext("youtubeSearch");
       } else {
         response = "유튜브 검색어를 입력해주세요. 예: 고양이 비디오";
+      }
+    } else if (!response && intent === "naverSearch") {
+      const query = lowerInput.replace(new RegExp(intents.naverSearch.join("|"), "gi"), "").trim();
+      if (query) {
+        const naverResults = await getNaverSearchResults(query);
+        response = naverResults ? `검색 결과:\n- ${naverResults}` : "검색 결과를 가져오는데 실패했습니다.";
+        updateContext("naverSearch");
+      } else {
+        response = "네이버 검색어를 입력해주세요. 예: 네이버 날씨";
       }
     }
 
