@@ -104,43 +104,21 @@ function learnFromInteractions() {
 
 /***** NLP (감정 분석) + 의도 인식 + 뉴스 파이프라인 *****/
 let lastTopic = memoryStorage.load("lastTopic") || "";
-function processNLP(input) {
-  const lowerInput = input.toLowerCase();
-  const emotions = {
-    positive: ["좋아", "행복", "기쁘", "즐거", "최고"],
-    negative: ["슬프", "우울", "짜증", "화나", "피곤"],
-    surprise: ["놀라", "대박", "와"]
-  };
-  let detectedEmotion = null;
-  for (let mood in emotions) {
-    if (emotions[mood].some(keyword => lowerInput.includes(keyword))) {
-      detectedEmotion = mood;
-      break;
-    }
+
+async function processNLP(input) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/nlp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: input })
+    });
+    if (!response.ok) throw new Error("NLP 서버 응답 오류");
+    const data = await response.json();
+    return data.response || null;
+  } catch (error) {
+    console.error("NLP 처리 오류:", error);
+    return "죄송해요, 지금은 대답을 잘 이해하지 못했어요. 다시 말씀해 주세요!";
   }
-  if (input.trim().match(/!$/)) {
-    detectedEmotion = "surprise";
-  }
-  let emotionCount = memoryStorage.load("emotionCount") || { positive: 0, negative: 0, surprise: 0 };
-  if (detectedEmotion) {
-    emotionCount[detectedEmotion] = (emotionCount[detectedEmotion] || 0) + 1;
-    memoryStorage.save("emotionCount", emotionCount);
-  }
-  let enhancedResponse = "";
-  if (detectedEmotion === "positive") {
-    enhancedResponse = "기분이 좋으시다니 저도 기뻐요!";
-  } else if (detectedEmotion === "negative") {
-    enhancedResponse = "마음이 힘드시다니 안타깝네요. 제가 위로해드릴게요.";
-  } else if (detectedEmotion === "surprise") {
-    enhancedResponse = "정말 놀라운 일이네요!";
-  }
-  if (detectedEmotion === "negative" && emotionCount["negative"] >= 3) {
-    enhancedResponse += " 여러 번 우울한 감정을 느끼셨네요. 혹시 도움이 필요하시면 전문가와 상담해보시는 건 어떨까요?";
-  }
-  if (lowerInput.includes("뭐해") || lowerInput.includes("무엇을")) {
-    enhancedResponse = "저는 여기서 당신과 대화 중이에요!";
-  }
-  return enhancedResponse || null;
 }
 
 const intents = {
@@ -151,14 +129,20 @@ const intents = {
   naverSearch: ["네이버", "naver", "검색", "찾기"]
 };
 
-function detectIntent(input) {
-  const lowerInput = input.toLowerCase();
-  for (let intent in intents) {
-    if (intents[intent].some(keyword => lowerInput.includes(keyword))) {
-      return intent;
-    }
+async function detectIntent(input) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/intent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: input })
+    });
+    if (!response.ok) throw new Error("의도 인식 서버 응답 오류");
+    const data = await response.json();
+    return data.intent || null;
+  } catch (error) {
+    console.error("의도 인식 오류:", error);
+    return null;
   }
-  return null;
 }
 
 function isNewsQuery(input) {
@@ -170,6 +154,8 @@ async function pipelineNewsSearch(userInput) {
   const query = userInput + " news";
   const results = await getNaverSearchResults(query);
   showSpeechBubbleInChunks("뉴스 요약:\n- " + results);
+  // 학습용 DB에 저장
+  await saveToLearningDB('naver', query, results);
 }
 
 /***** 음성 출력 *****/
@@ -252,6 +238,8 @@ async function getNaverSearchResults(query) {
     const data = await response.json();
     if (data.items && data.items.length > 0) {
       const results = data.items.map(item => item.title.replace(/<[^>]+>/g, '')).join('\n- ');
+      // 학습용 DB에 저장
+      await saveToLearningDB('naver', query, results);
       return results;
     } else {
       return "검색 결과가 없습니다.";
@@ -269,6 +257,8 @@ async function getYouTubeSearchResults(query) {
     const data = await response.json();
     if (data.items && data.items.length > 0) {
       const results = data.items.map(item => `<a href="${item.url}" target="_blank">${item.title}</a>`).join('<br>');
+      // 학습용 DB에 저장
+      await saveToLearningDB('youtube', query, data.items);
       return results;
     } else {
       return "검색 결과가 없습니다.";
@@ -276,6 +266,21 @@ async function getYouTubeSearchResults(query) {
   } catch (error) {
     console.error(error);
     return "유튜브 검색 결과를 가져오는데 실패했습니다.";
+  }
+}
+
+/***** 학습용 DB에 저장하는 함수 *****/
+async function saveToLearningDB(type, query, results) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/save-to-db`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, query, results })
+    });
+    if (!response.ok) throw new Error("DB 저장 서버 응답 오류");
+    console.log(`${type} 데이터가 학습용 DB에 저장되었습니다.`);
+  } catch (error) {
+    console.error("학습용 DB 저장 오류:", error);
   }
 }
 
@@ -406,11 +411,11 @@ async function sendChat() {
       }
     }
 
-    const nlpResponse = processNLP(input);
+    const nlpResponse = await processNLP(input);
     if (nlpResponse) {
       response = nlpResponse;
     }
-    const intent = detectIntent(input);
+    const intent = await detectIntent(input);
     if (!response && intent === "addEvent") {
       const eventMatch = input.match(/(오늘|내일|\d{4}-\d{1,2}-\d{1,2})\s*(\d{1,2})시/);
       if (eventMatch) {
