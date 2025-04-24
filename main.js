@@ -212,7 +212,7 @@ async function pipelineNewsSearch(userInput) {
     query += " site:news.google.com OR site:n.news.naver.com";
   }
   const results = await getGoogleSearchResults(query);
-  const summary = results.split(", ").slice(0, 5).join("\n- ");
+  const summary = results.split("<br>").slice(0, 5).join("\n- ");
   showSpeechBubbleInChunks("뉴스 요약:\n- " + summary);
 }
 
@@ -297,11 +297,12 @@ async function getWeather() {
 async function getGoogleSearchResults(query) {
   if (isFunctionDisabled) return "기능이 정지되었습니다.";
   try {
-    const response = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}`);
+    const response = await fetch(`${API_BASE_URL}/api/google-search?q=${encodeURIComponent(query)}`);
     if (!response.ok) throw new Error("서버 응답 오류");
     const data = await response.json();
-    if (data.length > 0) {
-      return data.map(item => item.title).join(", ");
+    if (data.items && data.items.length > 0) {
+      const results = data.items.map(item => `<a href="${item.link}" target="_blank">${item.title}</a>: ${item.snippet}`);
+      return results.join("<br>");
     } else {
       return "검색 결과가 없습니다.";
     }
@@ -426,8 +427,21 @@ async function sendChat() {
   let isHTML = false;
   const lowerInput = input.toLowerCase();
 
-  // 일정 관련 키워드 처리
-  if (KEYWORDS.calendar.some(keyword => lowerInput.includes(keyword))) {
+  // Google 검색 처리
+  if (lowerInput.startsWith("구글 ")) {
+    const query = input.replace("구글 ", "").trim();
+    if (query) {
+      const searchResults = await getGoogleSearchResults(query);
+      if (searchResults) {
+        response = `구글 검색 결과:<br>${searchResults}`;
+        isHTML = true;
+      } else {
+        response = "검색 결과를 가져오는데 실패했습니다.";
+      }
+    } else {
+      response = "검색어를 입력해주세요. 예: 구글 날씨";
+    }
+  } else if (KEYWORDS.calendar.some(keyword => lowerInput.includes(keyword))) {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
     let dateStr;
     if (dateMatch) {
@@ -440,14 +454,6 @@ async function sendChat() {
       dateStr = `${year}-${month}-${day}`;
     }
     response = getCalendarEvents(dateStr);
-  } else if (lowerInput.startsWith("구글 ")) {
-    const query = input.replace("구글 ", "").trim();
-    if (query) {
-      const searchResults = await getGoogleSearchResults(query);
-      response = searchResults ? `구글 검색 결과: ${searchResults}` : "검색 결과를 가져오는데 실패했습니다.";
-    } else {
-      response = "검색어를 입력해주세요. 예: 구글 날씨";
-    }
   } else if (isNewsQuery(input)) {
     await pipelineNewsSearch(input);
     inputEl.value = "";
@@ -1253,4 +1259,3 @@ function updateBubblePosition() {
   bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
   bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
 }
-
