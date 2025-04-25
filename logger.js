@@ -2,9 +2,10 @@
 
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose'); // mongoose 추가
 
-// DB 연결 및 모델
-const { connectDB, ApiLog } = require('./backend/db');
+// DB 연결 및 모델 (루트 디렉토리에 db.js가 있다고 가정)
+const { connectDB, ApiLog } = require('./db');
 
 // 1) 로그 폴더 및 파일 경로 설정 (프로젝트 루트/logs/app.log)
 const logDir = path.join(__dirname, 'logs');
@@ -55,6 +56,12 @@ function writeLog(level, message) {
  * @param {Object} response - API 응답 데이터
  */
 async function saveApiData(apiType, query, response) {
+  // DB 연결 상태 확인
+  if (mongoose.connection.readyState !== 1) {
+    writeLog('ERROR', 'DB가 연결되지 않았습니다. 데이터를 저장할 수 없습니다.');
+    return;
+  }
+  
   const timestamp = new Date().toISOString();
   try {
     await ApiLog.create({ apiType, query, response, timestamp });
