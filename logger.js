@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const mongoose = require('mongoose'); // mongoose 추가
+const mongoose = require('mongoose');
 
 // DB 연결 및 모델 (루트 디렉토리에 db.js가 있다고 가정)
 const { connectDB, ApiLog } = require('./db');
@@ -16,7 +16,7 @@ if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
 
-// 3) DB 연결 (한 번만)
+// 3) DB 연결 (한 번만 실행)
 connectDB().catch(err => {
   console.error('DB 연결 오류:', err);
   process.exit(1);
@@ -24,14 +24,14 @@ connectDB().catch(err => {
 
 /**
  * 실제 로그를 처리하는 함수
- * @param {'INFO'|'ERROR'|'DEBUG'|'WARN'} level 
- * @param {string} message 
+ * @param {'INFO'|'ERROR'|'DEBUG'|'WARN'} level - 로그 레벨
+ * @param {string} message - 로그 메시지
  */
 function writeLog(level, message) {
   const timestamp = new Date().toISOString();
   const line = `[${timestamp}] [${level}] ${message}\n`;
   
-  // --- 1) 콘솔에도 레벨별 출력 ---
+  // 콘솔에 레벨별 출력
   switch (level) {
     case 'ERROR': console.error(line.trim()); break;
     case 'WARN':  console.warn(line.trim()); break;
@@ -39,11 +39,11 @@ function writeLog(level, message) {
     default:      console.log(line.trim());
   }
 
-  // --- 2) 파일에 비동기로 추가 ---
+  // 파일에 비동기로 기록
   fs.appendFile(logFile, line, 'utf8', err => {
     if (err) {
       console.error(
-        `[${new Date().toISOString()}] [ERROR] Failed to write log file: ${err.message}`
+        `[${new Date().toISOString()}] [ERROR] 로그 파일 쓰기 실패: ${err.message}`
       );
     }
   });
