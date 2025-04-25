@@ -1,154 +1,85 @@
-// server.js (프로젝트 루트)
 require('dotenv').config();
 const express = require('express');
-const cors    = require('cors');
-const path    = require('path');
-const axios   = require('axios');
+const cors = require('cors');
+const path = require('path');
+const axios = require('axios');
+const { connectDB, SearchLog, InteractionLog } = require('./db');
 
-const { connectDB, SearchLog, InteractionLog } = require('./db.js');
-const logger = require('./logger.js');  // 단순 콘솔 로그
-
-const app  = express();
+const app = express();
 const port = process.env.PORT || 3000;
 
-// 1) MongoDB 연결
-connectDB().catch(err => {
-  logger.error(`DB 연결 오류: ${err.message}`);
-  process.exit(1);
-});
+// MongoDB 연결
+connectDB();
 
-// 2) 미들웨어
+// 미들웨어 설정
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
-// 간단 토큰화 유틸
-function tokenize(text) {
-  return text
-    .replace(/[^\w\s]/g, '')
-    .split(/\s+/)
-    .filter(Boolean);
-}
+// 환경 변수에서 네이버 API 키 가져오기
+const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID;
+const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;
 
-// 3) 네이버 검색 + DB 저장
+// 검색·상호작용 로그 저장 엔드포인트
+app.post('/api/save-to-db', async (req, res) => {
+  const { type, query, results, tokens } = req.body;
+  try {
+    if (['google', 'naver', 'youtube'].includes(type)) {
+      await SearchLog.create({
+        source: type,
+        query,
+        tokens: Array.isArray(tokens) ? tokens : [],
+        results
+      });
+    } else {
+      await InteractionLog.create({
+        userInput: query,
+        botResponse: results,
+        // emotionCounts는 기본값 사용
+      });
+    }
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('DB 저장 오류:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 네이버 검색 통합 엔드포인트
 app.get('/api/naver-search', async (req, res) => {
   const query = req.query.q;
-  if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
-
+  if (!query) {
+    return res.status(400).json({ error: '검색어가 필요합니다.' });
+  }
   try {
-    const apiRes = await axios.get(
+    const naverRes = await axios.get(
       'https://openapi.naver.com/v1/search/webkr.json',
       {
         params: { query },
         headers: {
-          'X-Naver-Client-Id':     process.env.NAVER_CLIENT_ID,
-          'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
+          'X-Naver-Client-Id': NAVER_CLIENT_ID,
+          'X-Naver-Client-Secret': NAVER_CLIENT_SECRET
         }
       }
     );
-    const results = apiRes.data;
-
-    await SearchLog.create({
-      source:  'naver',
-      query,
-      tokens:  tokenize(query),
-      results
-    });
-
-    logger.info(`네이버 검색 저장 성공: ${query}`);
-    res.json(results);
-  } catch (err) {
-    logger.error(`네이버 검색 오류: ${err.message}`);
+    res.json(naverRes.data);
+  } catch (error) {
+    console.error('네이버 API 호출 오류:', error);
     res.status(500).json({ error: '네이버 검색 실패' });
   }
 });
 
-// 4) 유튜브 검색 + DB 저장
-app.get('/api/youtube-search', async (req, res) => {
-  const query = req.query.q;
-  if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
+// 기타 API 라우트
+const searchRoute = require('./search');
+const weatherRoute = require('./weather');
+const youtubeRoute = require('./youtube');
+app.use('/api', searchRoute);
+app.use('/api', weatherRoute);
+app.use('/api', youtubeRoute);
 
-  try {
-    const apiRes = await axios.get(
-      'https://www.googleapis.com/youtube/v3/search',
-      {
-        params: {
-          part:       'snippet',
-          q:          query,
-          key:        process.env.YOUTUBE_API_KEY,
-          maxResults: 5
-        }
-      }
-    );
-    const results = apiRes.data;
+// 정적 파일 서빙 (클라이언트)
+app.use(express.static(path.join(__dirname, '../public')));
 
-    await SearchLog.create({
-      source:  'youtube',
-      query,
-      tokens:  tokenize(query),
-      results
-    });
-
-    logger.info(`유튜브 검색 저장 성공: ${query}`);
-    res.json(results);
-  } catch (err) {
-    logger.error(`유튜브 검색 오류: ${err.message}`);
-    res.status(500).json({ error: '유튜브 검색 실패' });
-  }
-});
-
-// 5) 구글 검색 + DB 저장
-app.get('/api/google-search', async (req, res) => {
-  const query = req.query.q;
-  if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
-
-  try {
-    const apiRes = await axios.get(
-      'https://www.googleapis.com/customsearch/v1',
-      {
-        params: {
-          q:   query,
-          key: process.env.GOOGLE_API_KEY,
-          cx:  process.env.GOOGLE_CX,
-          num: 5
-        }
-      }
-    );
-    const results = apiRes.data;
-
-    await SearchLog.create({
-      source:  'google',
-      query,
-      tokens:  tokenize(query),
-      results
-    });
-
-    logger.info(`구글 검색 저장 성공: ${query}`);
-    res.json(results);
-  } catch (err) {
-    logger.error(`구글 검색 오류: ${err.message}`);
-    res.status(500).json({ error: '구글 검색 실패' });
-  }
-});
-
-// 6) NLP 처리 + Interaction 저장
-app.post('/api/nlp', async (req, res) => {
-  const { text } = req.body;
-  if (!text) return res.status(400).json({ error: '텍스트가 필요합니다.' });
-
-  const responseText = `입력하신 "${text}"에 대해 응답 생성 완료.`;
-
-  await InteractionLog.create({
-    userInput:    text,
-    botResponse:  responseText,
-    emotionCounts: { positive:0, negative:0, surprise:0 }
-  });
-
-  logger.info(`NLP 저장 성공: ${text}`);
-  res.json({ response: responseText });
-});
-
-// 7) 서버 시작
+// 서버 시작
 app.listen(port, () => {
-  logger.info(`서버 실행 중: http://localhost:${port}`);
+  console.log(`서버가 포트 ${port}에서 실행 중입니다.`);
 });
