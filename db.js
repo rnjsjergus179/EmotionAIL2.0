@@ -1,7 +1,5 @@
-// backend/db.js
 require('dotenv').config();
 const mongoose = require('mongoose');
-const nodejieba = require('nodejieba'); // 한국어 토큰화용
 
 // 1) MongoDB 연결 함수
 async function connectDB() {
@@ -52,9 +50,9 @@ const InteractionSchema = new mongoose.Schema({
 const SearchLog = mongoose.model('SearchLog', SearchLogSchema);
 const InteractionLog = mongoose.model('InteractionLog', InteractionSchema);
 
-// 5) 한국어 토큰화 함수
+// 5) 간단한 한국어 토큰화 함수 (공백 기준)
 function tokenizeQuery(query) {
-  return nodejieba.cut(query); // nodejieba를 사용해 쿼리 토큰화
+  return query.split(' ').filter(token => token.length > 0); // 공백으로 쿼리 분할
 }
 
 // 6) 의도 인식 함수 (규칙 기반)
@@ -128,5 +126,5 @@ module.exports = {
   SearchLog,
   InteractionLog,
   saveSearchData,
-  updateEmotionCounts // 반복 학습용 함수 내보내기
+  updateEmotionCounts
 };
