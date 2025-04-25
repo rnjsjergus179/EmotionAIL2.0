@@ -3,13 +3,9 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const axios = require('axios');
-const { connectDB, SearchLog, InteractionLog } = require('./db.js');
 
 const app = express();
 const port = process.env.PORT || 3000;
-
-// MongoDB 연결
-connectDB();
 
 // 미들웨어 설정
 app.use(cors());
@@ -18,31 +14,6 @@ app.use(express.json());
 // 환경 변수에서 네이버 API 키 가져오기
 const NAVER_CLIENT_ID = process.env.NAVER_CLIENT_ID;
 const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;
-
-// 검색·상호작용 로그 저장 엔드포인트
-app.post('/api/save-to-db', async (req, res) => {
-  const { type, query, results, tokens } = req.body;
-  try {
-    if (['google', 'naver', 'youtube'].includes(type)) {
-      await SearchLog.create({
-        source: type,
-        query,
-        tokens: Array.isArray(tokens) ? tokens : [],
-        results
-      });
-    } else {
-      await InteractionLog.create({
-        userInput: query,
-        botResponse: results,
-        // emotionCounts는 기본값 사용
-      });
-    }
-    return res.status(200).json({ success: true });
-  } catch (err) {
-    console.error('DB 저장 오류:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
 
 // 네이버 검색 통합 엔드포인트
 app.get('/api/naver-search', async (req, res) => {
