@@ -3,6 +3,9 @@
 const fs   = require('fs');
 const path = require('path');
 
+// DB 연결 및 모델
+const { connectDB, InteractionLog } = require('./backend/db');
+
 // 1) 로그 폴더 및 파일 경로 설정 (프로젝트 루트/logs/app.log)
 const logDir  = path.join(__dirname, 'logs');
 const logFile = path.join(logDir, 'app.log');
@@ -12,6 +15,12 @@ if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
 
+// 3) DB 연결 (한 번만)
+connectDB().catch(err => {
+  console.error('DB 연결 오류:', err);
+  process.exit(1);
+});
+
 /**
  * 실제 로그를 처리하는 함수
  * @param {'INFO'|'ERROR'|'DEBUG'|'WARN'} level 
@@ -20,29 +29,35 @@ if (!fs.existsSync(logDir)) {
 function writeLog(level, message) {
   const timestamp = new Date().toISOString();
   const line      = `[${timestamp}] [${level}] ${message}\n`;
-
-  // 콘솔에도 레벨별 출력
+  
+  // --- 1) 콘솔에도 레벨별 출력 ---
   switch (level) {
-    case 'ERROR':
-      console.error(line.trim());
-      break;
-    case 'WARN':
-      console.warn(line.trim());
-      break;
-    case 'DEBUG':
-      console.debug(line.trim());
-      break;
-    default:
-      console.log(line.trim());
+    case 'ERROR': console.error(line.trim()); break;
+    case 'WARN':  console.warn (line.trim()); break;
+    case 'DEBUG': console.debug(line.trim()); break;
+    default:      console.log (line.trim());
   }
 
-  // 파일에 비동기로 추가
+  // --- 2) 파일에 비동기로 추가 ---
   fs.appendFile(logFile, line, 'utf8', err => {
     if (err) {
       console.error(
-        `[${new Date().toISOString()}] [ERROR] Failed to write log: ${err.message}`
+        `[${new Date().toISOString()}] [ERROR] Failed to write log file: ${err.message}`
       );
     }
+  });
+
+  // --- 3) MongoDB에도 저장 (InteractionLog) ---
+  InteractionLog.create({
+    userInput:    null,            // 필요에 따라 채워주세요
+    botResponse:  message,
+    emotionCounts:{ positive:0, negative:0, surprise:0 },
+    timestamp:    new Date()
+  }).catch(err => {
+    // DB 저장 실패해도 앱은 계속 실행
+    console.error(
+      `[${new Date().toISOString()}] [ERROR] Failed to write InteractionLog: ${err.message}`
+    );
   });
 }
 
