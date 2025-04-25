@@ -1,7 +1,7 @@
 // backend/db.js
 
 const mongoose = require('mongoose');
-const logger = require('./logger');
+const logger = require('./logger.js');
 
 // 1) Connect 함수
 async function connectDB() {
