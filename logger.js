@@ -1,4 +1,4 @@
-// logger.js (프로젝트 루트에 위치)
+// logger.js (루트 디렉토리에 위치)
 
 const fs = require('fs');
 const path = require('path');
@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
 // DB 연결 및 모델 (루트 디렉토리에 db.js가 있다고 가정)
 const { connectDB, ApiLog } = require('./db');
 
-// 1) 로그 폴더 및 파일 경로 설정 (프로젝트 루트/logs/app.log)
+// 1) 로그 폴더 및 파일 경로 설정 (루트 디렉토리/logs/app.log)
 const logDir = path.join(__dirname, 'logs');
 const logFile = path.join(logDir, 'app.log');
 
