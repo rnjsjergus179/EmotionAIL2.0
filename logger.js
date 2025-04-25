@@ -1,69 +1,113 @@
 // logger.js  (프로젝트 루트에 위치)
 
-const fs   = require('fs');
-const path = require('path');
+const fs       = require('fs');
+const path     = require('path');
+const mongoose = require('mongoose');
 
-// DB 연결 및 모델
-const { connectDB, InteractionLog } = require('./backend/db');
+// ——————————————————————————————————————————————————————
+// 1) MongoDB 연결 및 스키마/모델 정의
+//    (db.js 대신 이 파일에서 직접 정의합니다)
+// ——————————————————————————————————————————————————————
 
-// 1) 로그 폴더 및 파일 경로 설정 (프로젝트 루트/logs/app.log)
+async function connectDB() {
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    });
+    console.log('[DB] MongoDB 연결 성공');
+  } catch (err) {
+    console.error('[DB] MongoDB 연결 실패:', err.message);
+    process.exit(1);
+  }
+}
+connectDB();
+
+// SearchLog 스키마
+const SearchLogSchema = new mongoose.Schema({
+  source:    { type: String, enum: ['google','youtube','naver'], required: true },
+  query:     { type: String, required: true },
+  tokens:    [String],
+  results:   mongoose.Schema.Types.Mixed,
+  createdAt: { type: Date, default: Date.now }
+});
+
+// InteractionLog 스키마
+const InteractionLogSchema = new mongoose.Schema({
+  userInput:     { type: String, required: true },
+  botResponse:   { type: String, required: true },
+  emotionCounts: {
+    positive: { type: Number, default: 0 },
+    negative: { type: Number, default: 0 },
+    surprise: { type: Number, default: 0 }
+  },
+  timestamp: { type: Date, default: Date.now }
+});
+
+const SearchLog       = mongoose.model('SearchLog',       SearchLogSchema);
+const InteractionLog  = mongoose.model('InteractionLog',  InteractionLogSchema);
+
+// ——————————————————————————————————————————————————————
+// 2) 로그 파일 세팅
+// ——————————————————————————————————————————————————————
 const logDir  = path.join(__dirname, 'logs');
 const logFile = path.join(logDir, 'app.log');
-
-// 2) logs 폴더가 없다면 생성
 if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
 
-// 3) DB 연결 (한 번만)
-connectDB().catch(err => {
-  console.error('DB 연결 오류:', err);
-  process.exit(1);
-});
+// ——————————————————————————————————————————————————————
+// 3) 실제 로그 처리 함수
+// ——————————————————————————————————————————————————————
+async function writeLog(level, message, meta = {}) {
+  const ts   = new Date().toISOString();
+  const line = `[${ts}] [${level}] ${message}\n`;
 
-/**
- * 실제 로그를 처리하는 함수
- * @param {'INFO'|'ERROR'|'DEBUG'|'WARN'} level 
- * @param {string} message 
- */
-function writeLog(level, message) {
-  const timestamp = new Date().toISOString();
-  const line      = `[${timestamp}] [${level}] ${message}\n`;
-  
-  // --- 1) 콘솔에도 레벨별 출력 ---
+  // 3-a) 콘솔 출력
   switch (level) {
     case 'ERROR': console.error(line.trim()); break;
-    case 'WARN':  console.warn (line.trim()); break;
+    case 'WARN':  console.warn(line.trim());  break;
     case 'DEBUG': console.debug(line.trim()); break;
-    default:      console.log (line.trim());
+    default:      console.log(line.trim());
   }
 
-  // --- 2) 파일에 비동기로 추가 ---
+  // 3-b) 파일에 비동기 추가
   fs.appendFile(logFile, line, 'utf8', err => {
     if (err) {
-      console.error(
-        `[${new Date().toISOString()}] [ERROR] Failed to write log file: ${err.message}`
-      );
+      console.error(`[${new Date().toISOString()}] [ERROR] 로그 파일 기록 실패: ${err.message}`);
     }
   });
 
-  // --- 3) MongoDB에도 저장 (InteractionLog) ---
-  InteractionLog.create({
-    userInput:    null,            // 필요에 따라 채워주세요
-    botResponse:  message,
-    emotionCounts:{ positive:0, negative:0, surprise:0 },
-    timestamp:    new Date()
-  }).catch(err => {
-    // DB 저장 실패해도 앱은 계속 실행
-    console.error(
-      `[${new Date().toISOString()}] [ERROR] Failed to write InteractionLog: ${err.message}`
-    );
-  });
+  // 3-c) DB 저장
+  try {
+    if (meta.source && meta.query) {
+      // API 호출 로그
+      await SearchLog.create({
+        source:  meta.source,
+        query:   meta.query,
+        tokens:  meta.tokens || [],
+        results: meta.results
+      });
+    }
+    else if (meta.userInput !== undefined && meta.botResponse !== undefined) {
+      // 대화 학습 로그
+      await InteractionLog.create({
+        userInput:     meta.userInput,
+        botResponse:   meta.botResponse,
+        emotionCounts: meta.emotionCounts || {}
+      });
+    }
+  } catch (dbErr) {
+    console.error(`[${new Date().toISOString()}] [ERROR] DB 저장 실패: ${dbErr.message}`);
+  }
 }
 
+// ——————————————————————————————————————————————————————
+// 4) 외부 호출용 인터페이스
+// ——————————————————————————————————————————————————————
 module.exports = {
-  info:  (msg) => writeLog('INFO',  msg),
-  error: (msg) => writeLog('ERROR', msg),
-  warn:  (msg) => writeLog('WARN',  msg),
-  debug: (msg) => writeLog('DEBUG', msg),
+  info:    (msg, meta) => writeLog('INFO',  msg, meta),
+  warn:    (msg, meta) => writeLog('WARN',  msg, meta),
+  error:   (msg, meta) => writeLog('ERROR', msg, meta),
+  debug:   (msg, meta) => writeLog('DEBUG', msg, meta),
 };
