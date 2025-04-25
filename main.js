@@ -155,7 +155,7 @@ async function pipelineNewsSearch(userInput) {
   const results = await getNaverSearchResults(query);
   const summary = "뉴스 요약:\n- " + results;
   await saveToLearningDB('naver', query, results);
-  return summary; // 응답을 반환하도록 수정
+  return summary;
 }
 
 /***** 음성 출력 *****/
@@ -374,7 +374,7 @@ async function sendChat() {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
     response = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
   } else if (isNewsQuery(input)) {
-    response = await pipelineNewsSearch(input); // 뉴스 검색 응답을 반환
+    response = await pipelineNewsSearch(input);
   } else {
     for (let site in SITE_LINKS) {
       if (lowerInput.includes(site)) {
@@ -510,10 +510,8 @@ async function sendChat() {
     }
   }
 
-  // 공통 말풍선 호출
   showSpeechBubbleInChunks(response, isHTML);
 
-  // 사이트 이동이 필요한 경우
   if (shouldNavigate) {
     setTimeout(() => { window.location.href = navigateUrl; }, 2000);
   }
