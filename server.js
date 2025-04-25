@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const axios = require('axios');
-const { connectDB, SearchLog, InteractionLog } = require('./db');
+const { connectDB, SearchLog, InteractionLog } = require('./db.js');
 
 const app = express();
 const port = process.env.PORT || 3000;
