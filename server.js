@@ -1,5 +1,4 @@
-// server.js (프로젝트 루트에 위치)
-
+// server.js (프로젝트 루트)
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
@@ -7,7 +6,7 @@ const path    = require('path');
 const axios   = require('axios');
 
 const { connectDB, SearchLog, InteractionLog } = require('./db.js');
-const logger = require('./logger.js');
+const logger = require('./logger.js');  // 단순 콘솔 로그
 
 const app  = express();
 const port = process.env.PORT || 3000;
@@ -23,7 +22,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- 간단 토큰화 예시 ---
+// 간단 토큰화 유틸
 function tokenize(text) {
   return text
     .replace(/[^\w\s]/g, '')
@@ -37,7 +36,7 @@ app.get('/api/naver-search', async (req, res) => {
   if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
 
   try {
-    const naverRes = await axios.get(
+    const apiRes = await axios.get(
       'https://openapi.naver.com/v1/search/webkr.json',
       {
         params: { query },
@@ -47,8 +46,8 @@ app.get('/api/naver-search', async (req, res) => {
         }
       }
     );
+    const results = apiRes.data;
 
-    const results = naverRes.data;
     await SearchLog.create({
       source:  'naver',
       query,
@@ -70,7 +69,7 @@ app.get('/api/youtube-search', async (req, res) => {
   if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
 
   try {
-    const youRes = await axios.get(
+    const apiRes = await axios.get(
       'https://www.googleapis.com/youtube/v3/search',
       {
         params: {
@@ -81,8 +80,8 @@ app.get('/api/youtube-search', async (req, res) => {
         }
       }
     );
+    const results = apiRes.data;
 
-    const results = youRes.data;
     await SearchLog.create({
       source:  'youtube',
       query,
@@ -98,25 +97,25 @@ app.get('/api/youtube-search', async (req, res) => {
   }
 });
 
-// 5) 구글 검색 + DB 저장 (Custom Search)
+// 5) 구글 검색 + DB 저장
 app.get('/api/google-search', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
 
   try {
-    const gRes = await axios.get(
+    const apiRes = await axios.get(
       'https://www.googleapis.com/customsearch/v1',
       {
         params: {
-          key:  process.env.GOOGLE_API_KEY,
-          cx:   process.env.GOOGLE_CX,
-          q:    query,
-          num:  5
+          q:   query,
+          key: process.env.GOOGLE_API_KEY,
+          cx:  process.env.GOOGLE_CX,
+          num: 5
         }
       }
     );
+    const results = apiRes.data;
 
-    const results = gRes.data;
     await SearchLog.create({
       source:  'google',
       query,
@@ -137,13 +136,12 @@ app.post('/api/nlp', async (req, res) => {
   const { text } = req.body;
   if (!text) return res.status(400).json({ error: '텍스트가 필요합니다.' });
 
-  // (실제 감정분석/의도인식 로직은 여기에)
   const responseText = `입력하신 "${text}"에 대해 응답 생성 완료.`;
 
   await InteractionLog.create({
     userInput:    text,
     botResponse:  responseText,
-    emotionCounts: { positive: 0, negative: 0, surprise: 0 }
+    emotionCounts: { positive:0, negative:0, surprise:0 }
   });
 
   logger.info(`NLP 저장 성공: ${text}`);
