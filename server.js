@@ -1,30 +1,40 @@
-// server.js (DB 코드 제거판)
+// server.js (프로젝트 루트에 위치)
 
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
 const axios   = require('axios');
-const logger  = require('./logger'); // 루트 디렉토리의 logger.js
+
+const { connectDB, SearchLog, InteractionLog } = require('./db.js');
+const logger = require('./logger.js');
 
 const app  = express();
 const port = process.env.PORT || 3000;
 
-// --- 미들웨어 설정 ---
+// 1) MongoDB 연결
+connectDB().catch(err => {
+  logger.error(`DB 연결 오류: ${err.message}`);
+  process.exit(1);
+});
+
+// 2) 미들웨어
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-// --- 환경 변수에서 네이버 API 키 가져오기 ---
-const NAVER_CLIENT_ID     = process.env.NAVER_CLIENT_ID;
-const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;
+// --- 간단 토큰화 예시 ---
+function tokenize(text) {
+  return text
+    .replace(/[^\w\s]/g, '')
+    .split(/\s+/)
+    .filter(Boolean);
+}
 
-// --- 네이버 검색 통합 엔드포인트 ---
+// 3) 네이버 검색 + DB 저장
 app.get('/api/naver-search', async (req, res) => {
   const query = req.query.q;
-  if (!query) {
-    logger.warn('네이버 검색: 검색어 미입력');
-    return res.status(400).json({ error: '검색어가 필요합니다.' });
-  }
+  if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
 
   try {
     const naverRes = await axios.get(
@@ -32,33 +42,115 @@ app.get('/api/naver-search', async (req, res) => {
       {
         params: { query },
         headers: {
-          'X-Naver-Client-Id': NAVER_CLIENT_ID,
-          'X-Naver-Client-Secret': NAVER_CLIENT_SECRET
+          'X-Naver-Client-Id':     process.env.NAVER_CLIENT_ID,
+          'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
         }
       }
     );
 
-    logger.info(`네이버 검색 성공: ${query}`);
-    res.json(naverRes.data);
+    const results = naverRes.data;
+    await SearchLog.create({
+      source:  'naver',
+      query,
+      tokens:  tokenize(query),
+      results
+    });
 
-  } catch (error) {
-    logger.error(`네이버 API 호출 오류: ${error.message}`);
+    logger.info(`네이버 검색 저장 성공: ${query}`);
+    res.json(results);
+  } catch (err) {
+    logger.error(`네이버 검색 오류: ${err.message}`);
     res.status(500).json({ error: '네이버 검색 실패' });
   }
 });
 
-// --- 기타 API 라우트 ---
-const searchRoute  = require('./search');
-const weatherRoute = require('./weather');
-const youtubeRoute = require('./youtube');
-app.use('/api', searchRoute);
-app.use('/api', weatherRoute);
-app.use('/api', youtubeRoute);
+// 4) 유튜브 검색 + DB 저장
+app.get('/api/youtube-search', async (req, res) => {
+  const query = req.query.q;
+  if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
 
-// --- 정적 파일 서빙 (클라이언트) ---
-app.use(express.static(path.join(__dirname, '../public')));
+  try {
+    const youRes = await axios.get(
+      'https://www.googleapis.com/youtube/v3/search',
+      {
+        params: {
+          part:       'snippet',
+          q:          query,
+          key:        process.env.YOUTUBE_API_KEY,
+          maxResults: 5
+        }
+      }
+    );
 
-// --- 서버 시작 ---
+    const results = youRes.data;
+    await SearchLog.create({
+      source:  'youtube',
+      query,
+      tokens:  tokenize(query),
+      results
+    });
+
+    logger.info(`유튜브 검색 저장 성공: ${query}`);
+    res.json(results);
+  } catch (err) {
+    logger.error(`유튜브 검색 오류: ${err.message}`);
+    res.status(500).json({ error: '유튜브 검색 실패' });
+  }
+});
+
+// 5) 구글 검색 + DB 저장 (Custom Search)
+app.get('/api/google-search', async (req, res) => {
+  const query = req.query.q;
+  if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
+
+  try {
+    const gRes = await axios.get(
+      'https://www.googleapis.com/customsearch/v1',
+      {
+        params: {
+          key:  process.env.GOOGLE_API_KEY,
+          cx:   process.env.GOOGLE_CX,
+          q:    query,
+          num:  5
+        }
+      }
+    );
+
+    const results = gRes.data;
+    await SearchLog.create({
+      source:  'google',
+      query,
+      tokens:  tokenize(query),
+      results
+    });
+
+    logger.info(`구글 검색 저장 성공: ${query}`);
+    res.json(results);
+  } catch (err) {
+    logger.error(`구글 검색 오류: ${err.message}`);
+    res.status(500).json({ error: '구글 검색 실패' });
+  }
+});
+
+// 6) NLP 처리 + Interaction 저장
+app.post('/api/nlp', async (req, res) => {
+  const { text } = req.body;
+  if (!text) return res.status(400).json({ error: '텍스트가 필요합니다.' });
+
+  // (실제 감정분석/의도인식 로직은 여기에)
+  const responseText = `입력하신 "${text}"에 대해 응답 생성 완료.`;
+
+  await InteractionLog.create({
+    userInput:    text,
+    botResponse:  responseText,
+    emotionCounts: { positive: 0, negative: 0, surprise: 0 }
+  });
+
+  logger.info(`NLP 저장 성공: ${text}`);
+  res.json({ response: responseText });
+});
+
+// 7) 서버 시작
 app.listen(port, () => {
-  logger.info(`서버가 포트 ${port}에서 실행 중입니다.`);
+  logger.info(`서버 실행 중: http://localhost:${port}`);
 });
