@@ -1,8 +1,8 @@
 // backend/db.js
 require('dotenv').config();
 const mongoose = require('mongoose');
-const { tokenize } = require('node-korean-tokenizer'); // 한국어 토큰화용
-const natural = require('natural'); // 의도 인식 및 NLP 처리용
+const Mecab = require('mecab-ffi'); // node-korean-tokenizer 대체용
+const mecab = new Mecab(); // MeCab 인스턴스 생성
 
 // 1) MongoDB 연결 함수
 async function connectDB() {
@@ -55,7 +55,7 @@ const InteractionLog = mongoose.model('InteractionLog', InteractionSchema);
 
 // 5) 한국어 토큰화 함수
 function tokenizeQuery(query) {
-  return tokenize(query); // node-korean-tokenizer를 사용해 한국어 토큰화
+  return mecab.parseSync(query).map(token => token[0]); // MeCab을 사용해 형태소 단위로 토큰화
 }
 
 // 6) 의도 인식 함수 (규칙 기반)
