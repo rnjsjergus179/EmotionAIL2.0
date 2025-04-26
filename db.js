@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const fs = require('fs');
 
 // 1) MongoDB 연결 함수 (앱 시작 시 한 번만 호출하세요)
 async function connectDB() {
@@ -29,7 +30,7 @@ const SearchLogSchema = new mongoose.Schema({
   query: { type: String, required: true },      // 원본 검색어
   tokens: [String],                             // 토큰화된 결과
   intent: { type: String },                     // 의도 인식 결과
-  results: mongoose.Schema.Types.Mixed,         // API 응답 데이터
+  results: mongoose.Schema.Types.Mixed,         // API 응답 데이터 (텍스트로 저장)
   createdAt: { type: Date, default: Date.now }  // 저장 시간
 });
 
@@ -89,12 +90,18 @@ function recognizeIntent(q) {
 }
 
 // 7) 검색 데이터 저장 함수 (server.js에서 호출)
-async function saveSearchData(source, query, results) {
+async function saveSearchData(source, query, filePath) {
   try {
+    // 파일에서 데이터 읽기 (텍스트로 읽기)
+    const fileContent = fs.readFileSync(filePath, 'utf-8');
+    
     const tokens = tokenizeQuery(query);             // 검색어를 토큰화
     const intent = recognizeIntent(combineTokens(tokens)); // 의도 인식
     console.log(`🔄 [${source}] "${query}" 저장 시도 중...`); // 저장 시도 로그 추가
-    await SearchLog.create({ source, query, tokens, intent, results }); // DB에 저장
+    
+    // DB에 저장 (results 필드에 텍스트 내용 저장)
+    await SearchLog.create({ source, query, tokens, intent, results: fileContent });
+    
     console.log(`✅ [${source}] "${query}" 저장 완료`); // 저장 성공 로그
   } catch (err) {
     console.error(`❌ [${source}] 저장 실패: ${err.message}`); // 저장 실패 로그
