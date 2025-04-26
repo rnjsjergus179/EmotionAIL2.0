@@ -1,4 +1,3 @@
-// server.js (프로젝트 루트에 위치)
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
@@ -43,14 +42,14 @@ app.get('/api/naver-search', async (req, res) => {
     await saveSearchData('naver', query, data);
 
     console.log(`✅ 네이버 검색 저장 완료: "${query}"`);
-    res.json({ message: `네이버 검색 저장 완료: ${query}` }); // ✅ 저장 메시지 반환
+    res.json({ message: `네이버 검색 저장 완료: ${query}` });
   } catch (err) {
     console.error(`❌ 네이버 API 오류: ${err.message}`);
     res.status(500).json({ error: '네이버 검색 실패' });
   }
 });
 
-// 4) YouTube 검색 + DB 저장
+// 4) YouTube 검색 + DB 저장 + items 같이 반환
 app.get('/api/youtube-search', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
@@ -58,6 +57,7 @@ app.get('/api/youtube-search', async (req, res) => {
   try {
     console.log(`🔍 YouTube 검색 요청: "${query}"`);
 
+    // 구글 클라우드 API를 사용한 YouTube 검색
     const { data } = await axios.get(
       'https://www.googleapis.com/youtube/v3/search',
       {
@@ -65,7 +65,7 @@ app.get('/api/youtube-search', async (req, res) => {
           part:       'snippet',
           q:          query,
           maxResults: 10,
-          key:        process.env.YOUTUBE_API_KEY
+          key:        process.env.GOOGLE_CLOUD_API_KEY // 구글 클라우드 API 키 사용
         }
       }
     );
@@ -73,7 +73,15 @@ app.get('/api/youtube-search', async (req, res) => {
     await saveSearchData('youtube', query, data);
 
     console.log(`💾 YouTube 검색 저장 완료: "${query}"`);
-    res.json({ message: `YouTube 검색 저장 완료: ${query}` }); // ✅ 저장 메시지 반환
+
+    // 검색 결과를 프론트로 반환 (items 포함)
+    res.json({
+      message: `YouTube 검색 저장 완료: ${query}`,
+      items: data.items.map(item => ({
+        title: item.snippet.title,
+        url: `https://www.youtube.com/watch?v=${item.id.videoId}`
+      }))
+    });
   } catch (err) {
     console.error(`❌ YouTube API 오류: ${err.message}`);
     res.status(500).json({ error: 'YouTube 검색 실패' });
