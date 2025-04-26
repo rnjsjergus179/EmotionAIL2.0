@@ -6,10 +6,10 @@ const path    = require('path');
 const axios   = require('axios');
 const { connectDB, saveSearchData } = require('./db.js');
 
-// (기존에 사용하던) 커스텀 라우트들
+// (기존 사용하던 search, weather만 유지하고 youtubeRoute는 제거)
 const searchRoute  = require('./search');
 const weatherRoute = require('./weather');
-const youtubeRoute = require('./youtube');
+// const youtubeRoute = require('./youtube');  // ❌ 삭제
 
 const app  = express();
 const port = process.env.PORT || 3000;
@@ -24,12 +24,7 @@ connectDB().catch(err => {
 app.use(cors());
 app.use(express.json());
 
-// 3) 기존 라우트 유지
-app.use('/api', searchRoute);
-app.use('/api', weatherRoute);
-app.use('/api', youtubeRoute);
-
-// 4) 네이버 검색 + DB 저장
+// 3) 네이버 검색 + DB 저장
 app.get('/api/naver-search', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
@@ -46,9 +41,9 @@ app.get('/api/naver-search', async (req, res) => {
       }
     );
 
-    // db.js에 정의된 함수로 저장
     await saveSearchData('naver', query, data);
 
+    console.log(`✅ 네이버 검색 저장 완료: "${query}"`);
     res.json(data);
   } catch (err) {
     console.error(`❌ 네이버 API 오류: ${err.message}`);
@@ -56,13 +51,12 @@ app.get('/api/naver-search', async (req, res) => {
   }
 });
 
-// 5) YouTube 검색 + DB 저장 (로그 추가)
+// 4) YouTube 검색 + DB 저장
 app.get('/api/youtube-search', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
 
   try {
-    // 🔍 YouTube 검색 요청 로그
     console.log(`🔍 YouTube 검색 요청: "${query}"`);
 
     const { data } = await axios.get(
@@ -77,24 +71,23 @@ app.get('/api/youtube-search', async (req, res) => {
       }
     );
 
-    // ✅ YouTube API 호출 완료 로그
     console.log(`✅ YouTube API 호출 완료: "${query}"`);
+    console.log(`🔗 db.js로 저장 요청: "${query}"`);
 
-    // 🔗 db.js로 넘겨집니다 로그
-    console.log(`🔗 db.js로 넘겨집니다: "${query}"`);
-
-    // db.js에 정의된 함수로 저장
     await saveSearchData('youtube', query, data);
 
-    // 💾 db.js에서 저장 완료 로그
-    console.log(`💾 db.js에서 저장 완료: "${query}"`);
-
+    console.log(`💾 YouTube 검색 저장 완료: "${query}"`);
     res.json(data);
   } catch (err) {
     console.error(`❌ YouTube API 오류: ${err.message}`);
     res.status(500).json({ error: 'YouTube 검색 실패' });
   }
 });
+
+// 5) 기존 라우트 연결 유지
+app.use('/api', searchRoute);
+app.use('/api', weatherRoute);
+// app.use('/api', youtubeRoute); // ❌ 삭제
 
 // 6) 정적 파일 서빙
 app.use(express.static(path.join(__dirname, 'public')));
