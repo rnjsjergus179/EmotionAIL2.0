@@ -2,34 +2,26 @@
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
-const path    = require('path');
 const axios   = require('axios');
 const { connectDB, saveSearchData } = require('./db.js');
 
-// 기존 라우트 유지
-const searchRoute  = require('./search');
-const weatherRoute = require('./weather');
-
 const app  = express();
 const port = process.env.PORT || 3000;
-
-// 1) MongoDB 연결
-connectDB().catch(err => {
-  console.error(`❌ MongoDB 연결 오류: ${err.message}`);
-  process.exit(1);
-});
-
-// 2) 미들웨어 설정
 app.use(cors());
 app.use(express.json());
 
-// 3) 네이버 검색 API 호출 → DB 저장
+connectDB().then(() => {
+  app.listen(port, () =>
+    console.log(`🚀 서버 실행 중: http://localhost:${port}`)
+  );
+});
+
+// 네이버 검색
 app.get('/api/naver-search', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
 
   try {
-    // 네이버 API 호출
     const { data } = await axios.get(
       'https://openapi.naver.com/v1/search/webkr.json',
       {
@@ -41,31 +33,28 @@ app.get('/api/naver-search', async (req, res) => {
       }
     );
 
-    // DB에 저장 (API 응답 객체 그대로 넘김)
+    // ① DB 저장: API 응답 객체 전체를 넘겨주면,
+    //    db.js 에서 자동으로 문자열 추출→자모 토큰화→저장해 줍니다.
     await saveSearchData('naver', query, data);
-    console.log(`✅ [naver] "${query}" 저장 완료.`);
 
-    // 클라이언트에 필요한 형태로 응답
+    // ② 클라이언트에는 원하시는 형태(예: title+link 배열)만 응답
     const items = data.items.map(item => ({
       title: item.title,
       link:  item.link
     }));
     res.json({ message: `네이버 검색 완료: ${query}`, items });
   } catch (err) {
-    console.error(`❌ 네이버 API 오류: ${err.message}`);
+    console.error(err);
     res.status(500).json({ error: '네이버 검색 실패' });
   }
 });
 
-// 4) 유튜브 검색 API 호출 → DB 저장
+// 유튜브 검색
 app.get('/api/youtube-search', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
 
   try {
-    console.log(`🔍 YouTube 검색 요청: "${query}"`);
-
-    // 유튜브 API 호출
     const { data } = await axios.get(
       'https://www.googleapis.com/youtube/v3/search',
       {
@@ -78,33 +67,20 @@ app.get('/api/youtube-search', async (req, res) => {
       }
     );
 
-    // DB에 저장 (API 응답 객체 그대로 넘김)
+    // ① DB 저장: data 객체만 넘기면 db.js 가 알아서 라인 추출→토큰화→저장
     await saveSearchData('youtube', query, data);
-    console.log(`✅ [youtube] "${query}" 저장 완료.`);
 
-    // 클라이언트에 필요한 형태로 응답
-    const items = data.items.map(item => {
-      const vid = item.id.videoId;
+    // ② 클라이언트 응답
+    const items = data.items.map(i => {
+      const vid = i.id.videoId;
       return {
-        title: item.snippet.title,
+        title: i.snippet.title,
         url:   vid ? `https://www.youtube.com/watch?v=${vid}` : ''
       };
     });
     res.json({ message: `YouTube 검색 완료: ${query}`, items });
   } catch (err) {
-    console.error(`❌ YouTube API 오류: ${err.message}`);
+    console.error(err);
     res.status(500).json({ error: 'YouTube 검색 실패' });
   }
-});
-
-// 5) 기존 라우트 연결
-app.use('/api', searchRoute);
-app.use('/api', weatherRoute);
-
-// 6) 정적 파일 서빙
-app.use(express.static(path.join(__dirname, 'public')));
-
-// 7) 서버 시작
-app.listen(port, () => {
-  console.log(`🚀 서버 실행 중: http://localhost:${port}`);
 });
