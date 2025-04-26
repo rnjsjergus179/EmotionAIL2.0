@@ -6,6 +6,10 @@ const axios         = require('axios');
 const path          = require('path');
 const { connectDB, saveSearchData } = require('./db.js');
 
+// ✅ 원상 복구: search, weather 라우트도 불러옵니다.
+const searchRoute  = require('./search');
+const weatherRoute = require('./weather');
+
 const app  = express();
 const port = process.env.PORT || 3000;
 
@@ -23,7 +27,6 @@ connectDB()
       if (!query) {
         return res.status(400).json({ error: '검색어가 필요합니다.' });
       }
-
       try {
         const { data } = await axios.get(
           'https://openapi.naver.com/v1/search/webkr.json',
@@ -35,11 +38,7 @@ connectDB()
             }
           }
         );
-
-        // DB에 자모 토큰화된 결과 저장
         await saveSearchData('naver', query, data);
-
-        // 클라이언트에 필요한 데이터만 반환
         const items = data.items.map(item => ({
           title: item.title,
           link:  item.link
@@ -51,13 +50,12 @@ connectDB()
       }
     });
 
-    // 유튜브 검색 (GOOGLE_API_KEY 복구)
+    // 유튜브 검색
     app.get('/api/youtube-search', async (req, res) => {
       const query = req.query.q;
       if (!query) {
         return res.status(400).json({ error: '검색어가 필요합니다.' });
       }
-
       try {
         const { data } = await axios.get(
           'https://www.googleapis.com/youtube/v3/search',
@@ -66,15 +64,11 @@ connectDB()
               part:       'snippet',
               q:          query,
               maxResults: 10,
-              key:        process.env.GOOGLE_API_KEY    // ← 복구된 구글 API 키
+              key:        process.env.GOOGLE_API_KEY
             }
           }
         );
-
-        // DB에 자모 토큰화된 결과 저장
         await saveSearchData('youtube', query, data);
-
-        // 클라이언트에 필요한 데이터만 반환
         const items = data.items.map(i => {
           const vid = i.id.videoId;
           return {
@@ -88,6 +82,10 @@ connectDB()
         res.status(500).json({ error: 'YouTube 검색 실패' });
       }
     });
+
+    // ✅ 원상 복구: 기존 search, weather 라우트 연결
+    app.use('/api', searchRoute);
+    app.use('/api', weatherRoute);
 
     // 정적 파일 서빙
     app.use(express.static(path.join(__dirname, 'public')));
