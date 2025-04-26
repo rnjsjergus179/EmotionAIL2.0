@@ -6,10 +6,9 @@ const path    = require('path');
 const axios   = require('axios');
 const { connectDB, saveSearchData } = require('./db.js');
 
-// (기존 사용하던 search, weather만 유지하고 youtubeRoute는 제거)
+// (search, weather 유지, youtubeRoute 제거)
 const searchRoute  = require('./search');
 const weatherRoute = require('./weather');
-// const youtubeRoute = require('./youtube');  // ❌ 삭제
 
 const app  = express();
 const port = process.env.PORT || 3000;
@@ -44,7 +43,7 @@ app.get('/api/naver-search', async (req, res) => {
     await saveSearchData('naver', query, data);
 
     console.log(`✅ 네이버 검색 저장 완료: "${query}"`);
-    res.json(data);
+    res.json({ message: `네이버 검색 저장 완료: ${query}` }); // ✅ 저장 메시지 반환
   } catch (err) {
     console.error(`❌ 네이버 API 오류: ${err.message}`);
     res.status(500).json({ error: '네이버 검색 실패' });
@@ -71,13 +70,10 @@ app.get('/api/youtube-search', async (req, res) => {
       }
     );
 
-    console.log(`✅ YouTube API 호출 완료: "${query}"`);
-    console.log(`🔗 db.js로 저장 요청: "${query}"`);
-
     await saveSearchData('youtube', query, data);
 
     console.log(`💾 YouTube 검색 저장 완료: "${query}"`);
-    res.json(data);
+    res.json({ message: `YouTube 검색 저장 완료: ${query}` }); // ✅ 저장 메시지 반환
   } catch (err) {
     console.error(`❌ YouTube API 오류: ${err.message}`);
     res.status(500).json({ error: 'YouTube 검색 실패' });
@@ -87,7 +83,6 @@ app.get('/api/youtube-search', async (req, res) => {
 // 5) 기존 라우트 연결 유지
 app.use('/api', searchRoute);
 app.use('/api', weatherRoute);
-// app.use('/api', youtubeRoute); // ❌ 삭제
 
 // 6) 정적 파일 서빙
 app.use(express.static(path.join(__dirname, 'public')));
