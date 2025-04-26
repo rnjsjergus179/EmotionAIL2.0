@@ -30,7 +30,7 @@ const SearchLogSchema = new mongoose.Schema({
   query: { type: String, required: true },      // 원본 검색어
   tokens: [String],                             // 토큰화된 결과
   intent: { type: String },                     // 의도 인식 결과
-  results: mongoose.Schema.Types.Mixed,         // API 응답 데이터 (텍스트로 저장)
+  results: mongoose.Schema.Types.Mixed,         // API 응답 데이터 (자모 토큰화된 텍스트)
   createdAt: { type: Date, default: Date.now }  // 저장 시간
 });
 
@@ -95,12 +95,18 @@ async function saveSearchData(source, query, filePath) {
     // 파일에서 데이터 읽기 (텍스트로 읽기)
     const fileContent = fs.readFileSync(filePath, 'utf-8');
     
+    // 텍스트 파일의 내용을 줄 단위로 분리
+    const lines = fileContent.split('\n');
+    
+    // 각 줄을 자모 토큰화
+    const tokenizedResults = lines.map(line => tokenizeQuery(line));
+    
     const tokens = tokenizeQuery(query);             // 검색어를 토큰화
     const intent = recognizeIntent(combineTokens(tokens)); // 의도 인식
     console.log(`🔄 [${source}] "${query}" 저장 시도 중...`); // 저장 시도 로그 추가
     
-    // DB에 저장 (results 필드에 텍스트 내용 저장)
-    await SearchLog.create({ source, query, tokens, intent, results: fileContent });
+    // DB에 저장 (results 필드에 자모 토큰화된 결과 저장)
+    await SearchLog.create({ source, query, tokens, intent, results: tokenizedResults });
     
     console.log(`✅ [${source}] "${query}" 저장 완료`); // 저장 성공 로그
   } catch (err) {
