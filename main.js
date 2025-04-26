@@ -254,8 +254,10 @@ async function getYouTubeSearchResults(query) {
     const response = await fetch(`${API_BASE_URL}/api/youtube-search?q=${encodeURIComponent(query)}`);
     if (!response.ok) throw new Error("서버 응답 오류");
     const data = await response.json();
+    console.log('유튜브 백엔드 엔드포인트 API 호출 완료✅️');
     if (data.items && data.items.length > 0) {
       const results = data.items.map(item => `<a href="${item.url}" target="_blank">${item.title}</a>`).join('<br>');
+      console.log('➡️db.js로 이동하게 ⭕️ server.js로 넘김니다 성공✅️');
       await saveToLearningDB('youtube', query, data.items);
       return results;
     } else {
