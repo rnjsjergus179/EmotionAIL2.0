@@ -1,4 +1,3 @@
-// server.js (프로젝트 루트에 위치)
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
@@ -59,6 +58,7 @@ app.get('/api/naver-search', async (req, res) => {
 // 5) YouTube 검색 + DB 저장
 app.get('/api/youtube-search', async (req, res) => {
   const query = req.query.q;
+  console.log('🔍 YouTube 검색 요청:', query); // 로그 추가
   if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
 
   try {
