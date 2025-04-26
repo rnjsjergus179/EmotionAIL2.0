@@ -1,8 +1,8 @@
+// server.js
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
-const fs      = require('fs');
 const axios   = require('axios');
 const { connectDB, saveSearchData } = require('./db.js');
 
@@ -12,10 +12,6 @@ const weatherRoute = require('./weather');
 
 const app  = express();
 const port = process.env.PORT || 3000;
-
-// 임시 파일 저장용 디렉토리 생성
-const tmpDir = path.join(__dirname, 'tmp');
-if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
 
 // 1) MongoDB 연결
 connectDB().catch(err => {
@@ -27,7 +23,7 @@ connectDB().catch(err => {
 app.use(cors());
 app.use(express.json());
 
-// 3) 네이버 검색 API 호출 → 텍스트 변환 → DB 저장
+// 3) 네이버 검색 API 호출 → DB 저장
 app.get('/api/naver-search', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
@@ -45,25 +41,23 @@ app.get('/api/naver-search', async (req, res) => {
       }
     );
 
-    // 검색 결과를 텍스트로 변환
-    const lines = data.items.map(item => `[${item.title}](${item.link})`);
-    const txtContent = lines.join('\n');
-    const fileName = `naver-${Date.now()}.txt`;
-    const filePath = path.join(tmpDir, fileName);
-    fs.writeFileSync(filePath, txtContent, 'utf-8');
+    // DB에 저장 (API 응답 객체 그대로 넘김)
+    await saveSearchData('naver', query, data);
+    console.log(`✅ [naver] "${query}" 저장 완료.`);
 
-    // DB에 저장
-    await saveSearchData('naver', query, filePath);
-
-    console.log(`✅ 네이버 검색 저장 완료: "${query}" → ${fileName}`);
-    res.json({ message: `네이버 검색 저장 완료: ${query}`, file: fileName });
+    // 클라이언트에 필요한 형태로 응답
+    const items = data.items.map(item => ({
+      title: item.title,
+      link:  item.link
+    }));
+    res.json({ message: `네이버 검색 완료: ${query}`, items });
   } catch (err) {
     console.error(`❌ 네이버 API 오류: ${err.message}`);
     res.status(500).json({ error: '네이버 검색 실패' });
   }
 });
 
-// 4) 유튜브 검색 API 호출 → 텍스트 변환 → DB 저장 (GOOGLE_API_KEY 사용)
+// 4) 유튜브 검색 API 호출 → DB 저장
 app.get('/api/youtube-search', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
@@ -71,7 +65,7 @@ app.get('/api/youtube-search', async (req, res) => {
   try {
     console.log(`🔍 YouTube 검색 요청: "${query}"`);
 
-    // 유튜브 API 호출 (GOOGLE_API_KEY 사용)
+    // 유튜브 API 호출
     const { data } = await axios.get(
       'https://www.googleapis.com/youtube/v3/search',
       {
@@ -79,36 +73,24 @@ app.get('/api/youtube-search', async (req, res) => {
           part:       'snippet',
           q:          query,
           maxResults: 10,
-          key:        process.env.GOOGLE_API_KEY  // GOOGLE_API_KEY로 변경
+          key:        process.env.GOOGLE_API_KEY
         }
       }
     );
 
-    // 검색 결과를 텍스트로 변환
-    const lines = data.items.map(item => {
+    // DB에 저장 (API 응답 객체 그대로 넘김)
+    await saveSearchData('youtube', query, data);
+    console.log(`✅ [youtube] "${query}" 저장 완료.`);
+
+    // 클라이언트에 필요한 형태로 응답
+    const items = data.items.map(item => {
       const vid = item.id.videoId;
-      const url = vid ? `https://www.youtube.com/watch?v=${vid}` : '';
-      return `${item.snippet.title} → ${url}`;
-    });
-    const txtContent = lines.join('\n');
-    const fileName = `youtube-${Date.now()}.txt`;
-    const filePath = path.join(tmpDir, fileName);
-    fs.writeFileSync(filePath, txtContent, 'utf-8');
-
-    // DB에 저장
-    await saveSearchData('youtube', query, filePath);
-
-    console.log(`💾 YouTube 검색 저장 완료: "${query}" → ${fileName}`);
-    res.json({
-      message: `YouTube 검색 저장 완료: ${query}`,
-      file: fileName,
-      items: data.items.map(item => ({
+      return {
         title: item.snippet.title,
-        url: item.id.videoId
-          ? `https://www.youtube.com/watch?v=${item.id.videoId}`
-          : ''
-      }))
+        url:   vid ? `https://www.youtube.com/watch?v=${vid}` : ''
+      };
     });
+    res.json({ message: `YouTube 검색 완료: ${query}`, items });
   } catch (err) {
     console.error(`❌ YouTube API 오류: ${err.message}`);
     res.status(500).json({ error: 'YouTube 검색 실패' });
