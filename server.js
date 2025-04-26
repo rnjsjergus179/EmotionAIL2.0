@@ -46,18 +46,19 @@ app.get('/api/naver-search', async (req, res) => {
       }
     );
 
-    // 2) 텍스트 변환 (여기서는 item.title 과 item.link 를 줄바꿈으로 이어붙임)
+    // 2) 텍스트 변환
     const lines = data.items.map(item => `[${item.title}](${item.link})`);
     const txtContent = lines.join('\n');
     const fileName = `naver-${Date.now()}.txt`;
     const filePath = path.join(tmpDir, fileName);
     fs.writeFileSync(filePath, txtContent, 'utf-8');
 
-    // 3) DB 저장 (db.js 의 saveSearchData 에 파일 경로를 넘겨줍니다)
+    // 3) DB 저장 (파일 경로 전달)
     await saveSearchData('naver', query, filePath);
 
     console.log(`✅ 네이버 검색 저장 완료: "${query}" → ${fileName}`);
-    res.json({ message: `네이버 검색 저장 완료: ${query}`, file: fileName });
+    // 4) 프론트엔드 응답은 원래대로
+    res.json(data);
   } catch (err) {
     console.error(`❌ 네이버 API 오류: ${err.message}`);
     res.status(500).json({ error: '네이버 검색 실패' });
@@ -85,7 +86,7 @@ app.get('/api/youtube-search', async (req, res) => {
       }
     );
 
-    // 2) 텍스트 변환 (제목과 URL)
+    // 2) 텍스트 변환
     const lines = data.items.map(item => {
       const vid = item.id.videoId;
       const url = vid ? `https://www.youtube.com/watch?v=${vid}` : '';
@@ -100,17 +101,8 @@ app.get('/api/youtube-search', async (req, res) => {
     await saveSearchData('youtube', query, filePath);
 
     console.log(`💾 YouTube 검색 저장 완료: "${query}" → ${fileName}`);
-    // 4) 프론트엔드엔 원래처럼 JSON items 로 반환해도 되고, 저장 파일명만 넘겨도 됩니다
-    res.json({
-      message: `YouTube 검색 저장 완료: ${query}`,
-      file: fileName,
-      items: data.items.map(item => ({
-        title: item.snippet.title,
-        url: item.id.videoId
-          ? `https://www.youtube.com/watch?v=${item.id.videoId}`
-          : ''
-      }))
-    });
+    // 4) 프론트엔드 응답은 원래대로
+    res.json(data);
   } catch (err) {
     console.error(`❌ YouTube API 오류: ${err.message}`);
     res.status(500).json({ error: 'YouTube 검색 실패' });
