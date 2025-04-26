@@ -1,4 +1,3 @@
-// backend/db.js
 require('dotenv').config();
 const mongoose = require('mongoose');
 
@@ -94,10 +93,11 @@ async function saveSearchData(source, query, results) {
   try {
     const tokens = tokenizeQuery(query);             // 검색어를 토큰화
     const intent = recognizeIntent(combineTokens(tokens)); // 의도 인식
+    console.log(`🔄 [${source}] "${query}" 저장 시도 중...`); // 저장 시도 로그 추가
     await SearchLog.create({ source, query, tokens, intent, results }); // DB에 저장
-    console.log(`✅ [${source}] "${query}" 저장 완료`);
+    console.log(`✅ [${source}] "${query}" 저장 완료`); // 저장 성공 로그
   } catch (err) {
-    console.error(`❌ [${source}] 저장 실패: ${err.message}`);
+    console.error(`❌ [${source}] 저장 실패: ${err.message}`); // 저장 실패 로그
   }
 }
 
