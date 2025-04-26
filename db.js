@@ -1,6 +1,6 @@
+// backend/db.js
 require('dotenv').config();
 const mongoose = require('mongoose');
-const { google } = require('googleapis');
 
 // 1) MongoDB 연결 함수
 async function connectDB() {
@@ -23,68 +23,28 @@ async function connectDB() {
 
 // 2) SearchLog 스키마 정의
 const SearchLogSchema = new mongoose.Schema({
-  source: {
-    type: String,
-    enum: ['google', 'youtube', 'naver'],
-    required: true
-  },
-  query:    { type: String, required: true },       // 원본 검색 쿼리
-  tokens:   [String],                               // 토큰화된 결과
-  intent:   { type: String },                       // 의도 인식 결과
-  results:  mongoose.Schema.Types.Mixed,            // API 응답 데이터
-  createdAt: { type: Date, default: Date.now }      // 생성 시간
+  source: { type: String, enum: ['google', 'youtube', 'naver'], required: true },
+  query: { type: String, required: true },
+  tokens: [String],
+  intent: { type: String },
+  results: mongoose.Schema.Types.Mixed,
+  createdAt: { type: Date, default: Date.now }
 });
 
-// 3) InteractionLog 스키마 정의
-const InteractionSchema = new mongoose.Schema({
-  userInput:    { type: String, required: true },   // 사용자 입력
-  botResponse:  { type: String, required: true },   // 봇 응답
-  emotionCounts: {
-    positive: { type: Number, default: 0 },         // 긍정 감정
-    negative: { type: Number, default: 0 },         // 부정 감정
-    surprise: { type: Number, default: 0 }          // 놀람 감정
-  },
-  timestamp:    { type: Date, default: Date.now }   // 타임스탬프
-});
-
-// 4) 모델 생성
+// 3) 모델 생성
 const SearchLog = mongoose.model('SearchLog', SearchLogSchema);
-const InteractionLog = mongoose.model('InteractionLog', InteractionSchema);
 
-// 5) 유튜브 API 클라이언트 설정
-const youtube = google.youtube({
-  version: 'v3',
-  auth: process.env.YOUTUBE_API_KEY
-});
-
-// 6) 유튜브 검색 함수
-async function searchYouTube(query) {
-  try {
-    const response = await youtube.search.list({
-      part: 'snippet',
-      q: query,
-      maxResults: 10
-    });
-    const results = response.data.items;
-    await saveSearchData('youtube', query, results);
-    return results;
-  } catch (error) {
-    console.error(`❌ 유튜브 검색 실패: ${error.message}`);
-    throw error;
-  }
-}
-
-// 7) 자모음 토큰화 함수
+// 4) 한글 자모 분리용 테이블
 const CHOSEONG = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
 const JUNGSEONG = ['ㅏ', 'ㅐ', 'ㅑ', 'ㅒ', 'ㅓ', 'ㅔ', 'ㅕ', 'ㅖ', 'ㅗ', 'ㅘ', 'ㅙ', 'ㅚ', 'ㅛ', 'ㅜ', 'ㅝ', 'ㅞ', 'ㅟ', 'ㅠ', 'ㅡ', 'ㅢ', 'ㅣ'];
 const JONGSEONG = ['', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ', 'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
 
+// 5) 자모음으로 토큰화
 function tokenizeQuery(query) {
   const tokens = [];
-  
   for (let char of query) {
     const code = char.charCodeAt(0);
-    if (code >= 44032 && code <= 55203) {
+    if (code >= 44032 && code <= 55203) { // 한글 완성형 범위
       const uni = code - 44032;
       const choIdx = Math.floor(uni / (21 * 28));
       const jungIdx = Math.floor((uni % (21 * 28)) / 28);
@@ -94,14 +54,41 @@ function tokenizeQuery(query) {
       tokens.push(JUNGSEONG[jungIdx]);
       if (jongIdx > 0) tokens.push(JONGSEONG[jongIdx]);
     } else {
-      tokens.push(char);
+      tokens.push(char); // 영어, 숫자 등은 그대로
     }
   }
-  
-  return tokens.filter(token => token.length > 0);
+  return tokens;
 }
 
-// 8) 의도 인식 함수 (규칙 기반)
+// 6) 토큰화된 자모 조합해서 복원
+function combineTokens(tokens) {
+  let result = '';
+  let i = 0;
+
+  while (i < tokens.length) {
+    const choIdx = CHOSEONG.indexOf(tokens[i]);
+    const jungIdx = JUNGSEONG.indexOf(tokens[i + 1]);
+    let jongIdx = 0;
+
+    if (i + 2 < tokens.length) {
+      jongIdx = JONGSEONG.indexOf(tokens[i + 2]);
+      if (jongIdx < 0) jongIdx = 0;
+    }
+
+    if (choIdx >= 0 && jungIdx >= 0) {
+      const code = 44032 + (choIdx * 21 + jungIdx) * 28 + jongIdx;
+      result += String.fromCharCode(code);
+      i += jongIdx > 0 ? 3 : 2;
+    } else {
+      result += tokens[i];
+      i++;
+    }
+  }
+
+  return result;
+}
+
+// 7) 의도 인식 함수 (심플 규칙)
 function recognizeIntent(query) {
   const weatherKeywords = ['날씨', '기온', '비', '눈'];
   const newsKeywords = ['뉴스', '기사', '이슈'];
@@ -115,40 +102,12 @@ function recognizeIntent(query) {
   }
 }
 
-// 9) 감정 분석 및 반복 학습 함수
-async function updateEmotionCounts() {
-  try {
-    const logs = await InteractionLog.find({});
-    for (const log of logs) {
-      const positiveWords = ['좋다', '기쁘다', '행복'];
-      const negativeWords = ['나쁘다', '슬프다', '화나다'];
-      const surpriseWords = ['놀라다', '신기하다'];
-
-      let positive = 0, negative = 0, surprise = 0;
-      positiveWords.forEach(word => {
-        if (log.userInput.includes(word)) positive++;
-      });
-      negativeWords.forEach(word => {
-        if (log.userInput.includes(word)) negative++;
-      });
-      surpriseWords.forEach(word => {
-        if (log.userInput.includes(word)) surprise++;
-      });
-
-      log.emotionCounts = { positive, negative, surprise };
-      await log.save();
-    }
-    console.log('✅ 감정 카운트 업데이트 완료');
-  } catch (error) {
-    console.error(`❌ 감정 카운트 업데이트 실패: ${error.message}`);
-  }
-}
-
-// 10) 데이터 저장 함수 (server.js에서 호출용)
+// 8) 데이터 저장 함수 (server.js에서 호출)
 async function saveSearchData(source, query, results) {
   try {
-    const tokens = tokenizeQuery(query);
-    const intent = recognizeIntent(query);
+    const tokens = tokenizeQuery(query);  // 1. 쿼리 → 토큰화
+    const combinedQuery = combineTokens(tokens); // 2. 토큰 → 다시 조합 (검증용)
+    const intent = recognizeIntent(combinedQuery); // 3. 의도 인식
 
     await SearchLog.create({
       source,
@@ -163,12 +122,9 @@ async function saveSearchData(source, query, results) {
   }
 }
 
-// 11) 내보내기
+// 9) 내보내기
 module.exports = {
   connectDB,
   SearchLog,
-  InteractionLog,
-  saveSearchData,
-  updateEmotionCounts,
-  searchYouTube
+  saveSearchData
 };
