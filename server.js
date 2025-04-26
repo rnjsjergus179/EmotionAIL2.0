@@ -1,15 +1,15 @@
 require('dotenv').config();
 const express = require('express');
-const cors    = require('cors');
-const path    = require('path');
-const axios   = require('axios');
+const cors = require('cors');
+const path = require('path');
+const axios = require('axios');
 const { connectDB, saveSearchData } = require('./db.js');
 
 // (search, weather 유지, youtubeRoute 제거)
-const searchRoute  = require('./search');
+const searchRoute = require('./search');
 const weatherRoute = require('./weather');
 
-const app  = express();
+const app = express();
 const port = process.env.PORT || 3000;
 
 // 1) MongoDB 연결
@@ -33,7 +33,7 @@ app.get('/api/naver-search', async (req, res) => {
       {
         params: { query },
         headers: {
-          'X-Naver-Client-Id':     process.env.NAVER_CLIENT_ID,
+          'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
           'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
         }
       }
@@ -57,15 +57,15 @@ app.get('/api/youtube-search', async (req, res) => {
   try {
     console.log(`🔍 YouTube 검색 요청: "${query}"`);
 
-    // 구글 클라우드 API를 사용한 YouTube 검색
+    // YouTube Data API v3를 사용한 검색
     const { data } = await axios.get(
       'https://www.googleapis.com/youtube/v3/search',
       {
         params: {
-          part:       'snippet',
-          q:          query,
+          part: 'snippet',
+          q: query,
           maxResults: 10,
-          key:        process.env.GOOGLE_CLOUD_API_KEY // 구글 클라우드 API 키 사용
+          key: process.env.GOOGLE_API_KEY // GOOGLE_API_KEY 사용
         }
       }
     );
