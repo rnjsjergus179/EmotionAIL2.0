@@ -1,3 +1,4 @@
+// server.js (프로젝트 루트에 위치)
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
@@ -55,13 +56,15 @@ app.get('/api/naver-search', async (req, res) => {
   }
 });
 
-// 5) YouTube 검색 + DB 저장
+// 5) YouTube 검색 + DB 저장 (로그 추가)
 app.get('/api/youtube-search', async (req, res) => {
   const query = req.query.q;
-  console.log('🔍 YouTube 검색 요청:', query); // 로그 추가
   if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
 
   try {
+    // 🔍 YouTube 검색 요청 로그
+    console.log(`🔍 YouTube 검색 요청: "${query}"`);
+
     const { data } = await axios.get(
       'https://www.googleapis.com/youtube/v3/search',
       {
@@ -74,8 +77,17 @@ app.get('/api/youtube-search', async (req, res) => {
       }
     );
 
+    // ✅ YouTube API 호출 완료 로그
+    console.log(`✅ YouTube API 호출 완료: "${query}"`);
+
+    // 🔗 db.js로 넘겨집니다 로그
+    console.log(`🔗 db.js로 넘겨집니다: "${query}"`);
+
     // db.js에 정의된 함수로 저장
     await saveSearchData('youtube', query, data);
+
+    // 💾 db.js에서 저장 완료 로그
+    console.log(`💾 db.js에서 저장 완료: "${query}"`);
 
     res.json(data);
   } catch (err) {
