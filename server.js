@@ -4,7 +4,6 @@ const express       = require('express');
 const cors          = require('cors');
 const axios         = require('axios');
 const path          = require('path');
-// ✅ 여기에 connectDB, saveSearchData 를 불러옵니다.
 const { connectDB, saveSearchData } = require('./db.js');
 
 const app  = express();
@@ -13,17 +12,17 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// DB 연결이 완료된 후에 라우트 등록 & 서버 시작
+// DB 연결 및 서버 시작
 connectDB()
   .then(() => {
     console.log('✅ MongoDB 연결 완료');
 
-    // — 라우트 정의 시작 — 
-
     // 네이버 검색
     app.get('/api/naver-search', async (req, res) => {
       const query = req.query.q;
-      if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
+      if (!query) {
+        return res.status(400).json({ error: '검색어가 필요합니다.' });
+      }
 
       try {
         const { data } = await axios.get(
@@ -37,10 +36,10 @@ connectDB()
           }
         );
 
-        // API 응답 데이터 전체(data) → db.js 에서 자동으로 라인 추출→자모 토큰화→저장
+        // DB에 자모 토큰화된 결과 저장
         await saveSearchData('naver', query, data);
 
-        // 클라이언트에는 필요한 형태로만 응답
+        // 클라이언트에 필요한 데이터만 반환
         const items = data.items.map(item => ({
           title: item.title,
           link:  item.link
@@ -52,10 +51,12 @@ connectDB()
       }
     });
 
-    // 유튜브 검색
+    // 유튜브 검색 (GOOGLE_API_KEY 복구)
     app.get('/api/youtube-search', async (req, res) => {
       const query = req.query.q;
-      if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
+      if (!query) {
+        return res.status(400).json({ error: '검색어가 필요합니다.' });
+      }
 
       try {
         const { data } = await axios.get(
@@ -65,15 +66,15 @@ connectDB()
               part:       'snippet',
               q:          query,
               maxResults: 10,
-              key:        process.env.GOOGLE_API_KEY
+              key:        process.env.GOOGLE_API_KEY    // ← 복구된 구글 API 키
             }
           }
         );
 
-        // API 응답 전체를 넘겨 자모 토큰화 저장
+        // DB에 자모 토큰화된 결과 저장
         await saveSearchData('youtube', query, data);
 
-        // 클라이언트 응답
+        // 클라이언트에 필요한 데이터만 반환
         const items = data.items.map(i => {
           const vid = i.id.videoId;
           return {
@@ -88,14 +89,13 @@ connectDB()
       }
     });
 
-    // (필요한 경우) 다른 라우트, 정적 파일 서빙 등…
+    // 정적 파일 서빙
     app.use(express.static(path.join(__dirname, 'public')));
 
     // 서버 리스닝
     app.listen(port, () => {
       console.log(`🚀 서버 실행 중: http://localhost:${port}`);
     });
-
   })
   .catch(err => {
     console.error(`❌ MongoDB 연결 오류:`, err.stack);
