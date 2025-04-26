@@ -24,7 +24,7 @@ async function connectDB() {
 const SearchLogSchema = new mongoose.Schema({
   source: {
     type: String,
-    enum: ['google','youtube','naver'],
+    enum: ['youtube', 'naver'],   // ← 'google' 제거
     required: true
   },
   query:    { type: String, required: true },      // 원본 쿼리
