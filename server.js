@@ -1,17 +1,22 @@
+// server.js (프로젝트 루트에 위치)
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const axios = require('axios');
-const fs = require('fs'); // 파일 시스템 모듈 추가
+const cors    = require('cors');
+const path    = require('path');
+const fs      = require('fs');
+const axios   = require('axios');
 const { connectDB, saveSearchData } = require('./db.js');
 
 // (search, weather 유지, youtubeRoute 제거)
-const searchRoute = require('./search');
+const searchRoute  = require('./search');
 const weatherRoute = require('./weather');
 
-const app = express();
+const app  = express();
 const port = process.env.PORT || 3000;
+
+// 임시 파일 저장용 디렉토리 생성
+const tmpDir = path.join(__dirname, 'tmp');
+if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
 
 // 1) MongoDB 연결
 connectDB().catch(err => {
@@ -23,42 +28,43 @@ connectDB().catch(err => {
 app.use(cors());
 app.use(express.json());
 
-// 3) 네이버 검색 + DB 저장
+// 3) 네이버 검색 → 텍스트 파일로 변환 → DB 저장
 app.get('/api/naver-search', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
 
   try {
+    // 1) 네이버 API 호출
     const { data } = await axios.get(
       'https://openapi.naver.com/v1/search/webkr.json',
       {
         params: { query },
         headers: {
-          'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
+          'X-Naver-Client-Id':     process.env.NAVER_CLIENT_ID,
           'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
         }
       }
     );
 
-    // API 응답을 JSON 문자열로 변환
-    const dataString = JSON.stringify(data, null, 2);
-    
-    // .txt 파일로 저장
-    const filePath = path.join(__dirname, 'naver_search_result.txt');
-    fs.writeFileSync(filePath, dataString);
+    // 2) 텍스트 변환 (여기서는 item.title 과 item.link 를 줄바꿈으로 이어붙임)
+    const lines = data.items.map(item => `[${item.title}](${item.link})`);
+    const txtContent = lines.join('\n');
+    const fileName = `naver-${Date.now()}.txt`;
+    const filePath = path.join(tmpDir, fileName);
+    fs.writeFileSync(filePath, txtContent, 'utf-8');
 
-    // 파일 경로를 saveSearchData에 전달
+    // 3) DB 저장 (db.js 의 saveSearchData 에 파일 경로를 넘겨줍니다)
     await saveSearchData('naver', query, filePath);
 
-    console.log(`✅ 네이버 검색 저장 완료: "${query}"`);
-    res.json({ message: `네이버 검색 저장 완료: ${query}` });
+    console.log(`✅ 네이버 검색 저장 완료: "${query}" → ${fileName}`);
+    res.json({ message: `네이버 검색 저장 완료: ${query}`, file: fileName });
   } catch (err) {
     console.error(`❌ 네이버 API 오류: ${err.message}`);
     res.status(500).json({ error: '네이버 검색 실패' });
   }
 });
 
-// 4) YouTube 검색 + DB 저장 + items 같이 반환
+// 4) YouTube 검색 → 텍스트 파일로 변환 → DB 저장
 app.get('/api/youtube-search', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
@@ -66,37 +72,43 @@ app.get('/api/youtube-search', async (req, res) => {
   try {
     console.log(`🔍 YouTube 검색 요청: "${query}"`);
 
-    // YouTube Data API v3를 사용한 검색
+    // 1) YouTube Data API 호출
     const { data } = await axios.get(
       'https://www.googleapis.com/youtube/v3/search',
       {
         params: {
-          part: 'snippet',
-          q: query,
+          part:       'snippet',
+          q:          query,
           maxResults: 10,
-          key: process.env.GOOGLE_API_KEY // GOOGLE_API_KEY 사용
+          key:        process.env.YOUTUBE_API_KEY
         }
       }
     );
 
-    // API 응답을 JSON 문자열로 변환
-    const dataString = JSON.stringify(data, null, 2);
-    
-    // .txt 파일로 저장
-    const filePath = path.join(__dirname, 'youtube_search_result.txt');
-    fs.writeFileSync(filePath, dataString);
+    // 2) 텍스트 변환 (제목과 URL)
+    const lines = data.items.map(item => {
+      const vid = item.id.videoId;
+      const url = vid ? `https://www.youtube.com/watch?v=${vid}` : '';
+      return `${item.snippet.title} → ${url}`;
+    });
+    const txtContent = lines.join('\n');
+    const fileName = `youtube-${Date.now()}.txt`;
+    const filePath = path.join(tmpDir, fileName);
+    fs.writeFileSync(filePath, txtContent, 'utf-8');
 
-    // 파일 경로를 saveSearchData에 전달
+    // 3) DB 저장
     await saveSearchData('youtube', query, filePath);
 
-    console.log(`💾 YouTube 검색 저장 완료: "${query}"`);
-
-    // 검색 결과를 프론트로 반환 (items 포함)
+    console.log(`💾 YouTube 검색 저장 완료: "${query}" → ${fileName}`);
+    // 4) 프론트엔드엔 원래처럼 JSON items 로 반환해도 되고, 저장 파일명만 넘겨도 됩니다
     res.json({
       message: `YouTube 검색 저장 완료: ${query}`,
+      file: fileName,
       items: data.items.map(item => ({
         title: item.snippet.title,
-        url: `https://www.youtube.com/watch?v=${item.id.videoId}`
+        url: item.id.videoId
+          ? `https://www.youtube.com/watch?v=${item.id.videoId}`
+          : ''
       }))
     });
   } catch (err) {
