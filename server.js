@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const axios = require('axios');
+const fs = require('fs'); // 파일 시스템 모듈 추가
 const { connectDB, saveSearchData } = require('./db.js');
 
 // (search, weather 유지, youtubeRoute 제거)
@@ -39,7 +40,15 @@ app.get('/api/naver-search', async (req, res) => {
       }
     );
 
-    await saveSearchData('naver', query, data);
+    // API 응답을 JSON 문자열로 변환
+    const dataString = JSON.stringify(data, null, 2);
+    
+    // .txt 파일로 저장
+    const filePath = path.join(__dirname, 'naver_search_result.txt');
+    fs.writeFileSync(filePath, dataString);
+
+    // 파일 경로를 saveSearchData에 전달
+    await saveSearchData('naver', query, filePath);
 
     console.log(`✅ 네이버 검색 저장 완료: "${query}"`);
     res.json({ message: `네이버 검색 저장 완료: ${query}` });
@@ -70,7 +79,15 @@ app.get('/api/youtube-search', async (req, res) => {
       }
     );
 
-    await saveSearchData('youtube', query, data);
+    // API 응답을 JSON 문자열로 변환
+    const dataString = JSON.stringify(data, null, 2);
+    
+    // .txt 파일로 저장
+    const filePath = path.join(__dirname, 'youtube_search_result.txt');
+    fs.writeFileSync(filePath, dataString);
+
+    // 파일 경로를 saveSearchData에 전달
+    await saveSearchData('youtube', query, filePath);
 
     console.log(`💾 YouTube 검색 저장 완료: "${query}"`);
 
