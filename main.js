@@ -647,45 +647,50 @@ window.addEventListener("resize", function() {
   }
 });
 
-window.addEventListener("load", async () => {
+// MongoDB 데이터 가져오기 및 표시 함수
+async function fetchAndDisplayData() {
+  try {
+    console.log('🔍 [main.js] /api/getData 호출 중...');
+    const res = await fetch(`${API_BASE_URL}/api/getData`);
+    if (!res.ok) throw new Error(`status ${res.status}`);
+    const docs = await res.json();
+
+    console.log(`🎉 [main.js] ${docs.length}개 문서 수신 완료`);
+    console.log('💯 main.js: 몽고 API 호출 완료!');
+
+    // 1) 각 문서의 results 배열을 flatten하고 토큰을 문자열로 결합
+    const lines = docs.flatMap(doc =>
+      doc.results.map(tokens => tokens.join(''))
+    );
+
+    // 2) processText로 자모음 및 영단어 처리
+    const processed = lines.map(line => processText(line));
+
+    // 3) 화면에 출력
+    const displayEl = document.getElementById('data-display');
+    if (!displayEl) {
+      console.error('[main.js] data-display 요소를 찾을 수 없습니다.');
+      return;
+    }
+    displayEl.innerHTML = processed.join('<br>');
+  } catch (err) {
+    console.error('[main.js] MongoDB 데이터 가져오기 실패:', err);
+  }
+}
+
+// 페이지 로드 시 실행될 init 함수
+async function init() {
+  // 기존 초기화 함수 호출
   initCalendar();
   updateMap();
   await updateWeatherAndEffects();
 
   // MongoDB 데이터 가져오기 및 표시
-  async function fetchAndDisplayData() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/getData`);
-      if (!response.ok) throw new Error("데이터 가져오기 실패");
-      const dbData = await response.json(); // Array of docs
+  await fetchAndDisplayData();
+}
 
-      // 1) 각 문서의 results 배열 (줄별 토큰배열) → 문자열로 재조합
-      const lines = dbData.flatMap(doc =>
-        doc.results.map(tokenArr => tokenArr.join(''))
-      );
-
-      // 2) processText로 자모·영단어 버퍼링
-      const processedLines = lines.map(line => processText(line));
-
-      // 3) 화면에 출력
-      const dataDisplay = document.getElementById("data-display");
-      if (!dataDisplay) {
-        console.error("data-display 요소를 찾을 수 없습니다.");
-        return;
-      }
-      dataDisplay.innerHTML = processedLines.join('<br>');
-
-      console.log('몽고 API 호출 성공😃');
-      console.log('😃 main.js에 자모음과 영단어가 데이터에 쌓입니다.');
-      console.log('👍 나머지 불필요한 데이터는 제거됩니다.');
-      console.log('💯 성공적으로 완료되었습니다.');
-    } catch (error) {
-      console.error("데이터 가져오기 오류:", error);
-    }
-  }
-
-  fetchAndDisplayData();
-});
+// window.load 이벤트에 init 함수 연결
+window.addEventListener('load', init);
 
 /***** 캘린더 렌더링 *****/
 let currentYear, currentMonth;
