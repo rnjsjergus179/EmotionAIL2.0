@@ -29,6 +29,7 @@ const KEYWORDS = {
 const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 
 /***** 전역 변수 *****/
+document.addEventListener("contextmenu", event => event.preventDefault());
 let currentCity = "서울";
 let currentWeather = "";
 const regionMap = {
@@ -1079,11 +1080,6 @@ const head = new THREE.Mesh(
 head.position.y = 1.2;
 
 const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-const left	AddEventListener("copy", function(e) {
-  e.preventDefault();
-  let selectedText = window.getSelection().toString();
-  e.clipboardData.setData("text/plain", selectedText);
-});
 const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), eyeMat);
 const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), eyeMat);
 leftEye.position.set(-0.2, 1.3, 0.45);
