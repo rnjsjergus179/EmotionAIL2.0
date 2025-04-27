@@ -163,7 +163,7 @@ async function processNLP(input) {
     const response = await fetch(`${API_BASE_URL}/api/nlp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: input, processedData: processedData }) // processedData 추가
+      body: JSON.stringify({ text: input, processedData: processedData })
     });
     if (!response.ok) throw new Error("NLP 서버 응답 오류");
     const data = await response.json();
@@ -187,7 +187,7 @@ async function detectIntent(input) {
     const response = await fetch(`${API_BASE_URL}/api/intent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: input, processedData: processedData }) // processedData 추가
+      body: JSON.stringify({ text: input, processedData: processedData })
     });
     if (!response.ok) throw new Error("의도 인식 서버 응답 오류");
     const data = await response.json();
@@ -689,7 +689,7 @@ async function fetchAndDisplayData() {
 window.addEventListener("load", async () => {
   console.log("🔄 [main.js] window.load 이벤트 진입");
   try {
-    await loadProcessedData(); // processed data 로드 추가
+    await loadProcessedData();
     initCalendar();
     updateMap();
     await updateWeatherAndEffects();
@@ -1065,7 +1065,8 @@ cloudRainGroup.visible = false;
 houseCloudGroup.add(cloudRainGroup);
 
 function updateHouseClouds() {
-  if (typeof—Ihead === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
+  // 수정: `typeof—Ihead` 오타를 `typeof head`로 수정
+  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
   const headWorldPos = new THREE.Vector3();
   try {
     head.getWorldPosition(headWorldPos);
@@ -1167,8 +1168,11 @@ function animate() {
   requestAnimationFrame(animate);
   const now = new Date();
   const headWorldPos = new THREE.Vector3();
+  // 수정: 예외 처리를 위한 try-catch 추가
   try {
-    head.getWorldPosition(headWorldPos);
+    if (typeof head !== 'undefined' && head !== null && typeof head.getWorldPosition === "function") {
+      head.getWorldPosition(headWorldPos);
+    }
   } catch (err) {
     console.error("애니메이트 중 head.getWorldPosition 에러:", err);
   }
@@ -1265,6 +1269,7 @@ function updateBubblePosition() {
   if (!bubble) return;
   if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
   const headWorldPos = new THREE.Vector3();
+  // 수정: 예외 처리를 위한 try-catch 추가
   try {
     head.getWorldPosition(headWorldPos);
   } catch (err) {
