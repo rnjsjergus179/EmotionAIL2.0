@@ -657,14 +657,28 @@ window.addEventListener("load", async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/getData`);
       if (!response.ok) throw new Error("데이터 가져오기 실패");
-      const dbData = await response.json();
-      const processedData = dbData.map(processText).join('<br>');
+      const dbData = await response.json(); // Array of docs
+
+      // 1) 각 문서의 results 배열 (줄별 토큰배열) → 문자열로 재조합
+      const lines = dbData.flatMap(doc =>
+        doc.results.map(tokenArr => tokenArr.join(''))
+      );
+
+      // 2) processText로 자모·영단어 버퍼링
+      const processedLines = lines.map(line => processText(line));
+
+      // 3) 화면에 출력
       const dataDisplay = document.getElementById("data-display");
-      if (dataDisplay) {
-        dataDisplay.innerHTML = processedData;
-      } else {
+      if (!dataDisplay) {
         console.error("data-display 요소를 찾을 수 없습니다.");
+        return;
       }
+      dataDisplay.innerHTML = processedLines.join('<br>');
+
+      console.log('몽고 API 호출 성공😃');
+      console.log('😃 main.js에 자모음과 영단어가 데이터에 쌓입니다.');
+      console.log('👍 나머지 불필요한 데이터는 제거됩니다.');
+      console.log('💯 성공적으로 완료되었습니다.');
     } catch (error) {
       console.error("데이터 가져오기 오류:", error);
     }
