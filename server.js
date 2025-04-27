@@ -11,8 +11,8 @@ const weatherRoute = require('./weather');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// CORS 설정
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://www.emotionail.site';
+// CORS 설정: 올바른 클라이언트 도메인으로 수정
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'https://www.emotionail.site';
 app.use(cors({
   origin: CLIENT_ORIGIN,
   methods: ['GET', 'POST'],
@@ -26,6 +26,7 @@ connectDB()
   .then(() => {
     console.log('✅ MongoDB 연결 완료');
 
+    // 네이버 검색 API
     app.get('/api/naver-search', async (req, res) => {
       const query = req.query.q;
       if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
@@ -46,6 +47,7 @@ connectDB()
       }
     });
 
+    // 유튜브 검색 API
     app.get('/api/youtube-search', async (req, res) => {
       const query = req.query.q;
       if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
@@ -65,6 +67,7 @@ connectDB()
       }
     });
 
+    // MongoDB 데이터 불러오기 API
     app.get('/api/getData', async (req, res) => {
       try {
         const data = await getAllSearchData();
