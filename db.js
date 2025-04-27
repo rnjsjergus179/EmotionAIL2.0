@@ -9,7 +9,7 @@ async function connectDB() {
   }
   try {
     await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
+      useNewUrlParser:    true,
       useUnifiedTopology: true
     });
     console.log('✅ MongoDB에 연결되었습니다.');
@@ -87,7 +87,6 @@ const MAX_LINE_LENGTH = 1000;
 async function saveSearchData(source, query, resultsData) {
   console.log(`[saveSearchData] source=${source}, query=${query}`);
 
-  // a) 텍스트 라인 추출
   let textLines;
   if (typeof resultsData === 'string') {
     textLines = resultsData.split('\n');
@@ -96,34 +95,21 @@ async function saveSearchData(source, query, resultsData) {
   }
   console.log(`[saveSearchData] 추출된 라인 수: ${textLines.length}`);
 
-  // b) 최대 라인 수 제한
   if (textLines.length > MAX_LINES) {
     console.warn(`[saveSearchData] 라인 수(${textLines.length}) > MAX_LINES(${MAX_LINES}), 자릅니다.`);
     textLines = textLines.slice(0, MAX_LINES);
   }
 
-  // c) 줄당 최대 길이 제한
   textLines = textLines.map(line =>
     line.length > MAX_LINE_LENGTH ? line.slice(0, MAX_LINE_LENGTH) : line
   );
-
   console.log(`[saveSearchData] 최종 라인 수: ${textLines.length}`);
 
-  // d) 자모 토큰화
   const tokenizedResults = textLines.map(line => tokenizeQuery(line));
-
-  // e) 검색어 자모 토큰화 + 의도 인식
   const tokens = tokenizeQuery(query);
   const intent = recognizeIntent(query);
 
-  // f) MongoDB 저장
-  const doc = new SearchLog({
-    source,
-    query,
-    tokens,
-    intent,
-    results: tokenizedResults
-  });
+  const doc = new SearchLog({ source, query, tokens, intent, results: tokenizedResults });
   const saved = await doc.save();
   console.log(`[saveSearchData] 저장 완료 _id=${saved._id}`);
 }
@@ -143,18 +129,27 @@ function combineJamo(tokens) {
       result += token;
     }
   }
-  if (jamoBuffer) {
-    result += jamoBuffer.normalize('NFC');
-  }
+  if (jamoBuffer) result += jamoBuffer.normalize('NFC');
   return result;
 }
 
-// 10) 전체 검색 기록 가져오기 (자모음 결합 처리)
+// 10) 전체 검색 기록 가져오기 (lean + guard + 결합 처리)
 async function getAllSearchData() {
-  const data = await SearchLog.find().sort({ createdAt: -1 }).limit(100);
-  return data.map(doc => ({
-    ...doc._doc,
-    results: doc.results.map(line => combineJamo(line))
+  const docs = await SearchLog.find()
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .lean();  // 순수 JS 객체로
+
+  return docs.map(doc => ({
+    source:    doc.source,
+    query:     doc.query,
+    tokens:    doc.tokens || [],
+    intent:    doc.intent,
+    createdAt: doc.createdAt,
+    // guard: results가 배열이 아니면 빈 배열로, 있으면 자모 결합
+    results: Array.isArray(doc.results)
+      ? doc.results.map(lineTokens => combineJamo(lineTokens))
+      : []
   }));
 }
 
