@@ -32,6 +32,7 @@ const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 document.addEventListener("contextmenu", event => event.preventDefault());
 let currentCity = "서울";
 let currentWeather = "";
+let processedData = null; // processed data를 저장할 전역 변수 추가
 const regionMap = {
   "서울": "Seoul",
   "인천": "Incheon",
@@ -59,11 +60,34 @@ const regionMap = {
 };
 const regionList = Object.keys(regionMap);
 
+// processed data를 가져오는 함수
+async function fetchProcessedData() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/processed-data`);
+    if (!response.ok) throw new Error("Processed data 가져오기 실패");
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Processed data 가져오기 오류:", error);
+    return null;
+  }
+}
+
+// processed data를 로드하고 전역 변수에 저장하는 함수
+async function loadProcessedData() {
+  processedData = await fetchProcessedData();
+  if (processedData) {
+    console.log("Processed data가 성공적으로 로드되었습니다:", processedData);
+  } else {
+    console.error("Processed data 로드 실패");
+  }
+}
+
 // 자모음 및 영어 처리 함수
 function processText(text) {
   let result = '';
-  let jamoBuffer = ''; // 자모음을 모으는 버퍼
-  let englishBuffer = ''; // 영어 알파벳을 모으는 버퍼
+  let jamoBuffer = '';
+  let englishBuffer = '';
 
   for (let char of text) {
     if (/[\u1100-\u11FF\u3131-\u318E]/.test(char)) {
@@ -90,13 +114,8 @@ function processText(text) {
     }
   }
 
-  if (jamoBuffer) {
-    result += jamoBuffer.normalize('NFC') + ' ';
-  }
-  if (englishBuffer) {
-    result += englishBuffer + ' ';
-  }
-
+  if (jamoBuffer) result += jamoBuffer.normalize('NFC') + ' ';
+  if (englishBuffer) result += englishBuffer + ' ';
   return result.trim();
 }
 
@@ -144,7 +163,7 @@ async function processNLP(input) {
     const response = await fetch(`${API_BASE_URL}/api/nlp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: input })
+      body: JSON.stringify({ text: input, processedData: processedData }) // processedData 추가
     });
     if (!response.ok) throw new Error("NLP 서버 응답 오류");
     const data = await response.json();
@@ -168,7 +187,7 @@ async function detectIntent(input) {
     const response = await fetch(`${API_BASE_URL}/api/intent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: input })
+      body: JSON.stringify({ text: input, processedData: processedData }) // processedData 추가
     });
     if (!response.ok) throw new Error("의도 인식 서버 응답 오류");
     const data = await response.json();
@@ -637,20 +656,14 @@ window.addEventListener("resize", function() {
 // MongoDB 데이터 가져오기 및 표시 함수 (로깅 추가)
 async function fetchAndDisplayData() {
   console.log("🔍 [main.js] fetchAndDisplayData 시작");
-
-  // API 호출
   const res = await fetch(`${API_BASE_URL}/api/getData`);
   console.log(`📨 [main.js] /api/getData 응답 상태: ${res.status}`);
-
   if (!res.ok) {
     console.error("❌ [main.js] /api/getData 실패");
     return;
   }
-
   const docs = await res.json();
   console.log(`✅ [main.js] /api/getData JSON 파싱 완료, 문서 개수: ${docs.length}`);
-
-  // 토큰 배열 → 문자열
   const lines = docs.flatMap(doc =>
     doc.results.map(tokens => {
       const str = tokens.join("");
@@ -658,15 +671,11 @@ async function fetchAndDisplayData() {
       return str;
     })
   );
-
-  // 자모/영문 처리
   const processed = lines.map(line => {
     const p = processText(line);
     console.log("✏️ [main.js] processText:", p);
     return p;
   });
-
-  // 화면에 뿌리기
   const container = document.getElementById("data-display");
   if (!container) {
     console.error("❌ [main.js] data-display 요소를 찾을 수 없음");
@@ -679,17 +688,14 @@ async function fetchAndDisplayData() {
 // 페이지 로드 시 실행
 window.addEventListener("load", async () => {
   console.log("🔄 [main.js] window.load 이벤트 진입");
-
   try {
-    // 기존 초기화 함수 호출
+    await loadProcessedData(); // processed data 로드 추가
     initCalendar();
     updateMap();
     await updateWeatherAndEffects();
-
-    // MongoDB 데이터 가져오기 및 표시
     await fetchAndDisplayData();
   } catch (err) {
-    console.error("❌ [main.js] fetchAndDisplayData 에러:", err);
+    console.error("❌ [main.js] load 이벤트 에러:", err);
   }
 });
 
@@ -1059,7 +1065,7 @@ cloudRainGroup.visible = false;
 houseCloudGroup.add(cloudRainGroup);
 
 function updateHouseClouds() {
-  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
+  if (typeof—Ihead === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
   const headWorldPos = new THREE.Vector3();
   try {
     head.getWorldPosition(headWorldPos);
