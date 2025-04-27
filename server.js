@@ -36,7 +36,7 @@ connectDB()
           }
         );
         await saveSearchData('naver', query, data);
-        const items = data.items.map(item => ({
+        const items = (data.items || []).map(item => ({
           title: item.title,
           link:  item.link
         }));
@@ -64,7 +64,7 @@ connectDB()
           }
         );
         await saveSearchData('youtube', query, data);
-        const items = data.items.map(i => ({
+        const items = (data.items || []).map(i => ({
           title: i.snippet.title,
           url:   i.id.videoId ? `https://www.youtube.com/watch?v=${i.id.videoId}` : ''
         }));
