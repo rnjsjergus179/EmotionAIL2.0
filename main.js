@@ -66,24 +66,19 @@ function processText(text) {
   let englishBuffer = ''; // 영어 알파벳을 모으는 버퍼
 
   for (let char of text) {
-    // 한국어 자모음인지 확인 (Hangul Jamo: U+1100-U+11FF, Compatibility Jamo: U+3131-U+318E)
     if (/[\u1100-\u11FF\u3131-\u318E]/.test(char)) {
       if (englishBuffer) {
         result += englishBuffer + ' ';
         englishBuffer = '';
       }
       jamoBuffer += char;
-    }
-    // 영어 알파벳인지 확인 (A-Z, a-z)
-    else if (/[a-zA-Z]/.test(char)) {
+    } else if (/[a-zA-Z]/.test(char)) {
       if (jamoBuffer) {
         result += jamoBuffer.normalize('NFC') + ' ';
         jamoBuffer = '';
       }
       englishBuffer += char;
-    }
-    // 그 외 문자는 필터링
-    else {
+    } else {
       if (jamoBuffer) {
         result += jamoBuffer.normalize('NFC') + ' ';
         jamoBuffer = '';
@@ -95,7 +90,6 @@ function processText(text) {
     }
   }
 
-  // 남은 버퍼 처리
   if (jamoBuffer) {
     result += jamoBuffer.normalize('NFC') + ' ';
   }
@@ -640,50 +634,64 @@ window.addEventListener("resize", function() {
   }
 });
 
-// MongoDB 데이터 가져오기 및 표시 함수
+// MongoDB 데이터 가져오기 및 표시 함수 (로깅 추가)
 async function fetchAndDisplayData() {
-  try {
-    console.log('🔍 [main.js] /api/getData 호출 중...');
-    const res = await fetch(`${API_BASE_URL}/api/getData`);
-    if (!res.ok) throw new Error(`status ${res.status}`);
-    const docs = await res.json();
+  console.log("🔍 [main.js] fetchAndDisplayData 시작");
 
-    console.log(`🎉 [main.js] ${docs.length}개 문서 수신 완료`);
-    console.log('💯 main.js: 몽고 API 호출 완료!');
+  // API 호출
+  const res = await fetch(`${API_BASE_URL}/api/getData`);
+  console.log(`📨 [main.js] /api/getData 응답 상태: ${res.status}`);
 
-    // 1) 각 문서의 results 배열을 flatten하고 토큰을 문자열로 결합
-    const lines = docs.flatMap(doc =>
-      doc.results.map(tokens => tokens.join(''))
-    );
-
-    // 2) processText로 자모음 및 영단어 처리
-    const processed = lines.map(line => processText(line));
-
-    // 3) 화면에 출력
-    const displayEl = document.getElementById('data-display');
-    if (!displayEl) {
-      console.error('[main.js] data-display 요소를 찾을 수 없습니다.');
-      return;
-    }
-    displayEl.innerHTML = processed.join('<br>');
-  } catch (err) {
-    console.error('[main.js] MongoDB 데이터 가져오기 실패:', err);
+  if (!res.ok) {
+    console.error("❌ [main.js] /api/getData 실패");
+    return;
   }
+
+  const docs = await res.json();
+  console.log(`✅ [main.js] /api/getData JSON 파싱 완료, 문서 개수: ${docs.length}`);
+
+  // 토큰 배열 → 문자열
+  const lines = docs.flatMap(doc =>
+    doc.results.map(tokens => {
+      const str = tokens.join("");
+      console.log("🔗 [main.js] 토큰→문자열:", str);
+      return str;
+    })
+  );
+
+  // 자모/영문 처리
+  const processed = lines.map(line => {
+    const p = processText(line);
+    console.log("✏️ [main.js] processText:", p);
+    return p;
+  });
+
+  // 화면에 뿌리기
+  const container = document.getElementById("data-display");
+  if (!container) {
+    console.error("❌ [main.js] data-display 요소를 찾을 수 없음");
+    return;
+  }
+  container.innerHTML = processed.join("<br>");
+  console.log("💯 [main.js] MongoDB 데이터 표시 완료");
 }
 
-// 페이지 로드 시 실행될 init 함수
-async function init() {
-  // 기존 초기화 함수 호출
-  initCalendar();
-  updateMap();
-  await updateWeatherAndEffects();
+// 페이지 로드 시 실행
+window.addEventListener("load", async () => {
+  console.log("🔄 [main.js] window.load 이벤트 진입");
 
-  // MongoDB 데이터 가져오기 및 표시
-  await fetchAndDisplayData();
-}
+  try {
+    // 기존 초기화 함수 호출
+    initCalendar();
+    updateMap();
+    await updateWeatherAndEffects();
 
-// window.load 이벤트에 init 함수 연결
-window.addEventListener('load', init);
+    // MongoDB 데이터 가져오기 및 표시
+    await fetchAndDisplayData();
+  } catch (err) {
+    console.error("❌ [main.js] fetchAndDisplayData 에러:", err);
+  }
+});
 
 /***** 캘린더 렌더링 *****/
 let currentYear, currentMonth;
