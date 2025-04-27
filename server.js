@@ -1,4 +1,3 @@
-// server.js
 require('dotenv').config();
 const express       = require('express');
 const cors          = require('cors');
@@ -15,15 +14,17 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// 1) MongoDB 연결 및 서버 시작
+// --- 1) MongoDB 연결 및 서버 시작 ---
 connectDB()
   .then(() => {
     console.log('✅ MongoDB 연결 완료');
 
-    // 2) 네이버 검색 API
+    // --- 2) 네이버 검색 API ---
     app.get('/api/naver-search', async (req, res) => {
       const query = req.query.q;
-      if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
+      if (!query) {
+        return res.status(400).json({ error: '검색어가 필요합니다.' });
+      }
       try {
         const { data } = await axios.get(
           'https://openapi.naver.com/v1/search/webkr.json',
@@ -47,10 +48,12 @@ connectDB()
       }
     });
 
-    // 3) 유튜브 검색 API
+    // --- 3) 유튜브 검색 API ---
     app.get('/api/youtube-search', async (req, res) => {
       const query = req.query.q;
-      if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
+      if (!query) {
+        return res.status(400).json({ error: '검색어가 필요합니다.' });
+      }
       try {
         const { data } = await axios.get(
           'https://www.googleapis.com/youtube/v3/search',
@@ -75,7 +78,7 @@ connectDB()
       }
     });
 
-    // 4) MongoDB 저장 데이터 조회 API
+    // --- 4) MongoDB 저장 데이터 조회 API ---
     app.get('/api/getData', async (req, res) => {
       console.log('🔍 [GET /api/getData] 요청 들어옴');
       try {
@@ -93,14 +96,14 @@ connectDB()
       }
     });
 
-    // 5) 기존 search, weather 라우트 연결
+    // --- 5) 기존 search, weather 라우트 연결 ---
     app.use('/api', searchRoute);
     app.use('/api', weatherRoute);
 
-    // 6) 정적 파일 서빙
+    // --- 6) 정적 파일 서빙 ---
     app.use(express.static(path.join(__dirname, 'public')));
 
-    // 7) 서버 리스닝
+    // --- 7) 서버 리스닝 ---
     app.listen(port, () => {
       console.log(`🚀 서버 실행 중: http://localhost:${port}`);
     });
