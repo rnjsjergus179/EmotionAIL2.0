@@ -1,4 +1,3 @@
-// db.js
 require('dotenv').config();
 const mongoose = require('mongoose');
 
@@ -129,12 +128,37 @@ async function saveSearchData(source, query, resultsData) {
   console.log(`[saveSearchData] 저장 완료 _id=${saved._id}`);
 }
 
-// 9) 전체 검색 기록 가져오기
-async function getAllSearchData() {
-  return await SearchLog.find().sort({ createdAt: -1 }).limit(100);
+// 9) 자모음 결합 함수
+function combineJamo(tokens) {
+  let result = '';
+  let jamoBuffer = '';
+  for (let token of tokens) {
+    if (/[\u1100-\u11FF\u3131-\u318E]/.test(token)) {
+      jamoBuffer += token;
+    } else {
+      if (jamoBuffer) {
+        result += jamoBuffer.normalize('NFC');
+        jamoBuffer = '';
+      }
+      result += token;
+    }
+  }
+  if (jamoBuffer) {
+    result += jamoBuffer.normalize('NFC');
+  }
+  return result;
 }
 
-// 10) 모듈 export
+// 10) 전체 검색 기록 가져오기 (자모음 결합 처리)
+async function getAllSearchData() {
+  const data = await SearchLog.find().sort({ createdAt: -1 }).limit(100);
+  return data.map(doc => ({
+    ...doc._doc,
+    results: doc.results.map(line => combineJamo(line))
+  }));
+}
+
+// 11) 모듈 export
 module.exports = {
   connectDB,
   saveSearchData,
