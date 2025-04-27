@@ -1,19 +1,57 @@
 require('dotenv').config();
-const express       = require('express');
-const cors          = require('cors');
-const axios         = require('axios');
-const path          = require('path');
-const { connectDB, saveSearchData, getAllSearchData } = require('./db.js'); // getAllSearchData 추가
+const express = require('express');
+const cors = require('cors');
+const axios = require('axios');
+const path = require('path');
+const { connectDB, saveSearchData, getAllSearchData } = require('./db.js');
 
 // ✅ 기존 라우트
-const searchRoute  = require('./search');
+const searchRoute = require('./search');
 const weatherRoute = require('./weather');
 
-const app  = express();
+const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
+// 자모음 및 영단어 처리 함수
+function processText(text) {
+  let result = '';
+  let jamoBuffer = ''; // 자모음을 모으는 버퍼
+  let englishBuffer = ''; // 영어 알파벳을 모으는 버퍼
+
+  for (let char of text) {
+    if (/[\u1100-\u11FF\u3131-\u318E]/.test(char)) { // 한국어 자모음
+      if (englishBuffer) {
+        result += englishBuffer + ' ';
+        englishBuffer = '';
+      }
+      jamoBuffer += char;
+    } else if (/[a-zA-Z]/.test(char)) { // 영어 알파벳
+      if (jamoBuffer) {
+        result += jamoBuffer.normalize('NFC') + ' ';
+        jamoBuffer = '';
+      }
+      englishBuffer += char;
+    } else { // 그 외 문자 필터링
+      if (jamoBuffer) {
+        result += jamoBuffer.normalize('NFC') + ' ';
+        jamoBuffer = '';
+      }
+      if (englishBuffer) {
+        result += englishBuffer + ' ';
+        englishBuffer = '';
+      }
+    }
+  }
+
+  // 남은 버퍼 처리
+  if (jamoBuffer) result += jamoBuffer.normalize('NFC') + ' ';
+  if (englishBuffer) result += englishBuffer + ' ';
+
+  return result.trim();
+}
 
 // DB 연결 및 서버 시작
 connectDB()
@@ -32,7 +70,7 @@ connectDB()
           {
             params: { query },
             headers: {
-              'X-Naver-Client-Id':     process.env.NAVER_CLIENT_ID,
+              'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
               'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
             }
           }
@@ -40,7 +78,7 @@ connectDB()
         await saveSearchData('naver', query, data);
         const items = data.items.map(item => ({
           title: item.title,
-          link:  item.link
+          link: item.link
         }));
         res.json({ message: `네이버 검색 완료: ${query}`, items });
       } catch (err) {
@@ -60,10 +98,10 @@ connectDB()
           'https://www.googleapis.com/youtube/v3/search',
           {
             params: {
-              part:       'snippet',
-              q:          query,
+              part: 'snippet',
+              q: query,
               maxResults: 10,
-              key:        process.env.GOOGLE_API_KEY
+              key: process.env.GOOGLE_API_KEY
             }
           }
         );
@@ -72,7 +110,7 @@ connectDB()
           const vid = i.id.videoId;
           return {
             title: i.snippet.title,
-            url:   vid ? `https://www.youtube.com/watch?v=${vid}` : ''
+            url: vid ? `https://www.youtube.com/watch?v=${vid}` : ''
           };
         });
         res.json({ message: `YouTube 검색 완료: ${query}`, items });
@@ -82,11 +120,28 @@ connectDB()
       }
     });
 
-    // [3] ✅ MongoDB에 저장된 데이터 불러오기 API
+    // [3] MongoDB에 저장된 데이터 불러오기 및 자모음/영단어 처리 API
     app.get('/api/getData', async (req, res) => {
       try {
-        const data = await getAllSearchData();  // db.js에서 불러온 함수
-        console.log('몽고 API 호출 성공😃');     // 로그 추가
+        const data = await getAllSearchData(); // MongoDB에서 데이터 가져오기
+        console.log('몽고 API 호출 성공😃');
+
+        // results의 토큰 배열을 문자열로 결합
+        const lines = data.flatMap(doc =>
+          doc.results.map(tokenArr => tokenArr.join(''))
+        );
+
+        // 자모음과 영단어 추출
+        const processedLines = lines.map(line => processText(line));
+
+        // Render 터미널에 로그 출력
+        console.log('=== Render 터미널에 자모음과 영단어 출력 ===');
+        processedLines.forEach((line, index) => {
+          console.log(`Line ${index + 1}: ${line}`);
+        });
+        console.log('=== 출력 완료 ===');
+
+        // 클라이언트에 원본 데이터 반환
         res.json(data);
       } catch (err) {
         console.error(`[API] 데이터 가져오기 오류:`, err.stack);
