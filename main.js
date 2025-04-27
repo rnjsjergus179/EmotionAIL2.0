@@ -59,6 +59,53 @@ const regionMap = {
 };
 const regionList = Object.keys(regionMap);
 
+// 자모음 및 영어 처리 함수
+function processText(text) {
+  let result = '';
+  let jamoBuffer = ''; // 자모음을 모으는 버퍼
+  let englishBuffer = ''; // 영어 알파벳을 모으는 버퍼
+
+  for (let char of text) {
+    // 한국어 자모음인지 확인 (Hangul Jamo: U+1100-U+11FF, Compatibility Jamo: U+3131-U+318E)
+    if (/[\u1100-\u11FF\u3131-\u318E]/.test(char)) {
+      if (englishBuffer) {
+        result += englishBuffer + ' ';
+        englishBuffer = '';
+      }
+      jamoBuffer += char;
+    }
+    // 영어 알파벳인지 확인 (A-Z, a-z)
+    else if (/[a-zA-Z]/.test(char)) {
+      if (jamoBuffer) {
+        result += jamoBuffer.normalize('NFC') + ' ';
+        jamoBuffer = '';
+      }
+      englishBuffer += char;
+    }
+    // 그 외 문자는 필터링
+    else {
+      if (jamoBuffer) {
+        result += jamoBuffer.normalize('NFC') + ' ';
+        jamoBuffer = '';
+      }
+      if (englishBuffer) {
+        result += englishBuffer + ' ';
+        englishBuffer = '';
+      }
+    }
+  }
+
+  // 남은 버퍼 처리
+  if (jamoBuffer) {
+    result += jamoBuffer.normalize('NFC') + ' ';
+  }
+  if (englishBuffer) {
+    result += englishBuffer + ' ';
+  }
+
+  return result.trim();
+}
+
 /***** 복사 차단 *****/
 document.addEventListener("copy", function(e) {
   e.preventDefault();
@@ -604,6 +651,26 @@ window.addEventListener("load", async () => {
   initCalendar();
   updateMap();
   await updateWeatherAndEffects();
+
+  // MongoDB 데이터 가져오기 및 표시
+  async function fetchAndDisplayData() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/getData`);
+      if (!response.ok) throw new Error("데이터 가져오기 실패");
+      const dbData = await response.json();
+      const processedData = dbData.map(processText).join('<br>');
+      const dataDisplay = document.getElementById("data-display");
+      if (dataDisplay) {
+        dataDisplay.innerHTML = processedData;
+      } else {
+        console.error("data-display 요소를 찾을 수 없습니다.");
+      }
+    } catch (error) {
+      console.error("데이터 가져오기 오류:", error);
+    }
+  }
+
+  fetchAndDisplayData();
 });
 
 /***** 캘린더 렌더링 *****/
