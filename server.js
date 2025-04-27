@@ -86,13 +86,7 @@ connectDB()
     app.get('/api/getData', async (req, res) => {
       try {
         const data = await getAllSearchData();  // db.js에서 불러온 함수
-
-        // 추가된 로그
-        console.log('✅ MongoDB API 호출되었습니다.');
-        console.log('😃 main.js에 자모음과 영단어가 데이터에 쌓입니다.');
-        console.log('👍 나머지 불필요한 데이터는 제거됩니다.');
-        console.log('💯 성공적으로 완료되었습니다.');
-
+        console.log('몽고 API 호출 성공😃');     // 로그 추가
         res.json(data);
       } catch (err) {
         console.error(`[API] 데이터 가져오기 오류:`, err.stack);
