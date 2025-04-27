@@ -1,166 +1,118 @@
 require('dotenv').config();
-const mongoose = require('mongoose');
+const express       = require('express');
+const cors          = require('cors');
+const axios         = require('axios');
+const path          = require('path');
+const { connectDB, saveSearchData, getAllSearchData } = require('./db.js'); // getAllSearchData 추가
 
-// 1) MongoDB 연결
-async function connectDB() {
-  if (!process.env.MONGO_URI) {
-    console.error('❌ MONGO_URI가 정의되지 않았습니다. .env 파일을 확인하세요.');
-    process.exit(1);
-  }
-  try {
-    await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
-    console.log('✅ MongoDB에 연결되었습니다.');
-  } catch (error) {
-    console.error(`❌ MongoDB 연결 실패: ${error.stack}`);
-    process.exit(1);
-  }
-}
+// ✅ 기존 라우트
+const searchRoute  = require('./search');
+const weatherRoute = require('./weather');
 
-// 2) SearchLog 스키마
-const SearchLogSchema = new mongoose.Schema({
-  source:    { type: String, enum: ['youtube','naver'], required: true },
-  query:     { type: String, required: true },
-  tokens:    [String],
-  intent:    { type: String },
-  results:   [[String]],
-  createdAt: { type: Date, default: Date.now }
-});
-const SearchLog = mongoose.model('SearchLog', SearchLogSchema);
+const app  = express();
+const port = process.env.PORT || 3000;
 
-// 3) 자모 테이블
-const CHOSEONG  = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
-const JUNGSEONG = ['ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','ㅛ','ㅜ','ㅝ','ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ'];
-const JONGSEONG = ['','ㄱ','ㄲ','ㄳ','ㄴ','ㄵ','ㄶ','ㄷ','ㄹ','ㄺ','ㄻ','ㄼ','ㄽ','ㄾ','ㄿ','ㅀ','ㅁ','ㅂ','ㅄ','ㅅ','ㅆ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+app.use(cors());
+app.use(express.json());
 
-// 4) 자모 토큰화 함수
-function tokenizeQuery(text) {
-  const tokens = [];
-  for (let ch of text) {
-    const code = ch.charCodeAt(0);
-    if (44032 <= code && code <= 55203) {
-      const uni   = code - 44032;
-      const cho   = Math.floor(uni / (21 * 28));
-      const jung  = Math.floor((uni % (21 * 28)) / 28);
-      const jong  = uni % 28;
-      tokens.push(CHOSEONG[cho], JUNGSEONG[jung]);
-      if (jong > 0) tokens.push(JONGSEONG[jong]);
-    } else {
-      tokens.push(ch);
-    }
-  }
-  return tokens;
-}
+// DB 연결 및 서버 시작
+connectDB()
+  .then(() => {
+    console.log('✅ MongoDB 연결 완료');
 
-// 5) 의도 인식 함수
-function recognizeIntent(text) {
-  if (['날씨','기온','비','눈'].some(k => text.includes(k))) return 'weather';
-  if (['뉴스','기사','이슈'].some(k => text.includes(k))) return 'news';
-  return 'general';
-}
-
-// 6) 객체에서 문자열만 추출하는 함수
-function extractLines(obj) {
-  const lines = [];
-  function recurse(v) {
-    if (Array.isArray(v)) {
-      v.forEach(recurse);
-    } else if (v && typeof v === 'object') {
-      Object.values(v).forEach(recurse);
-    } else if (typeof v === 'string') {
-      v.trim().split('\n').forEach(l => {
-        if (l) lines.push(l.trim());
-      });
-    }
-  }
-  recurse(obj);
-  return lines;
-}
-
-// 7) 저장 크기 제한 설정
-const MAX_LINES = 200;
-const MAX_LINE_LENGTH = 1000;
-
-// 8) 검색 기록 저장 함수
-async function saveSearchData(source, query, resultsData) {
-  console.log(`[saveSearchData] source=${source}, query=${query}`);
-
-  // a) 텍스트 라인 추출
-  let textLines;
-  if (typeof resultsData === 'string') {
-    textLines = resultsData.split('\n');
-  } else {
-    textLines = extractLines(resultsData);
-  }
-  console.log(`[saveSearchData] 추출된 라인 수: ${textLines.length}`);
-
-  // b) 최대 라인 수 제한
-  if (textLines.length > MAX_LINES) {
-    console.warn(`[saveSearchData] 라인 수(${textLines.length}) > MAX_LINES(${MAX_LINES}), 자릅니다.`);
-    textLines = textLines.slice(0, MAX_LINES);
-  }
-
-  // c) 줄당 최대 길이 제한
-  textLines = textLines.map(line =>
-    line.length > MAX_LINE_LENGTH ? line.slice(0, MAX_LINE_LENGTH) : line
-  );
-
-  console.log(`[saveSearchData] 최종 라인 수: ${textLines.length}`);
-
-  // d) 자모 토큰화
-  const tokenizedResults = textLines.map(line => tokenizeQuery(line));
-
-  // e) 검색어 자모 토큰화 + 의도 인식
-  const tokens = tokenizeQuery(query);
-  const intent = recognizeIntent(query);
-
-  // f) MongoDB 저장
-  const doc = new SearchLog({
-    source,
-    query,
-    tokens,
-    intent,
-    results: tokenizedResults
-  });
-  const saved = await doc.save();
-  console.log(`[saveSearchData] 저장 완료 _id=${saved._id}`);
-}
-
-// 9) 자모음 결합 함수
-function combineJamo(tokens) {
-  let result = '';
-  let jamoBuffer = '';
-  for (let token of tokens) {
-    if (/[\u1100-\u11FF\u3131-\u318E]/.test(token)) {
-      jamoBuffer += token;
-    } else {
-      if (jamoBuffer) {
-        result += jamoBuffer.normalize('NFC');
-        jamoBuffer = '';
+    // [1] 네이버 검색 API
+    app.get('/api/naver-search', async (req, res) => {
+      const query = req.query.q;
+      if (!query) {
+        return res.status(400).json({ error: '검색어가 필요합니다.' });
       }
-      result += token;
-    }
-  }
-  if (jamoBuffer) {
-    result += jamoBuffer.normalize('NFC');
-  }
-  return result;
-}
+      try {
+        const { data } = await axios.get(
+          'https://openapi.naver.com/v1/search/webkr.json',
+          {
+            params: { query },
+            headers: {
+              'X-Naver-Client-Id':     process.env.NAVER_CLIENT_ID,
+              'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
+            }
+          }
+        );
+        await saveSearchData('naver', query, data);
+        const items = data.items.map(item => ({
+          title: item.title,
+          link:  item.link
+        }));
+        res.json({ message: `네이버 검색 완료: ${query}`, items });
+      } catch (err) {
+        console.error(`[API] 네이버 검색 오류:`, err.stack);
+        res.status(500).json({ error: '네이버 검색 실패' });
+      }
+    });
 
-// 10) 전체 검색 기록 가져오기 (자모음 결합 처리)
-async function getAllSearchData() {
-  const data = await SearchLog.find().sort({ createdAt: -1 }).limit(100);
-  return data.map(doc => ({
-    ...doc._doc,
-    results: doc.results.map(line => combineJamo(line))
-  }));
-}
+    // [2] 유튜브 검색 API
+    app.get('/api/youtube-search', async (req, res) => {
+      const query = req.query.q;
+      if (!query) {
+        return res.status(400).json({ error: '검색어가 필요합니다.' });
+      }
+      try {
+        const { data } = await axios.get(
+          'https://www.googleapis.com/youtube/v3/search',
+          {
+            params: {
+              part:       'snippet',
+              q:          query,
+              maxResults: 10,
+              key:        process.env.GOOGLE_API_KEY
+            }
+          }
+        );
+        await saveSearchData('youtube', query, data);
+        const items = data.items.map(i => {
+          const vid = i.id.videoId;
+          return {
+            title: i.snippet.title,
+            url:   vid ? `https://www.youtube.com/watch?v=${vid}` : ''
+          };
+        });
+        res.json({ message: `YouTube 검색 완료: ${query}`, items });
+      } catch (err) {
+        console.error(`[API] YouTube 검색 오류:`, err.stack);
+        res.status(500).json({ error: 'YouTube 검색 실패' });
+      }
+    });
 
-// 11) 모듈 export
-module.exports = {
-  connectDB,
-  saveSearchData,
-  getAllSearchData
-};
+    // [3] ✅ MongoDB에 저장된 데이터 불러오기 API
+    app.get('/api/getData', async (req, res) => {
+      try {
+        const data = await getAllSearchData();  // db.js에서 불러온 함수
+
+        // 추가된 로그
+        console.log('✅ MongoDB API 호출되었습니다.');
+        console.log('😃 main.js에 자모음과 영단어가 데이터에 쌓입니다.');
+        console.log('👍 나머지 불필요한 데이터는 제거됩니다.');
+        console.log('💯 성공적으로 완료되었습니다.');
+
+        res.json(data);
+      } catch (err) {
+        console.error(`[API] 데이터 가져오기 오류:`, err.stack);
+        res.status(500).json({ error: '데이터 가져오기 실패' });
+      }
+    });
+
+    // [4] 기존 search, weather 라우트 연결
+    app.use('/api', searchRoute);
+    app.use('/api', weatherRoute);
+
+    // [5] 정적 파일(public 폴더) 서빙
+    app.use(express.static(path.join(__dirname, 'public')));
+
+    // [6] 서버 실행
+    app.listen(port, () => {
+      console.log(`🚀 서버 실행 중: http://localhost:${port}`);
+    });
+  })
+  .catch(err => {
+    console.error(`❌ MongoDB 연결 오류:`, err.stack);
+    process.exit(1);
+  });
