@@ -35,11 +35,21 @@ document.addEventListener("contextmenu", event => event.preventDefault());
 async function fetchProcessedData() {
   try {
     const response = await fetch(`${API_BASE_URL}/api/processed-data`);
-    if (!response.ok) throw new Error("Processed data 가져오기 실패");
+    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
-    return data.map(doc => doc.results.join("")).join(" "); // 토큰을 문자열로 결합
+    // 데이터가 배열인지 확인하고, 각 doc.results가 배열인지 확인
+    if (!Array.isArray(data)) throw new Error("응답 데이터가 배열이 아님");
+    const processed = data.map(doc => {
+      if (!doc.results || !Array.isArray(doc.results)) {
+        console.warn("doc.results가 배열이 아님, 빈 문자열로 처리:", doc);
+        return "";
+      }
+      return doc.results.join("");
+    }).join(" ");
+    console.log("MongoDB API 호출 성공");
+    return processed;
   } catch (error) {
-    console.error("Processed data 가져오기 오류:", error);
+    console.error("MongoDB API 호출 실패:", error.message);
     return "";
   }
 }
@@ -123,11 +133,12 @@ async function processNLP(input, processedData) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: input, processedData: processedData })
     });
-    if (!response.ok) throw new Error("NLP 서버 응답 오류");
+    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
+    console.log("NLP API 호출 성공");
     return data.response || "죄송해요, 잘 이해하지 못했어요.";
   } catch (error) {
-    console.error("NLP 처리 오류:", error);
+    console.error("NLP API 호출 실패:", error.message);
     return "죄송해요, 지금은 대답을 잘 이해하지 못했어요. 다시 말씀해 주세요!";
   }
 }
@@ -160,11 +171,12 @@ async function detectIntent(input, processedData) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: input, processedData: processedData })
     });
-    if (!response.ok) throw new Error("의도 인식 서버 응답 오류");
+    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
+    console.log("의도 인식 API 호출 성공");
     return data.intent || null;
   } catch (error) {
-    console.error("의도 인식 오류:", error);
+    console.error("의도 인식 API 호출 실패:", error.message);
     return null;
   }
 }
@@ -257,13 +269,14 @@ async function getWeather(currentCity) {
   try {
     const englishCity = regionMap[currentCity] || "Seoul";
     const response = await fetch(`${API_BASE_URL}/api/weather?city=${encodeURIComponent(englishCity)}`);
-    if (!response.ok) throw new Error("서버 응답 오류");
+    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
     const currentWeather = data.description;
     const message = `오늘 ${currentCity}의 날씨는 ${data.description}이고, 기온은 ${data.temperature}°C입니다.`;
+    console.log("날씨 API 호출 성공");
     return { message, currentWeather };
   } catch (error) {
-    console.error(error);
+    console.error("날씨 API 호출 실패:", error.message);
     return { message: "날씨 정보를 가져오는데 실패했습니다.", currentWeather: "" };
   }
 }
@@ -271,17 +284,18 @@ async function getWeather(currentCity) {
 async function getNaverSearchResults(query) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/naver-search?q=${encodeURIComponent(query)}`);
-    if (!response.ok) throw new Error("서버 응답 오류");
+    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
     if (data.items && data.items.length > 0) {
       const results = data.items.map(item => item.title.replace(/<[^>]+>/g, '')).join('\n- ');
       await saveToLearningDB('naver', query, results);
+      console.log("네이버 검색 API 호출 성공");
       return results;
     } else {
       return "검색 결과가 없습니다.";
     }
   } catch (error) {
-    console.error(error);
+    console.error("네이버 검색 API 호출 실패:", error.message);
     return "검색 결과를 가져오는데 실패했습니다.";
   }
 }
@@ -289,17 +303,18 @@ async function getNaverSearchResults(query) {
 async function getYouTubeSearchResults(query) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/youtube-search?q=${encodeURIComponent(query)}`);
-    if (!response.ok) throw new Error("서버 응답 오류");
+    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
     if (data.items && data.items.length > 0) {
       const results = data.items.map(item => `<a href="${item.url}" target="_blank">${item.title}</a>`).join('<br>');
       await saveToLearningDB('youtube', query, data.items);
+      console.log("유튜브 검색 API 호출 성공");
       return results;
     } else {
       return "검색 결과가 없습니다.";
     }
   } catch (error) {
-    console.error(error);
+    console.error("유튜브 검색 API 호출 실패:", error.message);
     return "유튜브 검색 결과를 가져오는데 실패했습니다.";
   }
 }
@@ -312,10 +327,10 @@ async function saveToLearningDB(type, query, results) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type, query, results })
     });
-    if (!response.ok) throw new Error("DB 저장 서버 응답 오류");
+    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     console.log(`${type} 데이터가 학습용 DB에 저장되었습니다.`);
   } catch (error) {
-    console.error("학습용 DB 저장 오류:", error);
+    console.error("학습용 DB 저장 오류:", error.message);
   }
 }
 
