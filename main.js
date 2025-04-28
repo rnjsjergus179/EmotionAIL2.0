@@ -47,7 +47,7 @@ async function logToServer(message) {
 // MongoDB에서 데이터를 가져와 KEYWORDS에 추가하는 함수 (크기 제한 추가)
 async function fetchAndUpdateKeywords() {
   try {
-    await logToServer("MongoDB 데이터 가져오기 시작");
+    await logToServer("MongoDB 데이터 가져오기 전");
     const response = await fetch(`${API_BASE_URL}/api/processed-data?limit=100`); // 크기 제한 설정 (최대 100개)
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
@@ -64,7 +64,7 @@ async function fetchAndUpdateKeywords() {
       }
     });
 
-    await logToServer("의도인식 그룹객체에 정상적으로 업데이트되었습니다.");
+    await logToServer("MongoDB 데이터 가져오기 후");
     const allKeywords = Object.values(KEYWORDS).flat().join(" ");
     return allKeywords;
   } catch (error) {
@@ -75,8 +75,10 @@ async function fetchAndUpdateKeywords() {
 }
 
 // 텍스트 처리 함수 (자모음 결합 및 영어 단어 분리 개선)
-function processText(text) {
+async function processText(text) {
   if (!text || typeof text !== 'string') return "";
+  await logToServer(`자모음 결합 전 텍스트: ${text}`);
+
   let result = '';
   let jamoBuffer = '';
   let englishBuffer = '';
@@ -109,7 +111,16 @@ function processText(text) {
 
   if (jamoBuffer) result += jamoBuffer.normalize('NFC') + ' ';
   if (englishBuffer) result += englishBuffer + ' ';
-  return result.trim();
+  
+  const combinedText = result.trim();
+  await logToServer(`자모음 결합 후 텍스트: ${combinedText}`);
+  
+  // 필터링 로직 (필요 시 추가 가능, 현재는 단순히 공백 제거 후 반환)
+  await logToServer(`필터링 전 텍스트: ${combinedText}`);
+  const processedText = combinedText; // 현재는 필터링 없이 그대로 사용
+  await logToServer(`필터링 후 텍스트: ${processedText}`);
+  
+  return processedText;
 }
 
 /***** 메모리 저장 및 학습 *****/
@@ -148,24 +159,7 @@ function learnFromInteractions() {
   }
 }
 
-/***** NLP 및 의도 인식 *****/
-async function processNLP(input, processedData) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/nlp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: input, processedData: processedData })
-    });
-    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
-    const data = await response.json();
-    await logToServer("NLP API 호출 성공");
-    return data.response || "죄송해요, 잘 이해하지 못했어요.";
-  } catch (error) {
-    await logToServer(`NLP API 호출 실패: ${error.message}`);
-    return "죄송해요, 지금은 대답을 잘 이해하지 못했어요. 다시 말씀해 주세요!";
-  }
-}
-
+/***** 의도 인식 *****/
 const intents = {
   addEvent: ["일정", "추가", "예약", "회의"],
   getWeather: ["날씨", "어때"],
@@ -175,19 +169,20 @@ const intents = {
 };
 
 async function detectIntent(input, processedData) {
-  const processedInput = processText(input).toLowerCase();
+  const processedInput = await processText(input);
+  const lowerInput = processedInput.toLowerCase();
   const processedDataWords = processedData.toLowerCase().split(/\s+/);
 
   for (let intent in intents) {
     const intentKeywords = intents[intent];
-    if (intentKeywords.some(keyword => processedInput.includes(keyword)) ||
-        processedDataWords.some(word => processedInput.includes(word) && intentKeywords.includes(word))) {
+    if (intentKeywords.some(keyword => lowerInput.includes(keyword)) ||
+        processedDataWords.some(word => lowerInput.includes(word) && intentKeywords.includes(word))) {
       return intent;
     }
   }
 
   for (let category in KEYWORDS) {
-    if (KEYWORDS[category].some(keyword => processedInput.includes(keyword))) {
+    if (KEYWORDS[category].some(keyword => lowerInput.includes(keyword))) {
       return category;
     }
   }
@@ -459,7 +454,9 @@ async function sendChat() {
   let isHTML = false;
   let shouldNavigate = false;
   let navigateUrl = "";
-  const lowerInput = processText(input).toLowerCase(); // 자모음 결합 적용
+  const processedInput = await processText(input); // 자모음 결합 및 처리
+  const lowerInput = processedInput.toLowerCase();
+  await logToServer(`채팅창 입력 처리 결과: ${processedInput}`); // 처리된 입력 로그 출력
   let currentCity = "서울"; // 기본값
   let lastTopic = memoryStorage.load("lastTopic") || "";
   const regionMap = {
@@ -604,8 +601,7 @@ async function sendChat() {
         updateMap(currentCity);
         await updateWeatherAndEffects(currentCity);
       } else {
-        const nlpResponse = await processNLP(input, processedData);
-        response = nlpResponse;
+        response = "죄송해요, 잘 이해하지 못했어요. 다시 말씀해 주세요!";
       }
     }
   }
