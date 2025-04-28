@@ -16,7 +16,7 @@ const SITE_LINKS = {
   "레딧": "https://www.reddit.com"
 };
 
-const KEYWORDS = {
+let KEYWORDS = {
   greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
   sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
   weather: ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"],
@@ -40,12 +40,12 @@ async function logToServer(message) {
       body: JSON.stringify({ message })
     });
   } catch (error) {
-    console.error("서버 로깅 실패:", error.message); // 로컬 디버깅용
+    console.error("서버 로깅 실패:", error.message);
   }
 }
 
-// MongoDB에서 처리된 데이터를 가져오는 함수
-async function fetchProcessedData() {
+// MongoDB에서 처리된 데이터를 가져와 KEYWORDS에 추가하는 함수
+async function fetchAndUpdateKeywords() {
   try {
     const response = await fetch(`${API_BASE_URL}/api/processed-data`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
@@ -59,6 +59,11 @@ async function fetchProcessedData() {
       return doc.results.join("");
     }).join(" ");
     await logToServer("MongoDB API 호출 성공");
+
+    // MongoDB에서 가져온 데이터를 처리하여 KEYWORDS.greetings에 추가
+    const mongoDataWords = processed.split(" ").map(word => processText(word).toLowerCase());
+    KEYWORDS.greetings = [...new Set([...KEYWORDS.greetings, ...mongoDataWords])];
+    console.log("KEYWORDS.greetings에 MongoDB 데이터 추가됨:", KEYWORDS.greetings);
     return processed;
   } catch (error) {
     await logToServer(`MongoDB API 호출 실패: ${error.message}`);
@@ -172,6 +177,13 @@ async function detectIntent(input, processedData) {
     if (intentKeywords.some(keyword => processedInput.includes(keyword)) ||
         processedDataWords.some(word => processedInput.includes(word) && intentKeywords.includes(word))) {
       return intent;
+    }
+  }
+
+  // KEYWORDS를 활용한 의도 인식
+  for (let category in KEYWORDS) {
+    if (KEYWORDS[category].some(keyword => processedInput.includes(keyword))) {
+      return category;
     }
   }
 
@@ -453,7 +465,7 @@ async function sendChat() {
     "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
   };
   const regionList = Object.keys(regionMap);
-  const processedData = await fetchProcessedData();
+  const processedData = await fetchAndUpdateKeywords();
 
   if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
@@ -539,6 +551,32 @@ async function sendChat() {
         } else {
           response = "네이버 검색어를 입력해주세요. 예: 네이버 날씨";
         }
+      } else if (intent === "greetings") {
+        response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
+        lastTopic = updateContext("greetings");
+      } else if (intent === "sleep") {
+        response = "편안한 밤 되세요, 좋은 꿈 꾸세요~";
+        lastTopic = updateContext("sleep");
+      } else if (intent === "weather") {
+        const weatherData = await getWeather(currentCity);
+        response = weatherData.message;
+        lastTopic = updateContext("weather");
+      } else if (intent === "calendar") {
+        response = getCalendarEvents();
+        lastTopic = updateContext("calendar");
+      } else if (intent === "time") {
+        const now = new Date();
+        response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
+        lastTopic = updateContext("time");
+      } else if (intent === "delete") {
+        const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
+        if (dayStr) {
+          const dayNum = parseInt(dayStr);
+          response = deleteCalendarEvent(dayNum);
+        } else {
+          response = "삭제할 날짜를 입력하지 않으셨습니다.";
+        }
+        lastTopic = updateContext("delete");
       } else if (lastTopic === "weather" && lowerInput.includes("내일")) {
         response = "내일 날씨는 비가 올 예정입니다.";
       } else if (lowerInput.startsWith("지역 ")) {
@@ -560,24 +598,6 @@ async function sendChat() {
         response = `좋아요, 지역을 ${input}(으)로 변경할게요!`;
         updateMap(currentCity);
         await updateWeatherAndEffects(currentCity);
-      } else if (KEYWORDS.delete.some(keyword => lowerInput.includes(keyword))) {
-        const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
-        if (dayStr) {
-          const dayNum = parseInt(dayStr);
-          response = deleteCalendarEvent(dayNum);
-        } else {
-          response = "삭제할 날짜를 입력하지 않으셨습니다.";
-        }
-      } else if (KEYWORDS.greetings.some(keyword => lowerInput.includes(keyword))) {
-        response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
-      } else if (KEYWORDS.sleep.some(keyword => lowerInput.includes(keyword))) {
-        response = "편안한 밤 되세요, 좋은 꿈 꾸세요~";
-      } else if (KEYWORDS.weather.some(keyword => lowerInput.includes(keyword))) {
-        const weatherData = await getWeather(currentCity);
-        response = weatherData.message;
-      } else if (lowerInput.includes("시간")) {
-        const now = new Date();
-        response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
       } else {
         const nlpResponse = await processNLP(input, processedData);
         response = nlpResponse;
@@ -671,6 +691,9 @@ window.addEventListener("DOMContentLoaded", function() {
       regionSelect.appendChild(option);
     });
   }
+
+  // 페이지 로드 시 MongoDB 데이터를 가져와 KEYWORDS를 업데이트
+  fetchAndUpdateKeywords();
 });
 
 window.addEventListener("resize", function() {
@@ -683,7 +706,6 @@ window.addEventListener("resize", function() {
 
 window.addEventListener("load", async () => {
   try {
-    await fetchProcessedData();
     initCalendar();
     updateMap("서울");
     await updateWeatherAndEffects("서울");
