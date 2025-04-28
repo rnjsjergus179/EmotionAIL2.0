@@ -50,32 +50,33 @@ async function fetchAndUpdateKeywords() {
     await logToServer("MongoDB 데이터 가져오기 시작");
     const res = await fetch(`${API_BASE_URL}/api/processed-data`);
     if (!res.ok) throw new Error(`HTTP 오류! 상태: ${res.status}`);
-    const docs = await res.json();              // [{ intent, results: [...] }, …]
+    const docs = await res.json(); // [{ intent, results: [...] }, …]
+
+    const processedData = []; // 가공된 단어들을 저장
 
     docs.forEach(doc => {
-      const intent = doc.intent;                // 문서의 intent 분류명
-      const words = (doc.results || [])         // results 배열이 없으면 빈 배열
-        .map(w => w.trim().toLowerCase())       // 소문자, 공백 제거
+      const intent = doc.intent; // 의도 분류명
+      const words = (doc.results || [])
+        .map(w => processText(w).trim().toLowerCase()) // 자모음 결합 및 영단어 처리
+        .filter(w => w.match(/^[\u1100-\u11FF\u3131-\u318E\uAC00-\uD7A3a-zA-Z]+$/)) // 자모음, 한글, 영단어만 허용
         .filter(w => w !== "");
 
-      // intent 키가 없으면 빈 배열로 초기화
+      // 새로운 intent가 있으면 빈 배열로 초기화
       if (!KEYWORDS[intent]) {
         KEYWORDS[intent] = [];
       }
 
-      // 기존 키워드와 합치되, 중복 제거
-      KEYWORDS[intent] = Array.from(new Set([
-        ...KEYWORDS[intent],
-        ...words
-      ]));
+      // 중복 제거 후 단어 추가
+      KEYWORDS[intent] = Array.from(new Set([...KEYWORDS[intent], ...words]));
+      processedData.push(...words);
     });
 
     await logToServer("의도인식 GROUP 객체 정상 업데이트 완료");
-    return true;
+    return processedData.join(" "); // 의도 인식에 사용할 문자열 반환
   } catch (err) {
     await logToServer(`MongoDB API 호출 실패: ${err.message}`);
     console.error(err);
-    return false;
+    return ""; // 오류 시 빈 문자열 반환
   }
 }
 
