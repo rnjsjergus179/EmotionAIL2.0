@@ -45,11 +45,10 @@ async function logToServer(message) {
   }
 }
 
-// MongoDB에서 데이터를 가져와 KEYWORDS에 추가하는 함수 (크기 제한 추가)
+// MongoDB에서 데이터를 가져와 KEYWORDS에 추가하는 함수 (자모음 결합 처리 추가)
 async function fetchAndUpdateKeywords() {
   try {
-    await logToServer("MongoDB 데이터를 읽기 전");
-    // `searchlogs` 컬렉션을 명시적으로 지정
+    await logToServer("MongoDB 데이터를 읽기 전"); // 호출 전 로그 (이미지 1번 상태)
     const response = await fetch(`${API_BASE_URL}/api/processed-data?collection=searchlogs&limit=100`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
 
@@ -61,12 +60,19 @@ async function fetchAndUpdateKeywords() {
       return "";
     }
 
-    // 데이터 처리: 각 의도별 키워드 분류
+    // 데이터 처리: 각 의도별 키워드 분류 및 자모음 결합
     data.forEach(item => {
-      const intent = item.intent || "unknown"; // intent 필드가 없으면 기본값 설정
+      const intent = item.intent || "unknown";
       const keywords = Array.isArray(item.keywords)
-        ? item.keywords.map(kw => kw.trim().toLowerCase()).slice(0, 50)
-        : []; // keywords 필드가 배열이 아닌 경우 빈 배열로 초기화
+        ? item.keywords.map(kw => {
+            if (Array.isArray(kw)) {
+              // 자모음 배열일 경우 결합
+              return kw.join('').normalize('NFC');
+            } else {
+              return kw;
+            }
+          }).map(kw => kw.trim().toLowerCase()).slice(0, 50)
+        : [];
 
       if (KEYWORDS[intent]) {
         KEYWORDS[intent] = [...new Set([...KEYWORDS[intent], ...keywords])];
@@ -76,10 +82,10 @@ async function fetchAndUpdateKeywords() {
     });
 
     const allKeywords = Object.values(KEYWORDS).flat().join(" ");
-    await logToServer(`MongoDB 데이터를 읽은 후 출력 [${allKeywords}]`);
+    await logToServer(`MongoDB 데이터를 읽은 후 출력 [${allKeywords}]`); // 호출 후 성공 로그
     return allKeywords;
   } catch (error) {
-    await logToServer(`MongoDB API 호출 실패: ${error.message}`);
+    await logToServer(`MongoDB API 호출 실패: ${error.message}`); // 호출 후 실패 로그
     console.error("MongoDB 데이터 가져오기 실패:", error);
     return "";
   }
@@ -122,13 +128,13 @@ async function processText(text) {
 
   if (jamoBuffer) result += jamoBuffer.normalize('NFC') + ' ';
   if (englishBuffer) result += englishBuffer + ' ';
-  
+
   const combinedText = result.trim();
   await logToServer(`자모음 결합 후 텍스트: ${combinedText}`);
   
   // 필터링 로직 (필요 시 추가 가능, 현재는 단순히 공백 제거 후 반환)
   await logToServer(`필터링 전 텍스트: ${combinedText}`);
-  const processedText = combinedText; // 현재는 필터링 없이 그대로 사용
+  const processedText = combinedText;
   await logToServer(`필터링 후 텍스트: ${processedText}`);
   
   return processedText;
@@ -341,7 +347,7 @@ async function getYouTubeSearchResults(query) {
     if (data.items && data.items.length > 0) {
       const results = data.items.map(item => `<a href="${item.url}" target="_blank">${item.title}</a>`).join('<br>');
       await saveToLearningDB('youtube', query, data.items);
-      await logToServer("유튜브 검색 API 호출 성공");
+      await logToServer("유튜브 검색 API 호출 ancestral 성공");
       return results;
     } else {
       return "검색 결과가 없습니다.";
@@ -465,7 +471,7 @@ async function sendChat() {
   let isHTML = false;
   let shouldNavigate = false;
   let navigateUrl = "";
-  const processedInput = await processText(input); // 자모음 결합 및 처리
+  const processedInput = await processText(input); // 자모음 결합 및 처리 (이미지 2번 상태)
   const lowerInput = processedInput.toLowerCase();
   await logToServer(`뭐해 채팅창 입력: ${processedInput}`); // 채팅창 입력 로그
   let currentCity = "서울"; // 기본값
@@ -617,7 +623,7 @@ async function sendChat() {
     }
   }
 
-  showSpeechBubbleInChunks(response, isHTML);
+  showSpeechBubbleInChunks(response, isHTML); // 말풍선 출력 (이미지 3번 상태)
 
   if (shouldNavigate) {
     setTimeout(() => { window.location.href = navigateUrl; }, 2000);
@@ -704,7 +710,7 @@ window.addEventListener("DOMContentLoaded", function() {
     });
   }
 
-  fetchAndUpdateKeywords();
+  fetchAndUpdateKeywords(); // 페이지 로드 시 MongoDB 데이터 가져오기
 });
 
 window.addEventListener("resize", function() {
