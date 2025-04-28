@@ -93,7 +93,7 @@ connectDB()
       }
     });
 
-    // processed-data 엔드포인트: 배열을 직접 전송
+    // 수정된 processed-data 엔드포인트: 배열을 직접 전송
     app.get('/api/processed-data', async (req, res) => {
       console.log('🔍 [GET /api/processed-data] 요청 들어옴');
       try {
@@ -120,27 +120,6 @@ connectDB()
       } else {
         res.status(400).json({ error: '메시지가 없습니다.' });
       }
-    });
-
-    // NLP API 엔드포인트 (추가)
-    app.post('/api/nlp', (req, res) => {
-      const { text, processedData } = req.body;
-      if (!text) return res.status(400).json({ error: '텍스트가 필요합니다.' });
-      const dummyResponse = `당신이 입력한 '${text}'에 대한 NLP 응답입니다.`;
-      console.log(`🧠 [NLP 응답] text: ${text}`);
-      res.json({ response: dummyResponse });
-    });
-
-    // 의도 인식 API 엔드포인트 (추가)
-    app.post('/api/intent', (req, res) => {
-      const { text, processedData } = req.body;
-      if (!text) return res.status(400).json({ error: '텍스트가 필요합니다.' });
-      let intent = null;
-      if (text.includes("안녕")) {
-        intent = "greetings";
-      }
-      console.log(`🧠 [Intent 응답] text: ${text} => intent: ${intent}`);
-      res.json({ intent });
     });
 
     // 추가 라우트 연결
