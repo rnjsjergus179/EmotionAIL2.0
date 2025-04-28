@@ -1,15 +1,14 @@
-// server.js
 require('dotenv').config();
-const express       = require('express');
-const cors          = require('cors');
-const axios         = require('axios');
-const path          = require('path');
+const express = require('express');
+const cors = require('cors');
+const axios = require('axios');
+const path = require('path');
 const { connectDB, saveSearchData, getAllSearchData } = require('./db.js');
 
-const searchRoute  = require('./search');
+const searchRoute = require('./search');
 const weatherRoute = require('./weather');
 
-const app  = express();
+const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors());
@@ -30,7 +29,7 @@ connectDB()
           {
             params: { query },
             headers: {
-              'X-Naver-Client-Id':     process.env.NAVER_CLIENT_ID,
+              'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
               'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
             }
           }
@@ -38,7 +37,7 @@ connectDB()
         await saveSearchData('naver', query, data);
         const items = (data.items || []).map(item => ({
           title: item.title,
-          link:  item.link
+          link: item.link
         }));
         res.json({ message: `네이버 검색 완료: ${query}`, items });
       } catch (err) {
@@ -56,17 +55,17 @@ connectDB()
           'https://www.googleapis.com/youtube/v3/search',
           {
             params: {
-              part:       'snippet',
-              q:          query,
+              part: 'snippet',
+              q: query,
               maxResults: 10,
-              key:        process.env.GOOGLE_API_KEY
+              key: process.env.GOOGLE_API_KEY
             }
           }
         );
         await saveSearchData('youtube', query, data);
         const items = (data.items || []).map(i => ({
           title: i.snippet.title,
-          url:   i.id.videoId ? `https://www.youtube.com/watch?v=${i.id.videoId}` : ''
+          url: i.id.videoId ? `https://www.youtube.com/watch?v=${i.id.videoId}` : ''
         }));
         res.json({ message: `YouTube 검색 완료: ${query}`, items });
       } catch (err) {
@@ -93,14 +92,33 @@ connectDB()
       }
     });
 
-    // 5) 기존 search, weather 라우트 연결
+    // 5) /api/processed-data 엔드포인트 추가
+    app.get('/api/processed-data', async (req, res) => {
+      console.log('🔍 [GET /api/processed-data] 요청 들어옴');
+      try {
+        const data = await getAllSearchData();
+        if (!Array.isArray(data) || data.length === 0) {
+          console.warn('⚠️ [GET /api/processed-data] 저장된 문서가 없습니다.');
+          return res.status(404).json({ error: '데이터가 없습니다.' });
+        }
+        // 데이터 처리: 모든 검색 결과를 하나의 문자열로 결합 후 배열로 변환
+        const processedData = data.map(doc => doc.results).flat().join(" ");
+        console.log('💯 처리된 데이터 전송 완료!');
+        res.json({ results: processedData.split(" ") });
+      } catch (err) {
+        console.error('❌ [GET /api/processed-data] 데이터 처리 오류:', err.stack);
+        res.status(500).json({ error: '데이터 처리 실패' });
+      }
+    });
+
+    // 6) 기존 search, weather 라우트 연결
     app.use('/api', searchRoute);
     app.use('/api', weatherRoute);
 
-    // 6) 정적 파일 서빙
+    // 7) 정적 파일 서빙
     app.use(express.static(path.join(__dirname, 'public')));
 
-    // 7) 서버 리스닝
+    // 8) 서버 리스닝
     app.listen(port, () => {
       console.log(`🚀 서버 실행 중: http://localhost:${port}`);
     });
