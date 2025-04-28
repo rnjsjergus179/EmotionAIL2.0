@@ -3,7 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
-const mongoose = require('mongoose');
 const { connectDB, saveSearchData, getAllSearchData } = require('./db.js');
 
 const searchRoute = require('./search');
@@ -15,13 +14,6 @@ const port = process.env.PORT || 3000;
 // 미들웨어 설정
 app.use(cors());
 app.use(express.json());
-
-// MongoDB 스키마 및 모델 정의
-const IntentSchema = new mongoose.Schema({
-  intent: String,
-  keywords: [String]
-});
-const Intent = mongoose.model('Intent', IntentSchema);
 
 // MongoDB 연결 및 서버 시작
 connectDB()
@@ -83,12 +75,12 @@ connectDB()
       }
     });
 
-    // MongoDB 데이터 조회 API 엔드포인트
+    // MongoDB 저장 데이터 조회 API 엔드포인트
     app.get('/api/getData', async (req, res) => {
       console.log('🔍 [GET /api/getData] 요청 들어옴');
       try {
-        const data = await Intent.find(); // Intent 모델에서 데이터 조회
-        if (!data || data.length === 0) {
+        const data = await getAllSearchData();
+        if (!Array.isArray(data) || data.length === 0) {
           console.warn('⚠️ [GET /api/getData] 저장된 문서가 없습니다.');
         } else {
           console.log(`🎉 [GET /api/getData] 총 ${data.length}개 문서 조회됨`);
@@ -97,68 +89,7 @@ connectDB()
         res.json(data);
       } catch (err) {
         console.error('❌ [GET /api/getData] 데이터 가져오기 오류:', err.stack);
-        res.status(500).json({ error: 'MongoDB 데이터 가져오기 실패' });
-      }
-    });
-
-    // 키워드 업데이트 API 엔드포인트
-    app.post('/api/updateKeywords', async (req, res) => {
-      try {
-        const keywords = req.body.keywords;
-        if (!keywords) return res.status(400).json({ error: '키워드가 없습니다' });
-
-        // 기존 데이터 삭제 후 새 데이터 저장
-        await Intent.deleteMany({});
-        const intentDocs = Object.keys(keywords).map(intent => ({
-          intent,
-          keywords: keywords[intent]
-        }));
-        await Intent.insertMany(intentDocs);
-
-        console.log("의도 인식 그룹 객체가 저장되었습니다:", keywords);
-        res.json({ message: '키워드 업데이트 성공' });
-      } catch (err) {
-        console.error('updateKeywords 오류:', err);
-        res.status(500).json({ error: 'MongoDB 키워드 업데이트 실패' });
-      }
-    });
-
-    // NLP 처리 API 엔드포인트
-    app.post('/api/nlp', async (req, res) => {
-      try {
-        const { text, processedData, mongoData } = req.body;
-        if (!text) return res.status(400).json({ error: '텍스트가 필요합니다.' });
-
-        // 간단한 예제: "안녕"이 포함되면 인사 응답
-        if (text.includes('안녕')) {
-          return res.json({ response: "안녕하세요! 만나서 반가워요!" });
-        }
-
-        // 기본 응답
-        res.json({ response: "이해하지 못했어요, 다시 말씀해 주세요!" });
-      } catch (err) {
-        console.error('NLP 처리 오류:', err);
-        res.status(500).json({ error: 'NLP 처리 실패' });
-      }
-    });
-
-    // 의도 인식 API 엔드포인트
-    app.post('/api/intent', async (req, res) => {
-      try {
-        const { text, processedData, mongoData } = req.body;
-        if (!text) return res.status(400).json({ error: '텍스트가 필요합니다.' });
-
-        // 단순 의도 인식 예시
-        if (text.includes('날씨')) {
-          return res.json({ intent: 'getWeather' });
-        } else if (text.includes('일정')) {
-          return res.json({ intent: 'addEvent' });
-        }
-
-        res.json({ intent: null });
-      } catch (err) {
-        console.error('Intent 인식 오류:', err);
-        res.status(500).json({ error: '의도 인식 실패' });
+        res.status(500).json({ error: '데이터 가져오기 실패' });
       }
     });
 
@@ -166,12 +97,12 @@ connectDB()
     app.get('/api/processed-data', async (req, res) => {
       console.log('🔍 [GET /api/processed-data] 요청 들어옴');
       try {
-        const data = await Intent.find();
-        if (!data || data.length === 0) {
+        const data = await getAllSearchData();
+        if (!Array.isArray(data) || data.length === 0) {
           console.warn('⚠️ [GET /api/processed-data] 저장된 문서가 없습니다.');
           return res.status(404).json({ error: '데이터가 없습니다.' });
         }
-        const processedData = data.map(doc => doc.keywords).flat().join(" ");
+        const processedData = data.map(doc => doc.results).flat().join(" ");
         console.log('💯 처리된 데이터 전송 완료!');
         res.json(processedData.split(" ")); // 클라이언트가 기대하는 배열 형태로 전송
       } catch (err) {
@@ -189,6 +120,27 @@ connectDB()
       } else {
         res.status(400).json({ error: '메시지가 없습니다.' });
       }
+    });
+
+    // NLP API 엔드포인트 (추가)
+    app.post('/api/nlp', (req, res) => {
+      const { text, processedData } = req.body;
+      if (!text) return res.status(400).json({ error: '텍스트가 필요합니다.' });
+      const dummyResponse = `당신이 입력한 '${text}'에 대한 NLP 응답입니다.`;
+      console.log(`🧠 [NLP 응답] text: ${text}`);
+      res.json({ response: dummyResponse });
+    });
+
+    // 의도 인식 API 엔드포인트 (추가)
+    app.post('/api/intent', (req, res) => {
+      const { text, processedData } = req.body;
+      if (!text) return res.status(400).json({ error: '텍스트가 필요합니다.' });
+      let intent = null;
+      if (text.includes("안녕")) {
+        intent = "greetings";
+      }
+      console.log(`🧠 [Intent 응답] text: ${text} => intent: ${intent}`);
+      res.json({ intent });
     });
 
     // 추가 라우트 연결
