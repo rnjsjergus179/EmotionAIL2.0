@@ -1214,3 +1214,91 @@ function animate() {
   const moonAngle = angle + Math.PI;
   const moonPos = new THREE.Vector3(
     headWorldPos.x + Math.cos(moonAngle) * radius,
+    headWorldPos.y + Math.sin(moonAngle) * radius,
+    headWorldPos.z
+  );
+  moon.position.copy(moonPos);
+
+  const t = now.getHours() + now.getMinutes() / 60;
+  let sunOpacity = 0, moonOpacity = 0;
+  if (t < 6) {
+    sunOpacity = 0;
+    moonOpacity = 1;
+  } else if (t < 7) {
+    let factor = t - 6;
+    sunOpacity = factor;
+    moonOpacity = 1 - factor;
+  } else if (t < 17) {
+    sunOpacity = 1;
+    moonOpacity = 0;
+  } else if (t < 18) {
+    let factor = t - 17;
+    sunOpacity = 1 - factor;
+    moonOpacity = factor;
+  } else {
+    sunOpacity = 0;
+    moonOpacity = 1;
+  }
+  sun.material.opacity = sunOpacity;
+  moon.material.opacity = moonOpacity;
+
+  const isDay = (t >= 7 && t < 17);
+  scene.background = new THREE.Color(isDay ? 0x87CEEB : 0x000033);
+
+  stars.forEach(s => (s.visible = !isDay));
+  fireflies.forEach(f => (f.visible = !isDay));
+
+  characterStreetlight.traverse(child => {
+    if (child instanceof THREE.PointLight) {
+      child.intensity = isDay ? 0 : 1;
+    }
+  });
+  characterLight.position.copy(characterGroup.position).add(new THREE.Vector3(0, 5, 0));
+  characterLight.intensity = isDay ? 0 : 1;
+
+  characterGroup.position.y = -1;
+  characterGroup.rotation.x = 0;
+
+  updateWeatherEffects("");
+  updateHouseClouds();
+  updateLightning("");
+
+  characterStreetlight.position.set(
+    characterGroup.position.x + 1,
+    -2,
+    characterGroup.position.z
+  );
+
+  updateBubblePosition();
+
+  if (cloudRainGroup.visible) {
+    const particles = cloudRainGroup.children[0];
+    let positions = particles.geometry.attributes.position.array;
+    for (let i = 0; i < positions.length; i += 3) {
+      positions[i + 1] -= 0.02;
+      if (positions[i + 1] < -0.3) {
+        positions[i + 1] = Math.random() * 0.2;
+      }
+    }
+    particles.geometry.attributes.position.needsUpdate = true;
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+
+function updateBubblePosition() {
+  const bubble = document.getElementById("speech-bubble");
+  if (!bubble) return;
+  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
+  const headWorldPos = new THREE.Vector3();
+  try {
+    head.getWorldPosition(headWorldPos);
+  } catch (err) {
+    console.error("updateBubblePosition 에러:", err);
+    return;
+  }
+  const screenPos = headWorldPos.project(camera);
+  bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
+  bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
+}
