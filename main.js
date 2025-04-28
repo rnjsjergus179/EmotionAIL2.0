@@ -44,7 +44,7 @@ async function logToServer(message) {
   }
 }
 
-// MongoDB에서 데이터를 가져와 KEYWORDS를 갱신하는 함수
+// MongoDB에서 데이터를 가져와 KEYWORDS를 갱신하고 로컬 스토리지에 저장하는 함수
 async function fetchAndUpdateKeywords() {
   try {
     await logToServer("MongoDB 데이터 가져오기 시작");
@@ -71,12 +71,23 @@ async function fetchAndUpdateKeywords() {
       processedData.push(...words);
     });
 
+    // 로컬 스토리지에 KEYWORDS 저장
+    localStorage.setItem('KEYWORDS', JSON.stringify(KEYWORDS));
+
     await logToServer("의도인식 GROUP 객체 정상 업데이트 완료");
     return processedData.join(" "); // 의도 인식에 사용할 문자열 반환
   } catch (err) {
     await logToServer(`MongoDB API 호출 실패: ${err.message}`);
     console.error(err);
     return ""; // 오류 시 빈 문자열 반환
+  }
+}
+
+// 로컬 스토리지에서 KEYWORDS 불러오기
+function loadKeywordsFromStorage() {
+  const storedKeywords = localStorage.getItem('KEYWORDS');
+  if (storedKeywords) {
+    KEYWORDS = JSON.parse(storedKeywords);
   }
 }
 
@@ -152,6 +163,7 @@ function learnFromInteractions() {
   if (emotionCount["negative"] && emotionCount["negative"] >= 5) {
     if (!KEYWORDS.negativeComfort) {
       KEYWORDS.negativeComfort = ["힘내세요!", "당신은 혼자가 아니에요.", "괜찮을 거예요."];
+      localStorage.setItem('KEYWORDS', JSON.stringify(KEYWORDS)); // 업데이트된 KEYWORDS 저장
     }
   }
 }
@@ -194,27 +206,13 @@ async function detectIntent(input, processedData) {
     }
   }
 
-  // KEYWORDS를 활용한 의도 인식
   for (let category in KEYWORDS) {
     if (KEYWORDS[category].some(keyword => processedInput.includes(keyword))) {
       return category;
     }
   }
 
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/intent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: input, processedData: processedData })
-    });
-    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
-    const data = await response.json();
-    await logToServer("의도 인식 API 호출 성공");
-    return data.intent || null;
-  } catch (error) {
-    await logToServer(`의도 인식 API 호출 실패: ${error.message}`);
-    return null;
-  }
+  return null;
 }
 
 function isNewsQuery(input) {
@@ -464,6 +462,9 @@ async function sendChat() {
   const input = inputEl.value.trim();
   if (!input) return;
 
+  const processedData = await fetchAndUpdateKeywords(); // MongoDB에서 최신 데이터 가져와 KEYWORDS 갱신
+  const intent = await detectIntent(input, processedData); // 의도 인식
+
   let response = "";
   let isHTML = false;
   let shouldNavigate = false;
@@ -479,7 +480,6 @@ async function sendChat() {
     "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
   };
   const regionList = Object.keys(regionMap);
-  const processedData = await fetchAndUpdateKeywords();
 
   if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
@@ -517,80 +517,96 @@ async function sendChat() {
     }
 
     if (!response) {
-      const intent = await detectIntent(input, processedData);
-      if (intent === "addEvent") {
-        const eventMatch = input.match(/(오늘|내일|\d{4}-\d{1,2}-\d{1,2})\s*(\d{1,2})시/);
-        if (eventMatch) {
-          let date;
-          if (eventMatch[1] === "오늘") {
-            date = new Date();
-          } else if (eventMatch[1] === "내일") {
-            date = new Date(Date.now() + 86400000);
-          } else {
-            date = new Date(eventMatch[1]);
-          }
-          date.setHours(parseInt(eventMatch[2]));
-          const eventText = input.replace(eventMatch[0], "").trim();
-          const dateKey = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-          let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-          calendarData[dateKey] = eventText;
-          localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
-          renderCalendar(currentYear, currentMonth);
-          response = `${dateKey}에 "${eventText}" 일정이 추가되었습니다.`;
-          lastTopic = updateContext("addEvent");
+      if (intent) {
+        switch (intent) {
+          case "addEvent":
+            const eventMatch = input.match(/(오늘|내일|\d{4}-\d{1,2}-\d{1,2})\s*(\d{1,2})시/);
+            if (eventMatch) {
+              let date;
+              if (eventMatch[1] === "오늘") {
+                date = new Date();
+              } else if (eventMatch[1] === "내일") {
+                date = new Date(Date.now() + 86400000);
+              } else {
+                date = new Date(eventMatch[1]);
+              }
+              date.setHours(parseInt(eventMatch[2]));
+              const eventText = input.replace(eventMatch[0], "").trim();
+              const dateKey = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+              let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+              calendarData[dateKey] = eventText;
+              localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+              renderCalendar(currentYear, currentMonth);
+              response = `${dateKey}에 "${eventText}" 일정이 추가되었습니다.`;
+              lastTopic = updateContext("addEvent");
+            }
+            break;
+          case "getWeather":
+            const weatherData = await getWeather(currentCity);
+            response = weatherData.message;
+            lastTopic = updateContext("weather");
+            break;
+          case "getTime":
+            const now = new Date();
+            response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
+            lastTopic = updateContext("time");
+            break;
+          case "youtubeSearch":
+            const query = lowerInput.replace(new RegExp(intents.youtubeSearch.join("|"), "gi"), "").trim();
+            if (query) {
+              response = await getYouTubeSearchResults(query);
+              isHTML = true;
+            } else {
+              response = "유튜브 검색어를 입력해주세요. 예: 고양이 비디오";
+            }
+            lastTopic = updateContext("youtubeSearch");
+            break;
+          case "naverSearch":
+            const query = lowerInput.replace(new RegExp(intents.naverSearch.join("|"), "gi"), "").trim();
+            if (query) {
+              const naverResults = await getNaverSearchResults(query);
+              response = naverResults ? `검색 결과:\n- ${naverResults}` : "검색 결과를 가져오는데 실패했습니다.";
+              lastTopic = updateContext("naverSearch");
+            } else {
+              response = "네이버 검색어를 입력해주세요. 예: 네이버 날씨";
+            }
+            break;
+          case "greetings":
+            response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
+            lastTopic = updateContext("greetings");
+            break;
+          case "sleep":
+            response = "편안한 밤 되세요, 좋은 꿈 꾸세요~";
+            lastTopic = updateContext("sleep");
+            break;
+          case "weather":
+            const weatherData = await getWeather(currentCity);
+            response = weatherData.message;
+            lastTopic = updateContext("weather");
+            break;
+          case "calendar":
+            response = getCalendarEvents();
+            lastTopic = updateContext("calendar");
+            break;
+          case "time":
+            const now = new Date();
+            response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
+            lastTopic = updateContext("time");
+            break;
+          case "delete":
+            const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
+            if (dayStr) {
+              const dayNum = parseInt(dayStr);
+              response = deleteCalendarEvent(dayNum);
+            } else {
+              response = "삭제할 날짜를 입력하지 않으셨습니다.";
+            }
+            lastTopic = updateContext("delete");
+            break;
+          default:
+            response = "죄송해요, 잘 이해하지 못했어요.";
+            break;
         }
-      } else if (intent === "getWeather") {
-        const weatherData = await getWeather(currentCity);
-        response = weatherData.message;
-        lastTopic = updateContext("weather");
-      } else if (intent === "getTime") {
-        const now = new Date();
-        response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
-        lastTopic = updateContext("time");
-      } else if (intent === "youtubeSearch") {
-        const query = lowerInput.replace(new RegExp(intents.youtubeSearch.join("|"), "gi"), "").trim();
-        if (query) {
-          response = await getYouTubeSearchResults(query);
-          isHTML = true;
-        } else {
-          response = "유튜브 검색어를 입력해주세요. 예: 고양이 비디오";
-        }
-        lastTopic = updateContext("youtubeSearch");
-      } else if (intent === "naverSearch") {
-        const query = lowerInput.replace(new RegExp(intents.naverSearch.join("|"), "gi"), "").trim();
-        if (query) {
-          const naverResults = await getNaverSearchResults(query);
-          response = naverResults ? `검색 결과:\n- ${naverResults}` : "검색 결과를 가져오는데 실패했습니다.";
-          lastTopic = updateContext("naverSearch");
-        } else {
-          response = "네이버 검색어를 입력해주세요. 예: 네이버 날씨";
-        }
-      } else if (intent === "greetings") {
-        response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
-        lastTopic = updateContext("greetings");
-      } else if (intent === "sleep") {
-        response = "편안한 밤 되세요, 좋은 꿈 꾸세요~";
-        lastTopic = updateContext("sleep");
-      } else if (intent === "weather") {
-        const weatherData = await getWeather(currentCity);
-        response = weatherData.message;
-        lastTopic = updateContext("weather");
-      } else if (intent === "calendar") {
-        response = getCalendarEvents();
-        lastTopic = updateContext("calendar");
-      } else if (intent === "time") {
-        const now = new Date();
-        response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
-        lastTopic = updateContext("time");
-      } else if (intent === "delete") {
-        const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
-        if (dayStr) {
-          const dayNum = parseInt(dayStr);
-          response = deleteCalendarEvent(dayNum);
-        } else {
-          response = "삭제할 날짜를 입력하지 않으셨습니다.";
-        }
-        lastTopic = updateContext("delete");
       } else if (lastTopic === "weather" && lowerInput.includes("내일")) {
         response = "내일 날씨는 비가 올 예정입니다.";
       } else if (lowerInput.startsWith("지역 ")) {
@@ -670,6 +686,10 @@ function showSpeechBubbleInChunks(text, isHTML = false, chunkSize = 15, delay = 
 
 /***** DOM 이벤트 처리 *****/
 window.addEventListener("DOMContentLoaded", async () => {
+  // 페이지 로드 시 로컬 스토리지에서 KEYWORDS 불러오기
+  loadKeywordsFromStorage();
+  
+  // MongoDB에서 최신 데이터 가져와 KEYWORDS 갱신
   await fetchAndUpdateKeywords();
 
   const chatInput = document.getElementById("chat-input");
