@@ -34,6 +34,7 @@ document.addEventListener("contextmenu", event => event.preventDefault());
 // 서버로 로그를 전송하는 함수
 async function logToServer(message) {
   try {
+    console.log(`Render 터미널 로그: ${message}`); // Render 터미널에 로그 출력
     await fetch(`${API_BASE_URL}/api/log`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -47,16 +48,26 @@ async function logToServer(message) {
 // MongoDB에서 데이터를 가져와 KEYWORDS에 추가하는 함수 (크기 제한 추가)
 async function fetchAndUpdateKeywords() {
   try {
-    await logToServer("MongoDB 데이터 가져오기 전");
-    const response = await fetch(`${API_BASE_URL}/api/processed-data?limit=100`); // 크기 제한 설정 (최대 100개)
+    await logToServer("MongoDB 데이터를 읽기 전");
+    // `searchlogs` 컬렉션을 명시적으로 지정
+    const response = await fetch(`${API_BASE_URL}/api/processed-data?collection=searchlogs&limit=100`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
+
     const data = await response.json();
     if (!Array.isArray(data)) throw new Error("응답 데이터가 배열이 아님");
 
+    if (data.length === 0) {
+      await logToServer("MongoDB searchlogs 컬렉션에서 데이터가 없습니다.");
+      return "";
+    }
+
     // 데이터 처리: 각 의도별 키워드 분류
     data.forEach(item => {
-      const intent = item.intent;
-      const keywords = item.keywords.map(kw => kw.trim().toLowerCase()).slice(0, 50); // 키워드 최대 50개로 제한
+      const intent = item.intent || "unknown"; // intent 필드가 없으면 기본값 설정
+      const keywords = Array.isArray(item.keywords)
+        ? item.keywords.map(kw => kw.trim().toLowerCase()).slice(0, 50)
+        : []; // keywords 필드가 배열이 아닌 경우 빈 배열로 초기화
+
       if (KEYWORDS[intent]) {
         KEYWORDS[intent] = [...new Set([...KEYWORDS[intent], ...keywords])];
       } else {
@@ -64,8 +75,8 @@ async function fetchAndUpdateKeywords() {
       }
     });
 
-    await logToServer("MongoDB 데이터 가져오기 후");
     const allKeywords = Object.values(KEYWORDS).flat().join(" ");
+    await logToServer(`MongoDB 데이터를 읽은 후 출력 [${allKeywords}]`);
     return allKeywords;
   } catch (error) {
     await logToServer(`MongoDB API 호출 실패: ${error.message}`);
@@ -456,7 +467,7 @@ async function sendChat() {
   let navigateUrl = "";
   const processedInput = await processText(input); // 자모음 결합 및 처리
   const lowerInput = processedInput.toLowerCase();
-  await logToServer(`채팅창 입력 처리 결과: ${processedInput}`); // 처리된 입력 로그 출력
+  await logToServer(`뭐해 채팅창 입력: ${processedInput}`); // 채팅창 입력 로그
   let currentCity = "서울"; // 기본값
   let lastTopic = memoryStorage.load("lastTopic") || "";
   const regionMap = {
@@ -1203,91 +1214,3 @@ function animate() {
   const moonAngle = angle + Math.PI;
   const moonPos = new THREE.Vector3(
     headWorldPos.x + Math.cos(moonAngle) * radius,
-    headWorldPos.y + Math.sin(moonAngle) * radius,
-    headWorldPos.z
-  );
-  moon.position.copy(moonPos);
-
-  const t = now.getHours() + now.getMinutes() / 60;
-  let sunOpacity = 0, moonOpacity = 0;
-  if (t < 6) {
-    sunOpacity = 0;
-    moonOpacity = 1;
-  } else if (t < 7) {
-    let factor = t - 6;
-    sunOpacity = factor;
-    moonOpacity = 1 - factor;
-  } else if (t < 17) {
-    sunOpacity = 1;
-    moonOpacity = 0;
-  } else if (t < 18) {
-    let factor = t - 17;
-    sunOpacity = 1 - factor;
-    moonOpacity = factor;
-  } else {
-    sunOpacity = 0;
-    moonOpacity = 1;
-  }
-  sun.material.opacity = sunOpacity;
-  moon.material.opacity = moonOpacity;
-
-  const isDay = (t >= 7 && t < 17);
-  scene.background = new THREE.Color(isDay ? 0x87CEEB : 0x000033);
-
-  stars.forEach(s => (s.visible = !isDay));
-  fireflies.forEach(f => (f.visible = !isDay));
-
-  characterStreetlight.traverse(child => {
-    if (child instanceof THREE.PointLight) {
-      child.intensity = isDay ? 0 : 1;
-    }
-  });
-  characterLight.position.copy(characterGroup.position).add(new THREE.Vector3(0, 5, 0));
-  characterLight.intensity = isDay ? 0 : 1;
-
-  characterGroup.position.y = -1;
-  characterGroup.rotation.x = 0;
-
-  updateWeatherEffects("");
-  updateHouseClouds();
-  updateLightning("");
-
-  characterStreetlight.position.set(
-    characterGroup.position.x + 1,
-    -2,
-    characterGroup.position.z
-  );
-
-  updateBubblePosition();
-
-  if (cloudRainGroup.visible) {
-    const particles = cloudRainGroup.children[0];
-    let positions = particles.geometry.attributes.position.array;
-    for (let i = 0; i < positions.length; i += 3) {
-      positions[i + 1] -= 0.02;
-      if (positions[i + 1] < -0.3) {
-        positions[i + 1] = Math.random() * 0.2;
-      }
-    }
-    particles.geometry.attributes.position.needsUpdate = true;
-  }
-
-  renderer.render(scene, camera);
-}
-animate();
-
-function updateBubblePosition() {
-  const bubble = document.getElementById("speech-bubble");
-  if (!bubble) return;
-  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
-  const headWorldPos = new THREE.Vector3();
-  try {
-    head.getWorldPosition(headWorldPos);
-  } catch (err) {
-    console.error("updateBubblePosition 에러:", err);
-    return;
-  }
-  const screenPos = headWorldPos.project(camera);
-  bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
-  bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
-}
