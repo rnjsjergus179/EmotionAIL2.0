@@ -28,6 +28,9 @@ let KEYWORDS = {
 // 백엔드 API 기본 URL 정의
 const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 
+// MongoDB 데이터를 전역 변수로 저장
+let mongoData = {};
+
 /***** 전역 변수 및 초기 설정 *****/
 document.addEventListener("contextmenu", event => event.preventDefault());
 
@@ -44,32 +47,34 @@ async function logToServer(message) {
   }
 }
 
-// MongoDB에서 데이터를 가져와 KEYWORDS에 추가하는 함수 (수정됨)
+// MongoDB에서 데이터를 가져와 의도별로 분류하고 KEYWORDS를 업데이트하는 함수
 async function fetchAndUpdateKeywords() {
   try {
     await logToServer("MongoDB 데이터 가져오기 시작");
-    const response = await fetch(`${API_BASE_URL}/api/processed-data`);
+    const response = await fetch(`${API_BASE_URL}/api/getData`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
-    const data = await response.json();
-    if (!Array.isArray(data)) throw new Error("응답 데이터가 배열이 아님");
+    const data = await response.json(); // JSON 형태로 데이터 받기 (예: [{ intent: "greetings", keywords: ["안녕", "hi"] }])
 
-    // 데이터 처리: 각 의도별 키워드 분류
+    // 전역 변수에 원본 데이터 저장
+    mongoData = data;
+
+    // 의도별로 키워드 분류 및 KEYWORDS 업데이트
     data.forEach(item => {
       const intent = item.intent;
-      const keywords = item.keywords.map(kw => kw.trim().toLowerCase());
+      const keywords = item.keywords.map(kw => processText(kw.trim().toLowerCase()));
 
       if (KEYWORDS[intent]) {
-        KEYWORDS[intent] = [...new Set([...KEYWORDS[intent], ...keywords])];
+        KEYWORDS[intent] = [...new Set([...KEYWORDS[intent], ...keywords])]; // 중복 제거
       } else {
         KEYWORDS[intent] = [...new Set(keywords)];
       }
     });
 
-    await logToServer("의도인식 그룹객체에 정상적으로 업데이트되었습니다.");
+    // 서버에 KEYWORDS 전송
+    await sendKeywordsToServer(KEYWORDS);
 
-    // 기존 코드와 호환성을 위해 모든 키워드를 문자열로 반환
-    const allKeywords = Object.values(KEYWORDS).flat().join(" ");
-    return allKeywords;
+    await logToServer("의도인식 그룹객체에 정상적으로 업데이트 및 서버로 전송되었습니다.");
+    return KEYWORDS;
   } catch (error) {
     await logToServer(`MongoDB API 호출 실패: ${error.message}`);
     console.error("MongoDB 데이터 가져오기 실패:", error);
@@ -77,7 +82,22 @@ async function fetchAndUpdateKeywords() {
   }
 }
 
-// 텍스트 처리 함수 (자모음 결합 및 영어 단어 분리 개선)
+// KEYWORDS를 서버로 전송하는 함수
+async function sendKeywordsToServer(keywords) {
+  try {
+    await fetch(`${API_BASE_URL}/api/updateKeywords`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keywords })
+    });
+    await logToServer("KEYWORDS가 서버에 성공적으로 전송되었습니다.");
+  } catch (error) {
+    await logToServer(`KEYWORDS 전송 실패: ${error.message}`);
+    console.error("KEYWORDS 전송 실패:", error);
+  }
+}
+
+// 텍스트 처리 함수 (자모음 결합 및 영어 단어 유지)
 function processText(text) {
   if (!text || typeof text !== 'string') return "";
 
@@ -148,6 +168,7 @@ function learnFromInteractions() {
   if (emotionCount["negative"] && emotionCount["negative"] >= 5) {
     if (!KEYWORDS.negativeComfort) {
       KEYWORDS.negativeComfort = ["힘내세요!", "당신은 혼자가 아니에요.", "괜찮을 거예요."];
+      sendKeywordsToServer(KEYWORDS); // 새로운 의도 추가 시 서버로 전송
     }
   }
 }
@@ -158,7 +179,7 @@ async function processNLP(input, processedData) {
     const response = await fetch(`${API_BASE_URL}/api/nlp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: input, processedData: processedData })
+      body: JSON.stringify({ text: input, processedData: processedData, mongoData: mongoData })
     });
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
@@ -201,7 +222,7 @@ async function detectIntent(input, processedData) {
     const response = await fetch(`${API_BASE_URL}/api/intent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: input, processedData: processedData })
+      body: JSON.stringify({ text: input, processedData: processedData, mongoData: mongoData })
     });
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
@@ -702,7 +723,7 @@ window.addEventListener("DOMContentLoaded", function() {
     });
   }
 
-  // 페이지 로드 시 MongoDB 데이터를 가져와 KEYWORDS를 업데이트
+  // 페이지 로드 시 MongoDB 데이터를 가져와 KEYWORDS를 업데이트하고 서버로 전송
   fetchAndUpdateKeywords();
 });
 
