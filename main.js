@@ -79,6 +79,8 @@ async function fetchAndUpdateKeywords() {
   } catch (err) {
     await logToServer(`MongoDB API 호출 실패: ${err.message}`);
     console.error(err);
+    // API 호출 실패 시 로컬 스토리지에서 KEYWORDS 불러오기
+    loadKeywordsFromStorage();
     return ""; // 오류 시 빈 문자열 반환
   }
 }
@@ -87,7 +89,12 @@ async function fetchAndUpdateKeywords() {
 function loadKeywordsFromStorage() {
   const storedKeywords = localStorage.getItem('KEYWORDS');
   if (storedKeywords) {
-    KEYWORDS = JSON.parse(storedKeywords);
+    try {
+      KEYWORDS = JSON.parse(storedKeywords);
+    } catch (e) {
+      console.error("로컬 스토리지에서 KEYWORDS 파싱 오류:", e);
+      KEYWORDS = {}; // 기본값으로 초기화
+    }
   }
 }
 
@@ -196,7 +203,7 @@ const intents = {
 
 async function detectIntent(input, processedData) {
   const processedInput = processText(input).toLowerCase();
-  const processedDataWords = processedData.toLowerCase().split(/\s+/);
+  const processedDataWords = processedData ? processedData.toLowerCase().split(/\s+/) : [];
 
   for (let intent in intents) {
     const intentKeywords = intents[intent];
@@ -370,7 +377,12 @@ async function saveToLearningDB(type, query, results) {
 
 /***** 날씨 효과 및 지역 변경 *****/
 function updateWeatherEffects(currentWeather) {
-  if (!currentWeather || typeof rainGroup === 'undefined' || typeof cloudRainGroup === 'undefined' || typeof houseCloudGroup === 'undefined') return;
+  if (!currentWeather || typeof rainGroup === 'undefined' || typeof cloudRainGroup === 'undefined' || typeof houseCloudGroup === 'undefined') {
+    if (typeof rainGroup !== 'undefined') rainGroup.visible = false;
+    if (typeof cloudRainGroup !== 'undefined') cloudRainGroup.visible = false;
+    if (typeof houseCloudGroup !== 'undefined') houseCloudGroup.visible = false;
+    return;
+  }
   if (currentWeather.includes("비") || currentWeather.includes("소나기")) {
     rainGroup.visible = true;
     cloudRainGroup.visible = true;
@@ -1218,9 +1230,12 @@ function animate() {
   try {
     if (typeof head !== 'undefined' && head !== null && typeof head.getWorldPosition === "function") {
       head.getWorldPosition(headWorldPos);
+    } else {
+      headWorldPos.set(0, 1.2, 0); // 기본 위치 설정
     }
   } catch (err) {
     console.error("애니메이트 중 head.getWorldPosition 에러:", err);
+    headWorldPos.set(0, 1.2, 0); // 오류 발생 시 기본 위치
   }
 
   const totalMin = now.getHours() * 60 + now.getMinutes();
@@ -1313,13 +1328,16 @@ animate();
 function updateBubblePosition() {
   const bubble = document.getElementById("speech-bubble");
   if (!bubble) return;
-  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
   const headWorldPos = new THREE.Vector3();
   try {
-    head.getWorldPosition(headWorldPos);
+    if (typeof head !== 'undefined' && head !== null && typeof head.getWorldPosition === "function") {
+      head.getWorldPosition(headWorldPos);
+    } else {
+      headWorldPos.set(0, 1.2, 0); // 기본 위치 설정
+    }
   } catch (err) {
     console.error("updateBubblePosition 에러:", err);
-    return;
+    headWorldPos.set(0, 1.2, 0); // 오류 발생 시 기본 위치
   }
   const screenPos = headWorldPos.project(camera);
   bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
