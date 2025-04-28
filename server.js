@@ -111,14 +111,25 @@ connectDB()
       }
     });
 
-    // 6) 기존 search, weather 라우트 연결
+    // 6) 클라이언트 로그 수신 엔드포인트
+    app.post('/api/log', (req, res) => {
+      const { message } = req.body;
+      if (message) {
+        console.log(`📝 [클라이언트 로그] ${message}`);
+        res.status(200).json({ success: true });
+      } else {
+        res.status(400).json({ error: '메시지가 없습니다.' });
+      }
+    });
+
+    // 7) 기존 search, weather 라우트 연결
     app.use('/api', searchRoute);
     app.use('/api', weatherRoute);
 
-    // 7) 정적 파일 서빙
+    // 8) 정적 파일 서빙
     app.use(express.static(path.join(__dirname, 'public')));
 
-    // 8) 서버 리스닝
+    // 9) 서버 리스닝
     app.listen(port, () => {
       console.log(`🚀 서버 실행 중: http://localhost:${port}`);
     });
