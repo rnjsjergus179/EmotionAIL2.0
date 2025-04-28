@@ -44,45 +44,32 @@ async function logToServer(message) {
   }
 }
 
-// MongoDB에서 데이터를 가져와 KEYWORDS에 추가하는 함수 (개선됨)
+// MongoDB에서 데이터를 가져와 KEYWORDS에 추가하는 함수 (수정됨)
 async function fetchAndUpdateKeywords() {
   try {
-    // 필터링 전 메시지 출력
-    await logToServer("필터링전. 출력중...");
-
+    await logToServer("MongoDB 데이터 가져오기 시작");
     const response = await fetch(`${API_BASE_URL}/api/processed-data`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
     if (!Array.isArray(data)) throw new Error("응답 데이터가 배열이 아님");
 
-    // 데이터 처리 중 메시지
-    await logToServer("확인💯");
+    // 데이터 처리: 각 의도별 키워드 분류
+    data.forEach(item => {
+      const intent = item.intent;
+      const keywords = item.keywords.map(kw => kw.trim().toLowerCase());
 
-    // MongoDB 데이터 처리: 각 문서의 results를 결합하고 자모음을 완성된 문자로 변환
-    const processed = data.map(doc => {
-      if (!doc.results || !Array.isArray(doc.results)) {
-        console.warn("doc.results가 배열이 아님, 빈 문자열로 처리:", doc);
-        return "";
+      if (KEYWORDS[intent]) {
+        KEYWORDS[intent] = [...new Set([...KEYWORDS[intent], ...keywords])];
+      } else {
+        KEYWORDS[intent] = [...new Set(keywords)];
       }
-      // results 배열을 공백 없이 결합 후 자모음을 완성된 문자로 변환
-      const combinedText = doc.results.join("").normalize('NFC');
-      return combinedText;
-    }).filter(text => text.trim() !== ""); // 빈 문자열 제거
+    });
 
-    // 필터링 후 메시지
-    await logToServer("필터링후 전송됩니다.⭐️");
-    await logToServer("데이터 출력완료‼️");
+    await logToServer("의도인식 그룹객체에 정상적으로 업데이트되었습니다.");
 
-    await logToServer("MongoDB API 호출 성공");
-
-    // KEYWORDS.greetings에 중복 없이 추가
-    const mongoDataWords = processed.map(word => word.toLowerCase());
-    KEYWORDS.greetings = [...new Set([...KEYWORDS.greetings, ...mongoDataWords])];
-
-    // 의도 인식 그룹 객체 업데이트 후 메시지
-    await logToServer("의도인식 그룹객체에 정상적으로 출력되었습니다.⭕️");
-
-    return processed.join(" ");
+    // 기존 코드와 호환성을 위해 모든 키워드를 문자열로 반환
+    const allKeywords = Object.values(KEYWORDS).flat().join(" ");
+    return allKeywords;
   } catch (error) {
     await logToServer(`MongoDB API 호출 실패: ${error.message}`);
     console.error("MongoDB 데이터 가져오기 실패:", error);
@@ -99,19 +86,19 @@ function processText(text) {
   let englishBuffer = '';
 
   for (let char of text) {
-    if (/[\u1100-\u11FF\u3131-\u318E]/.test(char)) { // 한글 자모음 체크
+    if (/[\u1100-\u11FF\u3131-\u318E]/.test(char)) {
       if (englishBuffer) {
         result += englishBuffer + ' ';
         englishBuffer = '';
       }
       jamoBuffer += char;
-    } else if (/[a-zA-Z]/.test(char)) { // 영어 알파벳 체크
+    } else if (/[a-zA-Z]/.test(char)) {
       if (jamoBuffer) {
         result += jamoBuffer.normalize('NFC') + ' ';
         jamoBuffer = '';
       }
       englishBuffer += char;
-    } else { // 기타 문자 (공백, 특수문자 등)
+    } else {
       if (jamoBuffer) {
         result += jamoBuffer.normalize('NFC') + ' ';
         jamoBuffer = '';
@@ -124,7 +111,6 @@ function processText(text) {
     }
   }
 
-  // 남은 버퍼 처리
   if (jamoBuffer) result += jamoBuffer.normalize('NFC') + ' ';
   if (englishBuffer) result += englishBuffer + ' ';
   return result.trim();
