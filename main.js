@@ -16,96 +16,75 @@ const SITE_LINKS = {
   "레딧": "https://www.reddit.com"
 };
 
-let KEYWORDS = {}; // Initially empty, will be populated from MongoDB
+const KEYWORDS = {
+  greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
+  sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
+  weather: ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"],
+  calendar: ["일정 알려줘"],
+  time: ["시간 알려줘"],
+  delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
+};
 
 // 백엔드 API 기본 URL 정의
 const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 
-/***** 전역 변수 및 초기 설정 *****/
+/***** 전역 변수 *****/
 document.addEventListener("contextmenu", event => event.preventDefault());
+let currentCity = "서울";
+let currentWeather = "";
+let mongoData = []; // MongoDB 데이터를 저장할 전역 변수
+const regionMap = {
+  "서울": "Seoul",
+  "인천": "Incheon",
+  "수원": "Suwon",
+  "고양": "Goyang",
+  "성남": "Seongnam",
+  "용인": "Yongin",
+  "부천": "Bucheon",
+  "안양": "Anyang",
+  "의정부": "Uijeongbu",
+  "광명": "Gwangmyeong",
+  "안산": "Ansan",
+  "파주": "Paju",
+  "부산": "Busan",
+  "대구": "Daegu",
+  "광주": "Gwangju",
+  "대전": "Daejeon",
+  "울산": "Ulsan",
+  "제주": "Jeju",
+  "전주": "Jeonju",
+  "청주": "Cheongju",
+  "포항": "Pohang",
+  "여수": "Yeosu",
+  "김해": "Gimhae"
+};
+const regionList = Object.keys(regionMap);
 
-// 서버로 로그를 전송하는 함수
-async function logToServer(message) {
-  try {
-    await fetch(`${API_BASE_URL}/api/log`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message })
-    });
-  } catch (error) {
-    console.error("서버 로깅 실패:", error.message);
-  }
-}
-
-// MongoDB에서 데이터를 가져와 KEYWORDS를 갱신하는 함수
-async function fetchAndUpdateKeywords() {
-  try {
-    await logToServer("MongoDB 데이터 가져오기 시작");
-    const res = await fetch(`${API_BASE_URL}/api/processed-data`);
-    if (!res.ok) throw new Error(`HTTP 오류! 상태: ${res.status}`);
-    const docs = await res.json(); // Expected format: [{ intent, keywords, responses }, …]
-
-    KEYWORDS = {};
-
-    docs.forEach(doc => {
-      const intent = doc.intent;
-      const processedKeywords = (doc.keywords || [])
-        .map(kw => processText(kw).trim().toLowerCase())
-        .filter(kw => kw.match(/^[\u1100-\u11FF\u3131-\u318E\uAC00-\uD7A3a-zA-Z]+$/))
-        .filter(kw => kw !== "");
-
-      KEYWORDS[intent] = {
-        keywords: Array.from(new Set(processedKeywords)),
-        responses: doc.responses || []
-      };
-    });
-
-    localStorage.setItem('KEYWORDS', JSON.stringify(KEYWORDS));
-    await logToServer("의도인식 GROUP 객체 정상 업데이트 완료");
-    return Object.values(KEYWORDS).flatMap(group => group.keywords).join(" ");
-  } catch (err) {
-    await logToServer(`MongoDB API 호출 실패: ${err.message}`);
-    console.error(err);
-    loadKeywordsFromStorage();
-    return "";
-  }
-}
-
-// 로컬 스토리지에서 KEYWORDS 불러오기
-function loadKeywordsFromStorage() {
-  const storedKeywords = localStorage.getItem('KEYWORDS');
-  if (storedKeywords) {
-    try {
-      KEYWORDS = JSON.parse(storedKeywords);
-    } catch (e) {
-      console.error("로컬 스토리지에서 KEYWORDS 파싱 오류:", e);
-      KEYWORDS = {};
-    }
-  }
-}
-
-// 텍스트 처리 함수 (자모음 결합 및 필터링)
+// 자모음 및 영어 처리 함수
 function processText(text) {
-  if (!text || typeof text !== 'string') return "";
-
   let result = '';
-  let jamoBuffer = '';
-  let englishBuffer = '';
+  let jamoBuffer = ''; // 자모음을 모으는 버퍼
+  let englishBuffer = ''; // 영어 알파벳을 모으는 버퍼
 
   for (let char of text) {
-    if (/[\u1100-\u11FF\u3131-\u318E]/.test(char)) { // 한글 자모음
+    // 한국어 자모음인지 확인 (Hangul Jamo: U+1100-U+11FF, Compatibility Jamo: U+3131-U+318E)
+    if (/[\u1100-\u11FF\u3131-\u318E]/.test(char)) {
       if (englishBuffer) {
         result += englishBuffer + ' ';
         englishBuffer = '';
       }
       jamoBuffer += char;
-    } else if (/[a-zA-Z]/.test(char)) { // 영어 알파벳
+    }
+    // 영어 알파벳인지 확인 (A-Z, a-z)
+    else if (/[a-zA-Z]/.test(char)) {
       if (jamoBuffer) {
         result += jamoBuffer.normalize('NFC') + ' ';
         jamoBuffer = '';
       }
       englishBuffer += char;
-    } else { // 기타 문자
+    }
+    // 그 외 문자는 필터링
+    else {
       if (jamoBuffer) {
         result += jamoBuffer.normalize('NFC') + ' ';
         jamoBuffer = '';
@@ -114,16 +93,21 @@ function processText(text) {
         result += englishBuffer + ' ';
         englishBuffer = '';
       }
-      result += char + ' ';
     }
   }
 
-  if (jamoBuffer) result += jamoBuffer.normalize('NFC') + ' ';
-  if (englishBuffer) result += englishBuffer + ' ';
+  // 남은 버퍼 처리
+  if (jamoBuffer) {
+    result += jamoBuffer.normalize('NFC') + ' ';
+  }
+  if (englishBuffer) {
+    result += englishBuffer + ' ';
+  }
+
   return result.trim();
 }
 
-/***** 메모리 저장 및 학습 *****/
+/***** 메모리 저장(기억) 및 반복 학습 *****/
 const memoryStorage = {
   save: function(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
@@ -154,60 +138,28 @@ function learnFromInteractions() {
   let emotionCount = memoryStorage.load("emotionCount") || { positive: 0, negative: 0, surprise: 0 };
   if (emotionCount["negative"] && emotionCount["negative"] >= 5) {
     if (!KEYWORDS.negativeComfort) {
-      KEYWORDS.negativeComfort = {
-        keywords: ["힘들어", "어려워"],
-        responses: ["힘내세요!", "당신은 혼자가 아니에요.", "괜찮을 거예요."]
-      };
-      localStorage.setItem('KEYWORDS', JSON.stringify(KEYWORDS));
+      KEYWORDS.negativeComfort = ["힘내세요!", "당신은 혼자가 아니에요.", "괜찮을 거예요."];
     }
   }
 }
 
-/***** NLP 및 의도 인식 *****/
-async function processNLP(input, processedData) {
+/***** NLP (감정 분석) *****/
+let lastTopic = memoryStorage.load("lastTopic") || "";
+
+async function processNLP(input) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/nlp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: input, processedData: processedData })
+      body: JSON.stringify({ text: input })
     });
-    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
+    if (!response.ok) throw new Error("NLP 서버 응답 오류");
     const data = await response.json();
-    await logToServer("NLP API 호출 성공");
-    return data.response || "죄송해요, 잘 이해하지 못했어요.";
+    return data.response || null;
   } catch (error) {
-    await logToServer(`NLP API 호출 실패: ${error.message}`);
+    console.error("NLP 처리 오류:", error);
     return "죄송해요, 지금은 대답을 잘 이해하지 못했어요. 다시 말씀해 주세요!";
   }
-}
-
-const intents = {
-  addEvent: ["일정", "추가", "예약", "회의"],
-  getWeather: ["날씨", "어때"],
-  getTime: ["시간", "몇 시"],
-  youtubeSearch: ["유튜브", "youtube", "동영상", "비디오", "영상"],
-  naverSearch: ["네이버", "naver", "검색", "찾기"]
-};
-
-async function detectIntent(input, processedData) {
-  const processedInput = processText(input).toLowerCase();
-  const processedDataWords = processedData ? processedData.toLowerCase().split(/\s+/) : [];
-
-  for (let intent in intents) {
-    const intentKeywords = intents[intent];
-    if (intentKeywords.some(keyword => processedInput.includes(keyword)) ||
-        processedDataWords.some(word => processedInput.includes(word) && intentKeywords.includes(word))) {
-      return intent;
-    }
-  }
-
-  for (let category in KEYWORDS) {
-    if (KEYWORDS[category].keywords.some(keyword => processedInput.includes(keyword))) {
-      return category;
-    }
-  }
-
-  return null;
 }
 
 function isNewsQuery(input) {
@@ -271,14 +223,7 @@ function getCalendarEvents(dateStr = null) {
   }
 }
 
-function updateMap(currentCity) {
-  const regionMap = {
-    "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
-    "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
-    "안산": "Ansan", "파주": "Paju", "부산": "Busan", "대구": "Daegu", "광주": "Gwangju",
-    "대전": "Daejeon", "울산": "Ulsan", "제주": "Jeju", "전주": "Jeonju", "청주": "Cheongju",
-    "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
-  };
+function updateMap() {
   const englishCity = regionMap[currentCity] || "Seoul";
   const mapIframe = document.getElementById("map-iframe");
   if (mapIframe) {
@@ -287,44 +232,36 @@ function updateMap(currentCity) {
 }
 
 /***** 백엔드 API 호출 함수 *****/
-async function getWeather(currentCity) {
-  const regionMap = {
-    "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
-    "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
-    "안산": "Ansan", "파주": "Paju", "부산": "Busan", "대구": "Daegu", "광주": "Gwangju",
-    "대전": "Daejeon", "울산": "Ulsan", "제주": "Jeju", "전주": "Jeonju", "청주": "Cheongju",
-    "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
-  };
+async function getWeather() {
   try {
     const englishCity = regionMap[currentCity] || "Seoul";
     const response = await fetch(`${API_BASE_URL}/api/weather?city=${encodeURIComponent(englishCity)}`);
-    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
+    if (!response.ok) throw new Error("서버 응답 오류");
     const data = await response.json();
-    const currentWeather = data.description;
+    currentWeather = data.description;
     const message = `오늘 ${currentCity}의 날씨는 ${data.description}이고, 기온은 ${data.temperature}°C입니다.`;
-    await logToServer("날씨 API 호출 성공");
-    return { message, currentWeather };
+    return { message };
   } catch (error) {
-    await logToServer(`날씨 API 호출 실패: ${error.message}`);
-    return { message: "날씨 정보를 가져오는데 실패했습니다.", currentWeather: "" };
+    console.error(error);
+    currentWeather = "";
+    return { message: "날씨 정보를 가져오는데 실패했습니다." };
   }
 }
 
 async function getNaverSearchResults(query) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/naver-search?q=${encodeURIComponent(query)}`);
-    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
+    if (!response.ok) throw new Error("서버 응답 오류");
     const data = await response.json();
     if (data.items && data.items.length > 0) {
-      const results = data.items.map(item => item.title.replace(/<[^>]+>/g, '')).join('\n- ');
+      const results = data.items.map(item => item.title.replace(/<[^>]+>/g, ''));
       await saveToLearningDB('naver', query, results);
-      await logToServer("네이버 검색 API 호출 성공");
-      return results;
+      return results.join('\n- ');
     } else {
       return "검색 결과가 없습니다.";
     }
   } catch (error) {
-    await logToServer(`네이버 검색 API 호출 실패: ${error.message}`);
+    console.error(error);
     return "검색 결과를 가져오는데 실패했습니다.";
   }
 }
@@ -332,23 +269,24 @@ async function getNaverSearchResults(query) {
 async function getYouTubeSearchResults(query) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/youtube-search?q=${encodeURIComponent(query)}`);
-    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
+    if (!response.ok) throw new Error("서버 응답 오류");
     const data = await response.json();
+    console.log('유튜브 백엔드 엔드포인트 API 호출 완료✅️');
     if (data.items && data.items.length > 0) {
       const results = data.items.map(item => `<a href="${item.url}" target="_blank">${item.title}</a>`).join('<br>');
+      console.log('➡️db.js로 이동하게 ⭕️ server.js로 넘김니다 성공✅️');
       await saveToLearningDB('youtube', query, data.items);
-      await logToServer("유튜브 검색 API 호출 성공");
       return results;
     } else {
       return "검색 결과가 없습니다.";
     }
   } catch (error) {
-    await logToServer(`유튜브 검색 API 호출 실패: ${error.message}`);
+    console.error(error);
     return "유튜브 검색 결과를 가져오는데 실패했습니다.";
   }
 }
 
-/***** 학습용 DB 저장 *****/
+/***** 학습용 DB에 저장하는 함수 *****/
 async function saveToLearningDB(type, query, results) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/save-to-db`, {
@@ -356,21 +294,30 @@ async function saveToLearningDB(type, query, results) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type, query, results })
     });
-    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
-    await logToServer(`${type} 데이터가 학습용 DB에 저장되었습니다.`);
+    if (!response.ok) throw new Error("DB 저장 서버 응답 오류");
+    console.log(`${type} 데이터가 학습용 DB에 저장되었습니다.`);
   } catch (error) {
-    await logToServer(`학습용 DB 저장 오류: ${error.message}`);
+    console.error("학습용 DB 저장 오류:", error);
   }
 }
 
-/***** 날씨 효과 및 지역 변경 *****/
-function updateWeatherEffects(currentWeather) {
-  if (!currentWeather || typeof rainGroup === 'undefined' || typeof cloudRainGroup === 'undefined' || typeof houseCloudGroup === 'undefined') {
-    if (typeof rainGroup !== 'undefined') rainGroup.visible = false;
-    if (typeof cloudRainGroup !== 'undefined') cloudRainGroup.visible = false;
-    if (typeof houseCloudGroup !== 'undefined') houseCloudGroup.visible = false;
-    return;
+// MongoDB 데이터 가져오기 함수
+async function fetchMongoData() {
+  try {
+    console.log('🔍 [main.js] /api/getData 호출 중...');
+    const res = await fetch(`${API_BASE_URL}/api/getData`);
+    if (!res.ok) throw new Error(`status ${res.status}`);
+    const docs = await res.json();
+    console.log(`🎉 [main.js] ${docs.length}개 문서 수신 완료`);
+    return docs;
+  } catch (err) {
+    console.error('[main.js] MongoDB 데이터 가져오기 실패:', err);
+    return [];
   }
+}
+
+function updateWeatherEffects() {
+  if (!currentWeather || typeof rainGroup === 'undefined' || typeof cloudRainGroup === 'undefined' || typeof houseCloudGroup === 'undefined') return;
   if (currentWeather.includes("비") || currentWeather.includes("소나기")) {
     rainGroup.visible = true;
     cloudRainGroup.visible = true;
@@ -385,7 +332,7 @@ function updateWeatherEffects(currentWeather) {
   }
 }
 
-function updateLightning(currentWeather) {
+function updateLightning() {
   if (!currentWeather || typeof lightningLight === 'undefined') return;
   if (currentWeather.includes("번개") || currentWeather.includes("뇌우")) {
     if (Math.random() < 0.001) {
@@ -395,30 +342,21 @@ function updateLightning(currentWeather) {
   }
 }
 
-async function updateWeatherAndEffects(currentCity, sendMessage = true) {
-  const weatherData = await getWeather(currentCity);
+async function updateWeatherAndEffects(sendMessage = true) {
+  const weatherData = await getWeather();
   if (sendMessage) {
     showSpeechBubbleInChunks(weatherData.message);
   }
-  updateWeatherEffects(weatherData.currentWeather);
-  return weatherData.currentWeather;
+  updateWeatherEffects();
 }
 
 function changeRegion(value) {
-  const currentCity = value;
-  updateMap(currentCity);
-  updateWeatherAndEffects(currentCity);
-  const regionMap = {
-    "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
-    "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
-    "안산": "Ansan", "파주": "Paju", "부산": "Busan", "대구": "Daegu", "광주": "Gwangju",
-    "대전": "Daejeon", "울산": "Ulsan", "제주": "Jeju", "전주": "Jeonju", "청주": "Cheongju",
-    "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
-  };
+  currentCity = value;
+  updateMap();
+  updateWeatherAndEffects();
   const englishCity = regionMap[currentCity] || "Seoul";
   const message = `지역이 ${currentCity} (${englishCity})로 변경되었습니다.`;
   showSpeechBubbleInChunks(message);
-  return currentCity;
 }
 
 /***** 음성 인식 *****/
@@ -449,10 +387,9 @@ function startSpeechRecognition() {
 }
 
 /***** 대화 맥락 유지 *****/
-function updateContext(intent) {
-  const lastTopic = intent;
+function updateContext(topic) {
+  lastTopic = topic;
   memoryStorage.save("lastTopic", lastTopic);
-  return lastTopic;
 }
 
 /***** 채팅 전송 및 파이프라인 처리 *****/
@@ -461,120 +398,47 @@ async function sendChat() {
   if (!inputEl) return;
   const input = inputEl.value.trim();
   if (!input) return;
-
-  const processedData = await fetchAndUpdateKeywords(); // MongoDB에서 최신 데이터 가져와 KEYWORDS 갱신
-  const intent = await detectIntent(input, processedData); // 의도 인식
-
   let response = "";
   let isHTML = false;
   let shouldNavigate = false;
   let navigateUrl = "";
   const lowerInput = input.toLowerCase();
-  let currentCity = "서울"; // 기본값
-  let lastTopic = memoryStorage.load("lastTopic") || "";
-  const regionMap = {
-    "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
-    "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
-    "안산": "Ansan", "파주": "Paju", "부산": "Busan", "대구": "Daegu", "광주": "Gwangju",
-    "대전": "Daejeon", "울산": "Ulsan", "제주": "Jeju", "전주": "Jeonju", "청주": "Cheongju",
-    "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
-  };
-  const regionList = Object.keys(regionMap);
 
-  // 사이트 링크 처리
+  // 사이트 링크 확인
   for (let site in SITE_LINKS) {
     if (lowerInput.includes(site)) {
-      if (site === "유튜브" || site === "youtube") {
-        const query = lowerInput.replace(new RegExp(intents.youtubeSearch.join("|"), "gi"), "").trim();
-        if (query) {
-          response = await getYouTubeSearchResults(query);
-          isHTML = true;
-        } else {
-          response = "유튜브 검색어를 입력해주세요. 예: 고양이 비디오";
-        }
-        lastTopic = updateContext("youtubeSearch");
-      } else if (site === "네이버" || site === "naver") {
-        const query = lowerInput.replace(new RegExp(intents.naverSearch.join("|"), "gi"), "").trim();
-        if (query) {
-          const naverResults = await getNaverSearchResults(query);
-          response = naverResults ? `검색 결과:\n- ${naverResults}` : "검색 결과를 가져오는데 실패했습니다.";
-        } else {
-          response = "검색어를 입력해주세요. 예: 네이버 날씨";
-        }
-        lastTopic = updateContext("naverSearch");
-      } else {
-        response = `${site} 사이트로 이동합니다! 잠시만 기다려 주세요.`;
-        shouldNavigate = true;
-        navigateUrl = SITE_LINKS[site];
-      }
+      response = `${site} 사이트로 이동합니다! 잠시만 기다려 주세요.`;
+      shouldNavigate = true;
+      navigateUrl = SITE_LINKS[site];
       break;
     }
   }
 
   if (!response) {
-    if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
+    // 특정 명령어 확인
+    if (KEYWORDS.greetings.some(keyword => lowerInput.includes(keyword))) {
+      response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
+    } else if (KEYWORDS.sleep.some(keyword => lowerInput.includes(keyword))) {
+      response = "편안한 밤 되세요, 좋은 꿈 꾸세요~";
+    } else if (KEYWORDS.weather.some(keyword => lowerInput.includes(keyword))) {
+      const weatherData = await getWeather();
+      response = weatherData.message;
+    } else if (lowerInput.includes("시간")) {
+      const now = new Date();
+      response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
+    } else if (KEYWORDS.calendar.some(keyword => lowerInput.includes(keyword))) {
       const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
       response = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
+    } else if (KEYWORDS.delete.some(keyword => lowerInput.includes(keyword))) {
+      const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
+      if (dayStr) {
+        const dayNum = parseInt(dayStr);
+        response = deleteCalendarEvent(dayNum);
+      } else {
+        response = "삭제할 날짜를 입력하지 않으셨습니다.";
+      }
     } else if (isNewsQuery(input)) {
       response = await pipelineNewsSearch(input);
-    } else if (intent in intents) {
-      switch (intent) {
-        case "addEvent":
-          const eventMatch = input.match(/(오늘|내일|\d{4}-\d{1,2}-\d{1,2})\s*(\d{1,2})시/);
-          if (eventMatch) {
-            let date;
-            if (eventMatch[1] === "오늘") {
-              date = new Date();
-            } else if (eventMatch[1] === "내일") {
-              date = new Date(Date.now() + 86400000);
-            } else {
-              date = new Date(eventMatch[1]);
-            }
-            date.setHours(parseInt(eventMatch[2]));
-            const eventText = input.replace(eventMatch[0], "").trim();
-            const dateKey = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-            let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
-            calendarData[dateKey] = eventText;
-            localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
-            renderCalendar(currentYear, currentMonth);
-            response = `${dateKey}에 "${eventText}" 일정이 추가되었습니다.`;
-            lastTopic = updateContext("addEvent");
-          }
-          break;
-        case "getWeather":
-          const weatherData = await getWeather(currentCity);
-          response = weatherData.message;
-          lastTopic = updateContext("getWeather");
-          break;
-        case "getTime":
-          const now = new Date();
-          response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
-          lastTopic = updateContext("getTime");
-          break;
-        case "youtubeSearch":
-          const query = lowerInput.replace(new RegExp(intents.youtubeSearch.join("|"), "gi"), "").trim();
-          if (query) {
-            response = await getYouTubeSearchResults(query);
-            isHTML = true;
-          } else {
-            response = "유튜브 검색어를 입력해주세요. 예: 고양이 비디오";
-          }
-          lastTopic = updateContext("youtubeSearch");
-          break;
-        case "naverSearch":
-          const naverQuery = lowerInput.replace(new RegExp(intents.naverSearch.join("|"), "gi"), "").trim();
-          if (naverQuery) {
-            const naverResults = await getNaverSearchResults(naverQuery);
-            response = naverResults ? `검색 결과:\n- ${naverResults}` : "검색 결과를 가져오는데 실패했습니다.";
-            lastTopic = updateContext("naverSearch");
-          } else {
-            response = "네이버 검색어를 입력해주세요. 예: 네이버 날씨";
-          }
-          break;
-      }
-    } else if (KEYWORDS[intent] && KEYWORDS[intent].responses.length > 0) {
-      response = KEYWORDS[intent].responses[Math.floor(Math.random() * KEYWORDS[intent].responses.length)];
-      lastTopic = updateContext(intent);
     } else if (lowerInput.startsWith("지역 ")) {
       const newCity = lowerInput.replace("지역", "").trim();
       if (newCity && regionList.includes(newCity)) {
@@ -582,8 +446,8 @@ async function sendChat() {
         const regionSelect = document.getElementById("region-select");
         if (regionSelect) regionSelect.value = newCity;
         response = `좋아요, 지역을 ${newCity}(으)로 변경할게요!`;
-        updateMap(currentCity);
-        await updateWeatherAndEffects(currentCity);
+        updateMap();
+        await updateWeatherAndEffects();
       } else {
         response = "죄송해요, 그 지역은 지원하지 않아요. 드롭다운 메뉴에서 선택해주세요.";
       }
@@ -592,10 +456,32 @@ async function sendChat() {
       const regionSelect = document.getElementById("region-select");
       if (regionSelect) regionSelect.value = input;
       response = `좋아요, 지역을 ${input}(으)로 변경할게요!`;
-      updateMap(currentCity);
-      await updateWeatherAndEffects(currentCity);
+      updateMap();
+      await updateWeatherAndEffects();
     } else {
-      response = await processNLP(input, processedData);
+      // MongoDB 데이터 확인
+      for (const doc of mongoData) {
+        const query = doc.query.toLowerCase();
+        if (lowerInput.includes(query)) {
+          if (doc.type === 'youtube') {
+            response = doc.results.map(item => `<a href="${item.url}" target="_blank">${processText(item.title)}</a>`).join('<br>');
+            isHTML = true;
+          } else {
+            response = doc.results.map(title => processText(title)).join('\n- ');
+          }
+          break;
+        }
+      }
+      if (!response) {
+        // 기본 응답
+        const generalResponses = [
+          "정말 흥미로운 이야기네요. 더 들려주세요!",
+          "알겠습니다. 혹시 다른 궁금한 점은 없으신가요?",
+          "그렇군요. 당신의 의견을 듣고 있으니 따뜻한 대화를 나눠요.",
+          "그렇게 느끼실 수 있겠네요. 함께 이야기 나눠봐요!"
+        ];
+        response = generalResponses[Math.floor(Math.random() * generalResponses.length)];
+      }
     }
   }
 
@@ -612,7 +498,7 @@ async function sendChat() {
   learnFromInteractions();
 }
 
-/***** 말풍선 출력 *****/
+/***** 말풍선(버블) 여러 줄 출력 *****/
 function showSpeechBubbleInChunks(text, isHTML = false, chunkSize = 15, delay = 1500) {
   const bubble = document.getElementById("speech-bubble");
   if (!bubble) return;
@@ -648,11 +534,8 @@ function showSpeechBubbleInChunks(text, isHTML = false, chunkSize = 15, delay = 
   showNextPart();
 }
 
-/***** DOM 이벤트 처리 *****/
-window.addEventListener("DOMContentLoaded", async () => {
-  loadKeywordsFromStorage();
-  await fetchAndUpdateKeywords();
-
+/***** DOMContentLoaded, resize, load 이벤트 *****/
+window.addEventListener("DOMContentLoaded", function() {
   const chatInput = document.getElementById("chat-input");
   if (chatInput) {
     chatInput.setAttribute("list", "Charge");
@@ -660,10 +543,9 @@ window.addEventListener("DOMContentLoaded", async () => {
       if (e.key === "Enter") sendChat();
     });
   }
-
   const autoCompleteList = document.createElement("datalist");
   autoCompleteList.id = "Charge";
-  const allKeywords = Object.values(KEYWORDS).flatMap(group => group.keywords).concat(Object.keys(SITE_LINKS));
+  const allKeywords = Object.values(KEYWORDS).flat().concat(Object.keys(SITE_LINKS));
   allKeywords.forEach(kw => {
     const option = document.createElement("option");
     option.value = kw;
@@ -673,19 +555,11 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   const regionSelect = document.getElementById("region-select");
   if (regionSelect) {
-    const regionMap = {
-      "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
-      "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
-      "안산": "Ansan", "파주": "Paju", "부산": "Busan", "대구": "Daegu", "광주": "Gwangju",
-      "대전": "Daejeon", "울산": "Ulsan", "제주": "Jeju", "전주": "Jeonju", "청주": "Cheongju",
-      "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
-    };
-    const regionList = Object.keys(regionMap);
     regionList.forEach(region => {
       const option = document.createElement("option");
       option.value = region;
       option.textContent = `${region} (${regionMap[region]})`;
-      if (region === "서울") option.selected = true;
+      if (region === currentCity) option.selected = true;
       regionSelect.appendChild(option);
     });
   }
@@ -699,15 +573,15 @@ window.addEventListener("resize", function() {
   }
 });
 
-window.addEventListener("load", async () => {
-  try {
-    initCalendar();
-    updateMap("서울");
-    await updateWeatherAndEffects("서울");
-  } catch (err) {
-    console.error("로드 이벤트 에러:", err);
-  }
-});
+// 페이지 로드 시 실행될 init 함수
+async function init() {
+  initCalendar();
+  updateMap();
+  await updateWeatherAndEffects();
+  mongoData = await fetchMongoData(); // MongoDB 데이터 가져오기
+}
+
+window.addEventListener('load', init);
 
 /***** 캘린더 렌더링 *****/
 let currentYear, currentMonth;
@@ -751,8 +625,9 @@ function initCalendar() {
         const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth + 1}-${dayNum}`);
         if (eventDiv) {
           eventDiv.textContent = "";
-          const message = `${currentYear}-${currentMonth + 1}-${dayNum} 일정이 삭제되었습니다.`;
-          showSpeechBubbleInChunks(message);
+          const message = `${currentYear}-${currentMonth + 1}-${dayNum} 일정이 삭제되었습니다. 다시 입력할 수 있습니다.`;
+          alert(message);
+          speakText(message);
           let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
           delete calendarData[`${currentYear}-${currentMonth + 1}-${dayNum}`];
           localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
@@ -814,7 +689,7 @@ function renderCalendar(year, month) {
           } else {
             eventDiv.textContent = eventText;
           }
-          showSpeechBubbleInChunks(`${year}-${month + 1}-${d}에 ${eventText} 일정이 추가되었습니다.`);
+          speakText(`${year}-${month + 1}-${d}에 ${eventText} 일정이 추가되었습니다.`);
           let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
           calendarData[`${year}-${month + 1}-${d}`] = eventDiv.textContent;
           localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
@@ -1177,14 +1052,9 @@ function animate() {
   const now = new Date();
   const headWorldPos = new THREE.Vector3();
   try {
-    if (typeof head !== 'undefined' && head !== null && typeof head.getWorldPosition === "function") {
-      head.getWorldPosition(headWorldPos);
-    } else {
-      headWorldPos.set(0, 1.2, 0);
-    }
+    head.getWorldPosition(headWorldPos);
   } catch (err) {
     console.error("애니메이트 중 head.getWorldPosition 에러:", err);
-    headWorldPos.set(0, 1.2, 0);
   }
 
   const totalMin = now.getHours() * 60 + now.getMinutes();
@@ -1246,9 +1116,9 @@ function animate() {
   characterGroup.position.y = -1;
   characterGroup.rotation.x = 0;
 
-  updateWeatherEffects("");
+  updateWeatherEffects();
   updateHouseClouds();
-  updateLightning("");
+  updateLightning();
 
   characterStreetlight.position.set(
     characterGroup.position.x + 1,
@@ -1277,16 +1147,13 @@ animate();
 function updateBubblePosition() {
   const bubble = document.getElementById("speech-bubble");
   if (!bubble) return;
+  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
   const headWorldPos = new THREE.Vector3();
   try {
-    if (typeof head !== 'undefined' && head !== null && typeof head.getWorldPosition === "function") {
-      head.getWorldPosition(headWorldPos);
-    } else {
-      headWorldPos.set(0, 1.2, 0);
-    }
+    head.getWorldPosition(headWorldPos);
   } catch (err) {
     console.error("updateBubblePosition 에러:", err);
-    headWorldPos.set(0, 1.2, 0);
+    return;
   }
   const screenPos = headWorldPos.project(camera);
   bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
