@@ -11,15 +11,16 @@ const weatherRoute = require('./weather');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// 미들웨어 설정
 app.use(cors());
 app.use(express.json());
 
-// 1) MongoDB 연결 및 서버 시작
+// MongoDB 연결 및 서버 시작
 connectDB()
   .then(() => {
     console.log('✅ MongoDB 연결 완료');
 
-    // 2) 네이버 검색 API
+    // 네이버 검색 API 엔드포인트
     app.get('/api/naver-search', async (req, res) => {
       const query = req.query.q;
       if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
@@ -46,7 +47,7 @@ connectDB()
       }
     });
 
-    // 3) 유튜브 검색 API
+    // 유튜브 검색 API 엔드포인트
     app.get('/api/youtube-search', async (req, res) => {
       const query = req.query.q;
       if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
@@ -74,7 +75,7 @@ connectDB()
       }
     });
 
-    // 4) MongoDB 저장 데이터 조회 API
+    // MongoDB 저장 데이터 조회 API 엔드포인트
     app.get('/api/getData', async (req, res) => {
       console.log('🔍 [GET /api/getData] 요청 들어옴');
       try {
@@ -92,7 +93,7 @@ connectDB()
       }
     });
 
-    // 5) /api/processed-data 엔드포인트 추가
+    // 수정된 processed-data 엔드포인트: 배열을 직접 전송
     app.get('/api/processed-data', async (req, res) => {
       console.log('🔍 [GET /api/processed-data] 요청 들어옴');
       try {
@@ -101,17 +102,16 @@ connectDB()
           console.warn('⚠️ [GET /api/processed-data] 저장된 문서가 없습니다.');
           return res.status(404).json({ error: '데이터가 없습니다.' });
         }
-        // 데이터 처리: 모든 검색 결과를 하나의 문자열로 결합 후 배열로 변환
         const processedData = data.map(doc => doc.results).flat().join(" ");
         console.log('💯 처리된 데이터 전송 완료!');
-        res.json({ results: processedData.split(" ") });
+        res.json(processedData.split(" ")); // 클라이언트가 기대하는 배열 형태로 전송
       } catch (err) {
         console.error('❌ [GET /api/processed-data] 데이터 처리 오류:', err.stack);
         res.status(500).json({ error: '데이터 처리 실패' });
       }
     });
 
-    // 6) 클라이언트 로그 수신 엔드포인트
+    // 클라이언트 로그 수신 엔드포인트
     app.post('/api/log', (req, res) => {
       const { message } = req.body;
       if (message) {
@@ -122,14 +122,14 @@ connectDB()
       }
     });
 
-    // 7) 기존 search, weather 라우트 연결
+    // 추가 라우트 연결
     app.use('/api', searchRoute);
     app.use('/api', weatherRoute);
 
-    // 8) 정적 파일 서빙
+    // 정적 파일 서빙
     app.use(express.static(path.join(__dirname, 'public')));
 
-    // 9) 서버 리스닝
+    // 서버 시작
     app.listen(port, () => {
       console.log(`🚀 서버 실행 중: http://localhost:${port}`);
     });
