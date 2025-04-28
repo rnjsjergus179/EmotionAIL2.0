@@ -44,49 +44,38 @@ async function logToServer(message) {
   }
 }
 
-// MongoDB에서 데이터를 가져와 KEYWORDS에 추가하는 함수 (개선됨)
+// MongoDB에서 데이터를 가져와 KEYWORDS를 갱신하는 함수
 async function fetchAndUpdateKeywords() {
   try {
-    // 필터링 전 메시지 출력
-    await logToServer("필터링전. 출력중...");
+    await logToServer("MongoDB 데이터 가져오기 시작");
+    const res = await fetch(`${API_BASE_URL}/api/processed-data`);
+    if (!res.ok) throw new Error(`HTTP 오류! 상태: ${res.status}`);
+    const docs = await res.json();              // [{ intent, results: [...] }, …]
 
-    const response = await fetch(`${API_BASE_URL}/api/processed-data`);
-    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
-    const data = await response.json();
-    if (!Array.isArray(data)) throw new Error("응답 데이터가 배열이 아님");
+    docs.forEach(doc => {
+      const intent = doc.intent;                // 문서의 intent 분류명
+      const words = (doc.results || [])         // results 배열이 없으면 빈 배열
+        .map(w => w.trim().toLowerCase())       // 소문자, 공백 제거
+        .filter(w => w !== "");
 
-    // 데이터 처리 중 메시지
-    await logToServer("확인💯");
-
-    // MongoDB 데이터 처리: 각 문서의 results를 결합하고 자모음을 완성된 문자로 변환
-    const processed = data.map(doc => {
-      if (!doc.results || !Array.isArray(doc.results)) {
-        console.warn("doc.results가 배열이 아님, 빈 문자열로 처리:", doc);
-        return "";
+      // intent 키가 없으면 빈 배열로 초기화
+      if (!KEYWORDS[intent]) {
+        KEYWORDS[intent] = [];
       }
-      // results 배열을 공백 없이 결합 후 자모음을 완성된 문자로 변환
-      const combinedText = doc.results.join("").normalize('NFC');
-      return combinedText;
-    }).filter(text => text.trim() !== ""); // 빈 문자열 제거
 
-    // 필터링 후 메시지
-    await logToServer("필터링후 전송됩니다.⭐️");
-    await logToServer("데이터 출력완료‼️");
+      // 기존 키워드와 합치되, 중복 제거
+      KEYWORDS[intent] = Array.from(new Set([
+        ...KEYWORDS[intent],
+        ...words
+      ]));
+    });
 
-    await logToServer("MongoDB API 호출 성공");
-
-    // KEYWORDS.greetings에 중복 없이 추가
-    const mongoDataWords = processed.map(word => word.toLowerCase());
-    KEYWORDS.greetings = [...new Set([...KEYWORDS.greetings, ...mongoDataWords])];
-
-    // 의도 인식 그룹 객체 업데이트 후 메시지
-    await logToServer("의도인식 그룹객체에 정상적으로 출력되었습니다.⭕️");
-
-    return processed.join(" ");
-  } catch (error) {
-    await logToServer(`MongoDB API 호출 실패: ${error.message}`);
-    console.error("MongoDB 데이터 가져오기 실패:", error);
-    return "";
+    await logToServer("의도인식 GROUP 객체 정상 업데이트 완료");
+    return true;
+  } catch (err) {
+    await logToServer(`MongoDB API 호출 실패: ${err.message}`);
+    console.error(err);
+    return false;
   }
 }
 
@@ -679,7 +668,9 @@ function showSpeechBubbleInChunks(text, isHTML = false, chunkSize = 15, delay = 
 }
 
 /***** DOM 이벤트 처리 *****/
-window.addEventListener("DOMContentLoaded", function() {
+window.addEventListener("DOMContentLoaded", async () => {
+  await fetchAndUpdateKeywords();
+
   const chatInput = document.getElementById("chat-input");
   if (chatInput) {
     chatInput.setAttribute("list", "Charge");
@@ -687,6 +678,7 @@ window.addEventListener("DOMContentLoaded", function() {
       if (e.key === "Enter") sendChat();
     });
   }
+
   const autoCompleteList = document.createElement("datalist");
   autoCompleteList.id = "Charge";
   const allKeywords = Object.values(KEYWORDS).flat().concat(Object.keys(SITE_LINKS));
@@ -715,9 +707,6 @@ window.addEventListener("DOMContentLoaded", function() {
       regionSelect.appendChild(option);
     });
   }
-
-  // 페이지 로드 시 MongoDB 데이터를 가져와 KEYWORDS를 업데이트
-  fetchAndUpdateKeywords();
 });
 
 window.addEventListener("resize", function() {
