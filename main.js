@@ -37,6 +37,110 @@ const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 // GRU 상태 (히든 스테이트)
 let gruHiddenState = Array(300).fill(0); // 초기값 0 벡터
 
+// 최근 대화 이력 임베딩 (Sequence Memory용)
+let historyEmbeddings = [];
+
+// 자가 강화 학습을 위한 학습률
+let adaptiveLearningRate = 0.01;
+
+// Knowledge Graph 정의
+const knowledgeGraph = {
+  "넷플릭스": ["드라마", "영화"],
+  "유튜브": ["영상", "비디오"],
+  "날씨": ["weather"],
+  "일정": ["calendar"]
+};
+
+/***** 유틸리티 함수 *****/
+function fullyConnected(input, weights) {
+  return weights.map(row => dotProduct(input, row));
+}
+
+function relu(vector) {
+  return vector.map(val => Math.max(0, val));
+}
+
+function softmax(logits) {
+  const maxLogit = Math.max(...logits);
+  const exps = logits.map(l => Math.exp(l - maxLogit));
+  const sumExps = exps.reduce((a, b) => a + b, 0);
+  return exps.map(e => e / sumExps);
+}
+
+function dotProduct(a, b) {
+  return a.reduce((sum, val, i) => sum + val * b[i], 0);
+}
+
+function weightedSum(values, weights) {
+  return values.map((val, i) => val * weights[i]).reduce((a, b) => a + b, 0);
+}
+
+function averageVectors(vectors) {
+  if (vectors.length === 0) return Array(300).fill(0);
+  const sum = vectors.reduce((acc, vec) => acc.map((val, i) => val + vec[i]), Array(vectors[0].length).fill(0));
+  return sum.map(val => val / vectors.length);
+}
+
+function softmaxArray(arr) {
+  const maxVal = Math.max(...arr);
+  const exps = arr.map(val => Math.exp(val - maxVal));
+  const sumExps = exps.reduce((a, b) => a + b, 0);
+  return exps.map(e => e / sumExps);
+}
+
+/***** 다층 신경망 (MLP) 구현 *****/
+function buildMLP(inputVector, layers = [128, 64, 32, Object.keys(intentWeightMatrix).length]) {
+  let x = inputVector;
+  for (let i = 0; i < layers.length - 1; i++) {
+    const weights = Array(layers[i]).fill().map(() => Array(x.length).fill(0.01));
+    x = fullyConnected(x, weights);
+    x = relu(x);
+  }
+  const outputWeights = Array(layers[layers.length - 1]).fill().map(() => Array(x.length).fill(0.01));
+  x = fullyConnected(x, outputWeights);
+  return softmax(x);
+}
+
+/***** Self-Attention 구현 *****/
+function selfAttention(embeddings) {
+  const query = embeddings;
+  const key = embeddings;
+  const value = embeddings;
+  const scores = dotProduct(query, key) / Math.sqrt(embeddings.length);
+  const attentionWeights = softmaxArray([scores]);
+  return weightedSum(value, attentionWeights);
+}
+
+/***** Sequence Memory 구현 *****/
+function getSequenceEmbedding(historyEmbeddings, currentEmbedding) {
+  const all = historyEmbeddings.concat([currentEmbedding]);
+  return averageVectors(all);
+}
+
+/***** 다중 모달 입력 - 위치 정보 감지 *****/
+function getUserLocation() {
+  return new Promise((resolve, reject) => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(position => {
+        resolve(position.coords);
+      }, error => {
+        reject(error);
+      });
+    } else {
+      reject("Geolocation is not supported by this browser.");
+    }
+  });
+}
+
+/***** 자가 강화 학습 - 학습률 조정 *****/
+function adjustLearningRate(feedbackQuality) {
+  if (feedbackQuality === "good") {
+    adaptiveLearningRate *= 1.05;
+  } else if (feedbackQuality === "bad") {
+    adaptiveLearningRate *= 0.95;
+  }
+}
+
 /***** 전역 변수 및 초기 설정 *****/
 document.addEventListener("contextmenu", event => event.preventDefault());
 
@@ -129,9 +233,6 @@ function vectorMultiply(a, scalar) {
 function sigmoid(x) {
   return 1 / (1 + Math.exp(-x));
 }
-function dotProduct(a, b) {
-  return a.reduce((sum, val, i) => sum + val * b[i], 0);
-}
 
 /***** 1. 자체 미니 GRU 기억 구조 *****/
 function updateGRUState(inputEmbedding, prevHidden) {
@@ -139,38 +240,33 @@ function updateGRUState(inputEmbedding, prevHidden) {
   const Wr = Array(300).fill(0.01); // 리셋 게이트 가중치
   const Wh = Array(300).fill(0.01); // 히든 상태 가중치
 
-  // 업데이트 게이트 (Update Gate)
   const z = sigmoid(dotProduct(Wz, inputEmbedding) + dotProduct(Wz, prevHidden));
-  
-  // 리셋 게이트 (Forget Gate)
   const r = sigmoid(dotProduct(Wr, inputEmbedding) + dotProduct(Wr, prevHidden));
-  
-  // 후보 히든 상태
   const hTilde = vectorMultiply(prevHidden, r);
   const newHidden = vectorAdd(vectorMultiply(prevHidden, 1 - z), vectorMultiply(hTilde, z));
   
   return newHidden;
 }
 
-/***** 2. Softmax 의도 분류기 *****/
-async function softmaxIntentClassifier(inputText) {
+/***** 2. Softmax 의도 분류기 (Sequence Memory와 Self-Attention 통합) *****/
+async function softmaxIntentClassifier(inputText, historyEmbeddings) {
   const inputEmbedding = await getEmbedding(inputText);
+  const sequenceEmbedding = getSequenceEmbedding(historyEmbeddings, inputEmbedding);
+  const attendedEmbedding = selfAttention(sequenceEmbedding);
+  
   let logits = {};
   let expSum = 0;
 
-  // 로짓 계산
   for (let intent in intentWeightMatrix) {
-    logits[intent] = dotProduct(inputEmbedding, intentWeightMatrix[intent]);
+    logits[intent] = dotProduct(attendedEmbedding, intentWeightMatrix[intent]);
     expSum += Math.exp(logits[intent]);
   }
 
-  // Softmax 확률 계산
   let probabilities = {};
   for (let intent in logits) {
     probabilities[intent] = Math.exp(logits[intent]) / expSum;
   }
 
-  // 가장 높은 확률의 의도 선택
   let maxProb = 0;
   let detectedIntent = null;
   for (let intent in probabilities) {
@@ -180,19 +276,18 @@ async function softmaxIntentClassifier(inputText) {
     }
   }
 
-  return { intent: detectedIntent, probabilities, embedding: inputEmbedding };
+  return { intent: detectedIntent, probabilities, embedding: attendedEmbedding };
 }
 
 /***** 3. Self-Training 강화학습 *****/
 function updateIntentWeights(inputEmbedding, predictedIntent, userFeedback) {
-  const learningRate = 0.01;
   const reward = userFeedback === "positive" ? 1 : userFeedback === "negative" ? -1 : 0;
 
   for (let intent in intentWeightMatrix) {
     const grad = intent === predictedIntent ? reward : -reward / (Object.keys(intentWeightMatrix).length - 1);
     intentWeightMatrix[intent] = vectorAdd(
       intentWeightMatrix[intent],
-      vectorMultiply(inputEmbedding, learningRate * grad)
+      vectorMultiply(inputEmbedding, adaptiveLearningRate * grad)
     );
   }
 }
@@ -205,7 +300,7 @@ async function updateEmbeddingsAndIntents() {
     const newEmbedding = await getEmbedding(keywordsText);
     intentWeightMatrix[intent] = vectorAdd(
       intentWeightMatrix[intent],
-      vectorMultiply(newEmbedding, 0.1) // 점진적 업데이트
+      vectorMultiply(newEmbedding, 0.1)
     );
   }
 }
@@ -226,23 +321,46 @@ const memoryStorage = {
   }
 };
 
-function updateConversationHistory(input, response) {
+function updateConversationHistory(input, response, embedding) {
   try {
     let history = memoryStorage.load("conversationHistory") || [];
     history.push({ timestamp: Date.now(), input, response });
-    memoryStorage.save("conversationHistory", history.slice(-50)); // 최근 50개만 저장
+    historyEmbeddings.push(embedding);
+    memoryStorage.save("conversationHistory", history.slice(-50));
+    historyEmbeddings = historyEmbeddings.slice(-3); // 최근 3개 대화만 유지
   } catch(e) {
     console.error("대화 이력 저장 오류:", e);
   }
 }
 
-/***** 의도 인식 및 처리 *****/
+/***** 의도 인식 및 처리 (Knowledge Graph 통합) *****/
 async function detectIntent(input, processedData) {
-  const { intent, probabilities, embedding } = await softmaxIntentClassifier(input);
+  const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings);
   gruHiddenState = updateGRUState(embedding, gruHiddenState);
 
-  if (probabilities[intent] > 0.5) {
-    return intent;
+  // Knowledge Graph를 활용한 의도 보정
+  for (let concept in knowledgeGraph) {
+    if (input.includes(concept)) {
+      const relatedIntents = knowledgeGraph[concept];
+      relatedIntents.forEach(relatedIntent => {
+        if (probabilities[relatedIntent]) {
+          probabilities[relatedIntent] *= 1.2; // 가중치 조정
+        }
+      });
+    }
+  }
+
+  let maxProb = 0;
+  let detectedIntent = null;
+  for (let intent in probabilities) {
+    if (probabilities[intent] > maxProb) {
+      maxProb = probabilities[intent];
+      detectedIntent = intent;
+    }
+  }
+
+  if (probabilities[detectedIntent] > 0.5) {
+    return detectedIntent;
   }
 
   try {
@@ -337,27 +455,34 @@ function updateMap(currentCity) {
   }
 }
 
-/***** 백엔드 API 호출 함수 *****/
+/***** 백엔드 API 호출 함수 (다중 모달 입력 통합) *****/
 async function getWeather(currentCity) {
-  const regionMap = {
-    "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
-    "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
-    "안산": "Ansan", "파주": "Paju", "부산": "Busan", "대구": "Daegu", "광주": "Gwangju",
-    "대전": "Daejeon", "울산": "Ulsan", "제주": "Jeju", "전주": "Jeonju", "청주": "Cheongju",
-    "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
-  };
   try {
+    const position = await getUserLocation();
+    const { latitude, longitude } = position;
+    const response = await fetch(`${API_BASE_URL}/api/weather?lat=${latitude}&lon=${longitude}`);
+    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
+    const data = await response.json();
+    const currentWeather = data.description;
+    const message = `현재 위치의 날씨는 ${data.description}이고, 기온은 ${data.temperature}°C입니다.`;
+    await logToServer("날씨 API 호출 성공");
+    return { message, currentWeather };
+  } catch (error) {
+    await logToServer(`날씨 API 호출 실패: ${error.message}`);
+    const regionMap = {
+      "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
+      "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
+      "안산": "Ansan", "파주": "Paju", "부산": "Busan", "대구": "Daegu", "광주": "Gwangju",
+      "대전": "Daejeon", "울산": "Ulsan", "제주": "Jeju", "전주": "Jeonju", "청주": "Cheongju",
+      "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
+    };
     const englishCity = regionMap[currentCity] || "Seoul";
     const response = await fetch(`${API_BASE_URL}/api/weather?city=${encodeURIComponent(englishCity)}`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
     const currentWeather = data.description;
     const message = `오늘 ${currentCity}의 날씨는 ${data.description}이고, 기온은 ${data.temperature}°C입니다.`;
-    await logToServer("날씨 API 호출 성공");
     return { message, currentWeather };
-  } catch (error) {
-    await logToServer(`날씨 API 호출 실패: ${error.message}`);
-    return { message: "날씨 정보를 가져오는데 실패했습니다.", currentWeather: "" };
   }
 }
 
@@ -409,7 +534,7 @@ async function saveToLearningDB(type, query, results) {
     });
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     await logToServer(`${type} 데이터가 학습용 DB에 저장되었습니다.`);
-    await updateEmbeddingsAndIntents(); // 새로운 데이터 반영
+    await updateEmbeddingsAndIntents();
   } catch (error) {
     await logToServer(`학습용 DB 저장 오류: ${error.message}`);
   }
@@ -468,7 +593,7 @@ function changeRegion(value) {
   return currentCity;
 }
 
-/***** 음성 인식 *****/
+/***** 음성 인식 (다중 모달 입력) *****/
 function startSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
@@ -563,7 +688,7 @@ async function sendChat() {
     }
 
     if (!response) {
-      const { intent, probabilities, embedding } = await softmaxIntentClassifier(input);
+      const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings);
       if (intent && probabilities[intent] > 0.5) {
         if (intent === "greetings") {
           response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
@@ -592,8 +717,10 @@ async function sendChat() {
         setTimeout(() => {
           const feedback = prompt("응답이 마음에 드시면 '좋아요', 아니라면 '싫어요'를 입력해주세요:");
           if (feedback && feedback.includes("좋아요")) {
+            adjustLearningRate("good");
             updateIntentWeights(embedding, intent, "positive");
           } else if (feedback && feedback.includes("싫어요")) {
+            adjustLearningRate("bad");
             updateIntentWeights(embedding, intent, "negative");
           }
         }, 3000);
@@ -623,6 +750,8 @@ async function sendChat() {
   }
 
   showSpeechBubbleInChunks(response, isHTML);
+  const embedding = await getEmbedding(input);
+  updateConversationHistory(input, response, embedding);
 
   if (shouldNavigate) {
     setTimeout(() => { window.location.href = navigateUrl; }, 2000);
@@ -631,7 +760,6 @@ async function sendChat() {
   inputEl.value = "";
   memoryStorage.save('lastInput', input);
   memoryStorage.save('lastResponse', response);
-  updateConversationHistory(input, response);
 }
 
 /***** 말풍선 출력 *****/
