@@ -1,5 +1,9 @@
 const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 
+/**
+ * 서버에 로그 메시지를 전송하는 함수
+ * @param {string} message - 전송할 로그 메시지
+ */
 async function logToServer(message) {
   try {
     await fetch(`${API_BASE_URL}/api/log`, {
@@ -12,6 +16,12 @@ async function logToServer(message) {
   }
 }
 
+/**
+ * MongoDB에서 키워드 데이터를 가져와 KEYWORDS와 intentWeightMatrix를 업데이트하는 함수
+ * @param {Object} KEYWORDS - 의도별 키워드 객체
+ * @param {Object} intentWeightMatrix - 의도별 가중치 매트릭스
+ * @returns {string} - 모든 키워드를 공백으로 연결한 문자열
+ */
 async function fetchAndUpdateKeywords(KEYWORDS, intentWeightMatrix) {
   try {
     await logToServer("MongoDB 데이터 가져오기 시작");
@@ -40,6 +50,11 @@ async function fetchAndUpdateKeywords(KEYWORDS, intentWeightMatrix) {
   }
 }
 
+/**
+ * 텍스트의 임베딩을 가져오는 함수
+ * @param {string} text - 임베딩할 텍스트
+ * @returns {Array} - 임베딩 벡터 (300차원)
+ */
 async function getEmbedding(text) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/embed`, {
@@ -55,6 +70,11 @@ async function getEmbedding(text) {
   }
 }
 
+/**
+ * 사용자의 위치 또는 지정된 도시의 날씨 정보를 가져오는 함수
+ * @param {string} currentCity - 조회할 도시 이름
+ * @returns {Object} - 날씨 메시지와 현재 날씨 상태를 포함한 객체
+ */
 async function getWeather(currentCity) {
   try {
     const position = await getUserLocation();
@@ -85,6 +105,11 @@ async function getWeather(currentCity) {
   }
 }
 
+/**
+ * 네이버 검색 결과를 가져오는 함수
+ * @param {string} query - 검색어
+ * @returns {string} - 검색 결과 문자열
+ */
 async function getNaverSearchResults(query) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/naver-search?q=${encodeURIComponent(query)}`);
@@ -104,6 +129,11 @@ async function getNaverSearchResults(query) {
   }
 }
 
+/**
+ * 유튜브 검색 결과를 가져오는 함수
+ * @param {string} query - 검색어
+ * @returns {string} - 검색 결과 HTML 문자열
+ */
 async function getYouTubeSearchResults(query) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/youtube-search?q=${encodeURIComponent(query)}`);
@@ -123,6 +153,12 @@ async function getYouTubeSearchResults(query) {
   }
 }
 
+/**
+ * 검색 결과를 학습용 데이터베이스에 저장하는 함수
+ * @param {string} type - 데이터 타입 (naver 또는 youtube)
+ * @param {string} query - 검색어
+ * @param {any} results - 저장할 결과 데이터
+ */
 async function saveToLearningDB(type, query, results) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/save-to-db`, {
@@ -137,6 +173,10 @@ async function saveToLearningDB(type, query, results) {
   }
 }
 
+/**
+ * 사용자의 현재 위치를 가져오는 함수
+ * @returns {Promise} - 위치 좌표 객체 (latitude, longitude)
+ */
 function getUserLocation() {
   return new Promise((resolve, reject) => {
     if (navigator.geolocation) {
@@ -151,7 +191,14 @@ function getUserLocation() {
   });
 }
 
+// 함수 내보내기
 export {
-  logToServer, fetchAndUpdateKeywords, getEmbedding, getWeather,
-  getNaverSearchResults, getYouTubeSearchResults, saveToLearningDB, getUserLocation
+  logToServer,
+  fetchAndUpdateKeywords,
+  getEmbedding,
+  getWeather,
+  getNaverSearchResults,
+  getYouTubeSearchResults,
+  saveToLearningDB,
+  getUserLocation
 };
