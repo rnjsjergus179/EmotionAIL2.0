@@ -1,16 +1,10 @@
-// main.js
-import { processText } from '../ai/morphology.js';
-import { softmaxIntentClassifier, updateGRUState, updateIntentWeights } from '../ai/ml.js';
-import { fetchAndUpdateKeywords, getEmbedding, getWeather, getNaverSearchResults, getYouTubeSearchResults } from './api.js';
+import { processText, fetchAndUpdateKeywords, getEmbedding, getWeather, getNaverSearchResults, getYouTubeSearchResults } from './api.js';
+import { softmaxIntentClassifier, updateGRUState, updateIntentWeights } from './ml.js';
 import { memoryStorage, updateConversationHistory } from './memory.js';
-import { showSpeechBubbleInChunks, deleteCalendarEvent, getCalendarEvents, updateMap, initCalendar, currentYear, currentMonth } from './ui.js';
-import {
-  scene, camera, renderer, characterGroup, characterStreetlight, characterLight,
-  stars, fireflies, sun, moon, head, rainGroup, cloudRainGroup, houseCloudGroup,
-  lightningLight, updateWeatherEffects, updateLightning, updateHouseClouds,
-  updateBubblePosition, animate
-} from './threeSetup.js';
+import { showSpeechBubbleInChunks, deleteCalendarEvent, getCalendarEvents, updateMap, initCalendar } from './ui.js';
+import { scene, camera, renderer, characterGroup, characterStreetlight, characterLight, stars, fireflies, sun, moon, head, rainGroup, cloudRainGroup, houseCloudGroup, lightningLight, updateWeatherEffects, updateLightning, updateHouseClouds, updateBubblePosition, animate } from './threeSetup.js';
 
+// 사이트 링크 설정
 const SITE_LINKS = {
   "빙": "https://www.bing.com",
   "네이버": "https://www.naver.com",
@@ -28,6 +22,7 @@ const SITE_LINKS = {
   "레딧": "https://www.reddit.com"
 };
 
+// 키워드 설정
 let KEYWORDS = {
   greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
   sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
@@ -37,15 +32,22 @@ let KEYWORDS = {
   delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
 
+// 의도별 학습 가중치 행렬
 let intentWeightMatrix = {};
 Object.keys(KEYWORDS).forEach(intent => {
   intentWeightMatrix[intent] = Array(300).fill(0.01);
 });
 
+// GRU 상태
 let gruHiddenState = Array(300).fill(0);
+
+// 대화 이력 임베딩
 let historyEmbeddings = [];
+
+// 학습률
 let adaptiveLearningRate = 0.01;
 
+// Knowledge Graph
 const knowledgeGraph = {
   "넷플릭스": ["드라마", "영화"],
   "유튜브": ["영상", "비디오"],
@@ -53,38 +55,20 @@ const knowledgeGraph = {
   "일정": ["calendar"]
 };
 
-function adjustLearningRate(feedbackQuality) {
-  if (feedbackQuality === "good") {
-    adaptiveLearningRate *= 1.05;
-  } else if (feedbackQuality === "bad") {
-    adaptiveLearningRate *= 0.95;
-  }
-}
-
-async function updateEmbeddingsAndIntents() {
-  const processedData = await fetchAndUpdateKeywords(KEYWORDS, intentWeightMatrix);
-  for (let intent in KEYWORDS) {
-    const keywordsText = KEYWORDS[intent].join(" ");
-    const newEmbedding = await getEmbedding(keywordsText);
-    intentWeightMatrix[intent] = vectorAdd(
-      intentWeightMatrix[intent],
-      vectorMultiply(newEmbedding, 0.1)
-    );
-  }
-}
-
+// 뉴스 쿼리 확인 함수
 function isNewsQuery(input) {
   const newsKeywords = ["뉴스", "속보", "보도", "언론", "이슈", "사건", "정치", "사회", "경제"];
   return newsKeywords.some(keyword => input.includes(keyword));
 }
 
+// 뉴스 검색 파이프라인
 async function pipelineNewsSearch(userInput) {
   const query = userInput + " news";
   const results = await getNaverSearchResults(query);
-  const summary = "뉴스 요약:\n- " + results;
-  return summary;
+  return `뉴스 요약:\n- ${results}`;
 }
 
+// 채팅 전송 함수
 async function sendChat() {
   const inputEl = document.getElementById("chat-input");
   if (!inputEl) return;
@@ -107,11 +91,11 @@ async function sendChat() {
     "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
   };
   const regionList = Object.keys(regionMap);
-  const processedData = await fetchAndUpdateKeywords(KEYWORDS, intentWeightMatrix);
+  await fetchAndUpdateKeywords(KEYWORDS, intentWeightMatrix);
 
   if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
-    response = dateMatch ? getCalendarEvents(dateMatch[0], currentYear, currentMonth) : getCalendarEvents(null, currentYear, currentMonth);
+    response = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
   } else if (isNewsQuery(input)) {
     response = await pipelineNewsSearch(input);
   } else {
@@ -156,7 +140,7 @@ async function sendChat() {
           response = weatherData.message;
           updateWeatherEffects(weatherData.currentWeather);
         } else if (intent === "calendar") {
-          response = getCalendarEvents(null, currentYear, currentMonth);
+          response = getCalendarEvents();
         } else if (intent === "time") {
           const now = new Date();
           response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
@@ -164,7 +148,7 @@ async function sendChat() {
           const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
           if (dayStr) {
             const dayNum = parseInt(dayStr);
-            response = deleteCalendarEvent(dayNum, currentYear, currentMonth);
+            response = deleteCalendarEvent(dayNum);
           } else {
             response = "삭제할 날짜를 입력하지 않으셨습니다.";
           }
@@ -174,10 +158,10 @@ async function sendChat() {
         setTimeout(() => {
           const feedback = prompt("응답이 마음에 드시면 '좋아요', 아니라면 '싫어요'를 입력해주세요:");
           if (feedback && feedback.includes("좋아요")) {
-            adjustLearningRate("good");
+            adaptiveLearningRate *= 1.05;
             updateIntentWeights(embedding, intent, "positive", intentWeightMatrix, adaptiveLearningRate);
           } else if (feedback && feedback.includes("싫어요")) {
-            adjustLearningRate("bad");
+            adaptiveLearningRate *= 0.95;
             updateIntentWeights(embedding, intent, "negative", intentWeightMatrix, adaptiveLearningRate);
           }
         }, 3000);
@@ -224,6 +208,7 @@ async function sendChat() {
   memoryStorage.save('lastResponse', response);
 }
 
+// 이벤트 리스너
 document.addEventListener("contextmenu", event => event.preventDefault());
 
 window.addEventListener("DOMContentLoaded", async function() {
@@ -264,7 +249,6 @@ window.addEventListener("DOMContentLoaded", async function() {
   }
 
   await fetchAndUpdateKeywords(KEYWORDS, intentWeightMatrix);
-  await updateEmbeddingsAndIntents();
 });
 
 window.addEventListener("resize", function() {
@@ -285,12 +269,3 @@ window.addEventListener("load", async () => {
     console.error("로드 이벤트 에러:", err);
   }
 });
-
-// vectorAdd와 vectorMultiply 함수가 없으므로 임시 정의 (실제 구현 필요)
-function vectorAdd(vec1, vec2) {
-  return vec1.map((v, i) => v + vec2[i]);
-}
-
-function vectorMultiply(vec, scalar) {
-  return vec.map(v => v * scalar);
-}
