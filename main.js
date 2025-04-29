@@ -34,7 +34,7 @@ document.addEventListener("contextmenu", event => event.preventDefault());
 // 서버로 로그를 전송하는 함수
 async function logToServer(message) {
   try {
-    console.log(`Render 터미널 로그: ${message}`); // Render 터미널에 로그 출력
+    console.log(`Render 터미널 로그: ${message}`);
     await fetch(`${API_BASE_URL}/api/log`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -45,10 +45,10 @@ async function logToServer(message) {
   }
 }
 
-// MongoDB에서 데이터를 가져와 KEYWORDS에 추가하는 함수 (자모음 결합 처리 추가)
+// MongoDB에서 데이터를 가져와 KEYWORDS에 추가하는 함수
 async function fetchAndUpdateKeywords() {
   try {
-    await logToServer("MongoDB 데이터를 읽기 전"); // 호출 전 로그 (이미지 1번 상태)
+    await logToServer("MongoDB 데이터를 읽기 전");
     const response = await fetch(`${API_BASE_URL}/api/processed-data?collection=searchlogs&limit=100`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
 
@@ -60,13 +60,11 @@ async function fetchAndUpdateKeywords() {
       return "";
     }
 
-    // 데이터 처리: 각 의도별 키워드 분류 및 자모음 결합
     data.forEach(item => {
       const intent = item.intent || "unknown";
       const keywords = Array.isArray(item.keywords)
         ? item.keywords.map(kw => {
             if (Array.isArray(kw)) {
-              // 자모음 배열일 경우 결합
               return kw.join('').normalize('NFC');
             } else {
               return kw;
@@ -82,17 +80,17 @@ async function fetchAndUpdateKeywords() {
     });
 
     const allKeywords = Object.values(KEYWORDS).flat().join(" ");
-    await logToServer(`MongoDB 데이터를 읽은 후 출력 [${allKeywords}]`); // 호출 후 성공 로그
+    await logToServer(`MongoDB 데이터를 읽은 후 출력 [${allKeywords}]`);
     return allKeywords;
   } catch (error) {
-    await logToServer(`MongoDB API 호출 실패: ${error.message}`); // 호출 후 실패 로그
+    await logToServer(`MongoDB API 호출 실패: ${error.message}`);
     console.error("MongoDB 데이터 가져오기 실패:", error);
     return "";
   }
 }
 
-// 텍스트 처리 함수 (자모음 결합 및 영어 단어 분리 개선)
-async function processText(text) {
+// 텍스트 처리 함수 (자모음 결합 및 필터링)
+async function processTextUI(text) {
   if (!text || typeof text !== 'string') return "";
   await logToServer(`자모음 결합 전 텍스트: ${text}`);
 
@@ -101,19 +99,19 @@ async function processText(text) {
   let englishBuffer = '';
 
   for (let char of text) {
-    if (/[\u1100-\u11FF\u3131-\u318E]/.test(char)) { // 자모음 처리
+    if (/[\u1100-\u11FF\u3131-\u318E]/.test(char)) { // 한글 자모음
       if (englishBuffer) {
         result += englishBuffer + ' ';
         englishBuffer = '';
       }
       jamoBuffer += char;
-    } else if (/[a-zA-Z]/.test(char)) { // 영어 처리
+    } else if (/[a-zA-Z]/.test(char)) { // 영어
       if (jamoBuffer) {
         result += jamoBuffer.normalize('NFC') + ' ';
         jamoBuffer = '';
       }
       englishBuffer += char;
-    } else { // 기타 문자 처리
+    } else { // 불필요한 문자 필터링
       if (jamoBuffer) {
         result += jamoBuffer.normalize('NFC') + ' ';
         jamoBuffer = '';
@@ -122,21 +120,15 @@ async function processText(text) {
         result += englishBuffer + ' ';
         englishBuffer = '';
       }
-      result += char + ' ';
+      // 기타 문자는 무시 (필터링)
     }
   }
 
   if (jamoBuffer) result += jamoBuffer.normalize('NFC') + ' ';
   if (englishBuffer) result += englishBuffer + ' ';
 
-  const combinedText = result.trim();
-  await logToServer(`자모음 결합 후 텍스트: ${combinedText}`);
-  
-  // 필터링 로직 (필요 시 추가 가능, 현재는 단순히 공백 제거 후 반환)
-  await logToServer(`필터링 전 텍스트: ${combinedText}`);
-  const processedText = combinedText;
-  await logToServer(`필터링 후 텍스트: ${processedText}`);
-  
+  const processedText = result.trim();
+  await logToServer(`자모음 결합 및 필터링 후 텍스트: ${processedText}`);
   return processedText;
 }
 
@@ -186,7 +178,7 @@ const intents = {
 };
 
 async function detectIntent(input, processedData) {
-  const processedInput = await processText(input);
+  const processedInput = await processTextUI(input);
   const lowerInput = processedInput.toLowerCase();
   const processedDataWords = processedData.toLowerCase().split(/\s+/);
 
@@ -347,7 +339,7 @@ async function getYouTubeSearchResults(query) {
     if (data.items && data.items.length > 0) {
       const results = data.items.map(item => `<a href="${item.url}" target="_blank">${item.title}</a>`).join('<br>');
       await saveToLearningDB('youtube', query, data.items);
-      await logToServer("유튜브 검색 API 호출 ancestral 성공");
+      await logToServer("유튜브 검색 API 호출 성공");
       return results;
     } else {
       return "검색 결과가 없습니다.";
@@ -471,9 +463,9 @@ async function sendChat() {
   let isHTML = false;
   let shouldNavigate = false;
   let navigateUrl = "";
-  const processedInput = await processText(input); // 자모음 결합 및 처리 (이미지 2번 상태)
+  const processedInput = await processTextUI(input); // 자모음 결합 및 필터링
   const lowerInput = processedInput.toLowerCase();
-  await logToServer(`뭐해 채팅창 입력: ${processedInput}`); // 채팅창 입력 로그
+  await logToServer(`채팅창 입력: ${processedInput}`);
   let currentCity = "서울"; // 기본값
   let lastTopic = memoryStorage.load("lastTopic") || "";
   const regionMap = {
@@ -487,10 +479,10 @@ async function sendChat() {
   const processedData = await fetchAndUpdateKeywords();
 
   if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
-    const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
+    const dateMatch = processedInput.match(/\d{4}-\d{1,2}-\d{1,2}/);
     response = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
-  } else if (isNewsQuery(input)) {
-    response = await pipelineNewsSearch(input);
+  } else if (isNewsQuery(processedInput)) {
+    response = await pipelineNewsSearch(processedInput);
   } else {
     for (let site in SITE_LINKS) {
       if (lowerInput.includes(site)) {
@@ -522,9 +514,9 @@ async function sendChat() {
     }
 
     if (!response) {
-      const intent = await detectIntent(input, processedData);
+      const intent = await detectIntent(processedInput, processedData);
       if (intent === "addEvent") {
-        const eventMatch = input.match(/(오늘|내일|\d{4}-\d{1,2}-\d{1,2})\s*(\d{1,2})시/);
+        const eventMatch = processedInput.match(/(오늘|내일|\d{4}-\d{1,2}-\d{1,2})\s*(\d{1,2})시/);
         if (eventMatch) {
           let date;
           if (eventMatch[1] === "오늘") {
@@ -535,7 +527,7 @@ async function sendChat() {
             date = new Date(eventMatch[1]);
           }
           date.setHours(parseInt(eventMatch[2]));
-          const eventText = input.replace(eventMatch[0], "").trim();
+          const eventText = processedInput.replace(eventMatch[0], "").trim();
           const dateKey = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
           let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
           calendarData[dateKey] = eventText;
@@ -610,11 +602,11 @@ async function sendChat() {
         } else {
           response = "죄송해요, 그 지역은 지원하지 않아요. 드롭다운 메뉴에서 선택해주세요.";
         }
-      } else if (regionList.includes(input)) {
-        currentCity = input;
+      } else if (regionList.includes(processedInput)) {
+        currentCity = processedInput;
         const regionSelect = document.getElementById("region-select");
-        if (regionSelect) regionSelect.value = input;
-        response = `좋아요, 지역을 ${input}(으)로 변경할게요!`;
+        if (regionSelect) regionSelect.value = processedInput;
+        response = `좋아요, 지역을 ${processedInput}(으)로 변경할게요!`;
         updateMap(currentCity);
         await updateWeatherAndEffects(currentCity);
       } else {
@@ -623,16 +615,17 @@ async function sendChat() {
     }
   }
 
-  showSpeechBubbleInChunks(response, isHTML); // 말풍선 출력 (이미지 3번 상태)
+  // 말풍선에 결합된 한글로 표시
+  showSpeechBubbleInChunks(response, isHTML);
 
   if (shouldNavigate) {
     setTimeout(() => { window.location.href = navigateUrl; }, 2000);
   }
 
   inputEl.value = "";
-  memoryStorage.save('lastInput', input);
+  memoryStorage.save('lastInput', processedInput);
   memoryStorage.save('lastResponse', response);
-  updateConversationHistory(input, response);
+  updateConversationHistory(processedInput, response);
   learnFromInteractions();
 }
 
