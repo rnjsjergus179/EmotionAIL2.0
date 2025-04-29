@@ -284,3 +284,12 @@ window.addEventListener("load", async () => {
     console.error("로드 이벤트 에러:", err);
   }
 });
+
+// vectorAdd와 vectorMultiply 함수가 없으므로 임시 정의 (실제 구현 필요)
+function vectorAdd(vec1, vec2) {
+  return vec1.map((v, i) => v + vec2[i]);
+}
+
+function vectorMultiply(vec, scalar) {
+  return vec.map(v => v * scalar);
+}
