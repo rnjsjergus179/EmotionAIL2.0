@@ -1,26 +1,33 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
-const path = require('path');
-const { connectDB, saveSearchData, getAllSearchData } = require('./db.js');
+const cors    = require('cors');
+const axios   = require('axios');
+const path    = require('path');
+const {
+  connectDB,
+  saveSearchData,
+  getAllSearchData
+} = require('./db.js'); // getAllSearchData 가져오기
 
-const searchRoute = require('./search');
+// 기존 라우트
+const searchRoute  = require('./search');
 const weatherRoute = require('./weather');
 
-const app = express();
+const app  = express();
 const port = process.env.PORT || 3000;
 
-// 미들웨어 설정
-app.use(cors());
+// CORS, JSON 파싱
+app.use(cors({
+  origin: process.env.CLIENT_ORIGIN || '*'
+}));
 app.use(express.json());
 
-// MongoDB 연결 및 서버 시작
+// MongoDB 연결 후 라우팅 셋업
 connectDB()
   .then(() => {
     console.log('✅ MongoDB 연결 완료');
 
-    // 네이버 검색 API 엔드포인트
+    // 1) 네이버 검색 API
     app.get('/api/naver-search', async (req, res) => {
       const query = req.query.q;
       if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
@@ -30,24 +37,21 @@ connectDB()
           {
             params: { query },
             headers: {
-              'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
+              'X-Naver-Client-Id':     process.env.NAVER_CLIENT_ID,
               'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
             }
           }
         );
         await saveSearchData('naver', query, data);
-        const items = (data.items || []).map(item => ({
-          title: item.title,
-          link: item.link
-        }));
+        const items = data.items.map(item => ({ title: item.title, link: item.link }));
         res.json({ message: `네이버 검색 완료: ${query}`, items });
       } catch (err) {
-        console.error(`[API][naver-search] 오류:`, err.stack);
+        console.error('[API] 네이버 검색 오류:', err.stack);
         res.status(500).json({ error: '네이버 검색 실패' });
       }
     });
 
-    // 유튜브 검색 API 엔드포인트
+    // 2) YouTube 검색 API
     app.get('/api/youtube-search', async (req, res) => {
       const query = req.query.q;
       if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
@@ -56,80 +60,48 @@ connectDB()
           'https://www.googleapis.com/youtube/v3/search',
           {
             params: {
-              part: 'snippet',
-              q: query,
+              part:       'snippet',
+              q:          query,
               maxResults: 10,
-              key: process.env.GOOGLE_API_KEY
+              key:        process.env.GOOGLE_API_KEY
             }
           }
         );
         await saveSearchData('youtube', query, data);
-        const items = (data.items || []).map(i => ({
-          title: i.snippet.title,
-          url: i.id.videoId ? `https://www.youtube.com/watch?v=${i.id.videoId}` : ''
-        }));
+        const items = data.items.map(i => {
+          const vid = i.id.videoId;
+          return {
+            title: i.snippet.title,
+            url:   vid ? `https://www.youtube.com/watch?v=${vid}` : ''
+          };
+        });
         res.json({ message: `YouTube 검색 완료: ${query}`, items });
       } catch (err) {
-        console.error(`[API][youtube-search] 오류:`, err.stack);
+        console.error('[API] YouTube 검색 오류:', err.stack);
         res.status(500).json({ error: 'YouTube 검색 실패' });
       }
     });
 
-    // MongoDB 저장 데이터 조회 API 엔드포인트
+    // 3) MongoDB에 저장된 검색 기록 불러오기
     app.get('/api/getData', async (req, res) => {
-      console.log('🔍 [GET /api/getData] 요청 들어옴');
       try {
         const data = await getAllSearchData();
-        if (!Array.isArray(data) || data.length === 0) {
-          console.warn('⚠️ [GET /api/getData] 저장된 문서가 없습니다.');
-        } else {
-          console.log(`🎉 [GET /api/getData] 총 ${data.length}개 문서 조회됨`);
-        }
-        console.log('💯 몽고 API 호출 완료!');
+        console.log('✅ /api/getData 호출 — 데이터 개수:', data.length);
         res.json(data);
       } catch (err) {
-        console.error('❌ [GET /api/getData] 데이터 가져오기 오류:', err.stack);
+        console.error('[API] 데이터 가져오기 오류:', err.stack);
         res.status(500).json({ error: '데이터 가져오기 실패' });
       }
     });
 
-    // 수정된 processed-data 엔드포인트: 배열을 직접 전송
-    app.get('/api/processed-data', async (req, res) => {
-      console.log('🔍 [GET /api/processed-data] 요청 들어옴');
-      try {
-        const data = await getAllSearchData();
-        if (!Array.isArray(data) || data.length === 0) {
-          console.warn('⚠️ [GET /api/processed-data] 저장된 문서가 없습니다.');
-          return res.status(404).json({ error: '데이터가 없습니다.' });
-        }
-        const processedData = data.map(doc => doc.results).flat().join(" ");
-        console.log('💯 처리된 데이터 전송 완료!');
-        res.json(processedData.split(" ")); // 클라이언트가 기대하는 배열 형태로 전송
-      } catch (err) {
-        console.error('❌ [GET /api/processed-data] 데이터 처리 오류:', err.stack);
-        res.status(500).json({ error: '데이터 처리 실패' });
-      }
-    });
-
-    // 클라이언트 로그 수신 엔드포인트
-    app.post('/api/log', (req, res) => {
-      const { message } = req.body;
-      if (message) {
-        console.log(`📝 [클라이언트 로그] ${message}`);
-        res.status(200).json({ success: true });
-      } else {
-        res.status(400).json({ error: '메시지가 없습니다.' });
-      }
-    });
-
-    // 추가 라우트 연결
+    // 4) 기존 모듈 라우트
     app.use('/api', searchRoute);
     app.use('/api', weatherRoute);
 
-    // 정적 파일 서빙
+    // 5) 정적 파일 서빙
     app.use(express.static(path.join(__dirname, 'public')));
 
-    // 서버 시작
+    // 6) 서버 시작
     app.listen(port, () => {
       console.log(`🚀 서버 실행 중: http://localhost:${port}`);
     });
