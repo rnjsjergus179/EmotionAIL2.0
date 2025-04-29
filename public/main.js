@@ -1,6 +1,6 @@
 // main.js
-import { processText } from './morphology.js';
-import { softmaxIntentClassifier, updateGRUState, updateIntentWeights } from './ml.js';
+import { processText } from '../ai/morphology.js';
+import { softmaxIntentClassifier, updateGRUState, updateIntentWeights } from '../ai/ml.js';
 import { fetchAndUpdateKeywords, getEmbedding, getWeather, getNaverSearchResults, getYouTubeSearchResults } from './api.js';
 import { memoryStorage, updateConversationHistory } from './memory.js';
 import { showSpeechBubbleInChunks, deleteCalendarEvent, getCalendarEvents, updateMap, initCalendar, currentYear, currentMonth } from './ui.js';
