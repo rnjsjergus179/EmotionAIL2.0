@@ -1,3 +1,4 @@
+// ui.js
 function speakText(text) {
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "ko-KR";
