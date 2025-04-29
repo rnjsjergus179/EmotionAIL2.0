@@ -25,18 +25,17 @@ let KEYWORDS = {
   delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
 
-// 의도별 가중치 (실수 기반 학습용)
-let intentWeights = {
-  greetings: 1.0,
-  sleep: 1.0,
-  weather: 1.0,
-  calendar: 1.0,
-  time: 1.0,
-  delete: 1.0
-};
+// 의도별 학습 가중치 행렬 (Softmax 분류기용)
+let intentWeightMatrix = {};
+Object.keys(KEYWORDS).forEach(intent => {
+  intentWeightMatrix[intent] = Array(300).fill(0.01); // 임베딩 차원 300 가정
+});
 
 // 백엔드 API 기본 URL
 const API_BASE_URL = 'https://emotionail2-0.onrender.com';
+
+// GRU 상태 (히든 스테이트)
+let gruHiddenState = Array(300).fill(0); // 초기값 0 벡터
 
 /***** 전역 변수 및 초기 설정 *****/
 document.addEventListener("contextmenu", event => event.preventDefault());
@@ -54,7 +53,7 @@ async function logToServer(message) {
   }
 }
 
-// MongoDB에서 키워드 가져오기
+// MongoDB에서 키워드 가져오기 및 업데이트
 async function fetchAndUpdateKeywords() {
   try {
     await logToServer("MongoDB 데이터 가져오기 시작");
@@ -70,7 +69,7 @@ async function fetchAndUpdateKeywords() {
         KEYWORDS[intent] = [...new Set([...KEYWORDS[intent], ...keywords])];
       } else {
         KEYWORDS[intent] = [...new Set(keywords)];
-        intentWeights[intent] = 1.0;
+        intentWeightMatrix[intent] = Array(300).fill(0.01);
       }
     });
 
@@ -83,7 +82,7 @@ async function fetchAndUpdateKeywords() {
   }
 }
 
-// 스마트 형태소 분석기
+// 텍스트 전처리 (형태소 분석)
 async function processText(text) {
   if (!text || typeof text !== 'string') return "";
   try {
@@ -110,31 +109,108 @@ async function getEmbedding(text) {
       body: JSON.stringify({ text })
     });
     const { embedding } = await response.json();
-    return embedding;
+    return embedding || Array(300).fill(0);
   } catch (error) {
     console.error("임베딩 API 호출 실패:", error);
-    return null;
+    return Array(300).fill(0);
   }
 }
 
-// 코사인 유사도 계산
-function cosineSimilarity(vecA, vecB) {
-  const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
-  const magnitudeA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
-  const magnitudeB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
-  return magnitudeA && magnitudeB ? dotProduct / (magnitudeA * magnitudeB) : 0;
+// 배열 연산 유틸리티
+function vectorAdd(a, b) {
+  return a.map((val, i) => val + b[i]);
+}
+function vectorSubtract(a, b) {
+  return a.map((val, i) => val - b[i]);
+}
+function vectorMultiply(a, scalar) {
+  return a.map(val => val * scalar);
+}
+function sigmoid(x) {
+  return 1 / (1 + Math.exp(-x));
+}
+function dotProduct(a, b) {
+  return a.reduce((sum, val, i) => sum + val * b[i], 0);
 }
 
-// 의도 임베딩 캐싱
-let intentEmbeddings = {};
-async function preloadIntentEmbeddings() {
+/***** 1. 자체 미니 GRU 기억 구조 *****/
+function updateGRUState(inputEmbedding, prevHidden) {
+  const Wz = Array(300).fill(0.01); // 업데이트 게이트 가중치
+  const Wr = Array(300).fill(0.01); // 리셋 게이트 가중치
+  const Wh = Array(300).fill(0.01); // 히든 상태 가중치
+
+  // 업데이트 게이트 (Update Gate)
+  const z = sigmoid(dotProduct(Wz, inputEmbedding) + dotProduct(Wz, prevHidden));
+  
+  // 리셋 게이트 (Forget Gate)
+  const r = sigmoid(dotProduct(Wr, inputEmbedding) + dotProduct(Wr, prevHidden));
+  
+  // 후보 히든 상태
+  const hTilde = vectorMultiply(prevHidden, r);
+  const newHidden = vectorAdd(vectorMultiply(prevHidden, 1 - z), vectorMultiply(hTilde, z));
+  
+  return newHidden;
+}
+
+/***** 2. Softmax 의도 분류기 *****/
+async function softmaxIntentClassifier(inputText) {
+  const inputEmbedding = await getEmbedding(inputText);
+  let logits = {};
+  let expSum = 0;
+
+  // 로짓 계산
+  for (let intent in intentWeightMatrix) {
+    logits[intent] = dotProduct(inputEmbedding, intentWeightMatrix[intent]);
+    expSum += Math.exp(logits[intent]);
+  }
+
+  // Softmax 확률 계산
+  let probabilities = {};
+  for (let intent in logits) {
+    probabilities[intent] = Math.exp(logits[intent]) / expSum;
+  }
+
+  // 가장 높은 확률의 의도 선택
+  let maxProb = 0;
+  let detectedIntent = null;
+  for (let intent in probabilities) {
+    if (probabilities[intent] > maxProb) {
+      maxProb = probabilities[intent];
+      detectedIntent = intent;
+    }
+  }
+
+  return { intent: detectedIntent, probabilities, embedding: inputEmbedding };
+}
+
+/***** 3. Self-Training 강화학습 *****/
+function updateIntentWeights(inputEmbedding, predictedIntent, userFeedback) {
+  const learningRate = 0.01;
+  const reward = userFeedback === "positive" ? 1 : userFeedback === "negative" ? -1 : 0;
+
+  for (let intent in intentWeightMatrix) {
+    const grad = intent === predictedIntent ? reward : -reward / (Object.keys(intentWeightMatrix).length - 1);
+    intentWeightMatrix[intent] = vectorAdd(
+      intentWeightMatrix[intent],
+      vectorMultiply(inputEmbedding, learningRate * grad)
+    );
+  }
+}
+
+/***** 4. Embedding + Intent Vector 업데이트 *****/
+async function updateEmbeddingsAndIntents() {
+  const processedData = await fetchAndUpdateKeywords();
   for (let intent in KEYWORDS) {
     const keywordsText = KEYWORDS[intent].join(" ");
-    intentEmbeddings[intent] = await getEmbedding(keywordsText);
+    const newEmbedding = await getEmbedding(keywordsText);
+    intentWeightMatrix[intent] = vectorAdd(
+      intentWeightMatrix[intent],
+      vectorMultiply(newEmbedding, 0.1) // 점진적 업데이트
+    );
   }
 }
 
-/***** 메모리 저장 및 학습 *****/
+/***** 메모리 저장 *****/
 const memoryStorage = {
   save: function(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
@@ -154,57 +230,19 @@ function updateConversationHistory(input, response) {
   try {
     let history = memoryStorage.load("conversationHistory") || [];
     history.push({ timestamp: Date.now(), input, response });
-    memoryStorage.save("conversationHistory", history);
+    memoryStorage.save("conversationHistory", history.slice(-50)); // 최근 50개만 저장
   } catch(e) {
     console.error("대화 이력 저장 오류:", e);
   }
 }
 
-// 실수 기반 가중치 학습
-function learnFromInteractions(input, intent) {
-  const learningRate = 0.1;
-  let history = memoryStorage.load("conversationHistory") || [];
-  let emotionCount = memoryStorage.load("emotionCount") || { positive: 0, negative: 0, surprise: 0 };
-
-  if (input.includes("좋아") || input.includes("고마워")) {
-    intentWeights[intent] = Math.min(intentWeights[intent] + learningRate, 2.0);
-    emotionCount.positive++;
-  } else if (input.includes("실망") || input.includes("안돼")) {
-    intentWeights[intent] = Math.max(intentWeights[intent] - learningRate, 0.5);
-    emotionCount.negative++;
-  }
-
-  if (emotionCount["negative"] >= 5 && !KEYWORDS.negativeComfort) {
-    KEYWORDS.negativeComfort = ["힘내세요!", "당신은 혼자가 아니에요.", "괜찮을 거예요."];
-    intentWeights.negativeComfort = 1.0;
-  }
-
-  memoryStorage.save("emotionCount", emotionCount);
-  memoryStorage.save("intentWeights", intentWeights);
-}
-
-/***** Deep Learning 의도 분류기 *****/
+/***** 의도 인식 및 처리 *****/
 async function detectIntent(input, processedData) {
-  const processedInput = await processText(input);
-  const lowerInput = processedInput.toLowerCase();
+  const { intent, probabilities, embedding } = await softmaxIntentClassifier(input);
+  gruHiddenState = updateGRUState(embedding, gruHiddenState);
 
-  const inputEmbedding = await getEmbedding(processedInput);
-  if (!inputEmbedding) return null;
-
-  let maxScore = -1;
-  let detectedIntent = null;
-
-  for (let intent in intentEmbeddings) {
-    const intentEmbedding = intentEmbeddings[intent];
-    const score = cosineSimilarity(inputEmbedding, intentEmbedding) * intentWeights[intent];
-    if (score > maxScore) {
-      maxScore = score;
-      detectedIntent = intent;
-    }
-  }
-
-  if (maxScore > 0.5) {
-    return detectedIntent;
+  if (probabilities[intent] > 0.5) {
+    return intent;
   }
 
   try {
@@ -371,6 +409,7 @@ async function saveToLearningDB(type, query, results) {
     });
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     await logToServer(`${type} 데이터가 학습용 DB에 저장되었습니다.`);
+    await updateEmbeddingsAndIntents(); // 새로운 데이터 반영
   } catch (error) {
     await logToServer(`학습용 DB 저장 오류: ${error.message}`);
   }
@@ -524,8 +563,8 @@ async function sendChat() {
     }
 
     if (!response) {
-      const intent = await detectIntent(input, processedData);
-      if (intent) {
+      const { intent, probabilities, embedding } = await softmaxIntentClassifier(input);
+      if (intent && probabilities[intent] > 0.5) {
         if (intent === "greetings") {
           response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
         } else if (intent === "sleep") {
@@ -546,10 +585,18 @@ async function sendChat() {
           } else {
             response = "삭제할 날짜를 입력하지 않으셨습니다.";
           }
-        } else if (intent === "negativeComfort") {
-          response = KEYWORDS.negativeComfort[Math.floor(Math.random() * KEYWORDS.negativeComfort.length)];
         }
         lastTopic = updateContext(intent);
+
+        // 사용자 피드백 수집 및 학습
+        setTimeout(() => {
+          const feedback = prompt("응답이 마음에 드시면 '좋아요', 아니라면 '싫어요'를 입력해주세요:");
+          if (feedback && feedback.includes("좋아요")) {
+            updateIntentWeights(embedding, intent, "positive");
+          } else if (feedback && feedback.includes("싫어요")) {
+            updateIntentWeights(embedding, intent, "negative");
+          }
+        }, 3000);
       } else if (lowerInput.startsWith("지역 ")) {
         const newCity = lowerInput.replace("지역", "").trim();
         if (newCity && regionList.includes(newCity)) {
@@ -570,7 +617,7 @@ async function sendChat() {
         updateMap(currentCity);
         await updateWeatherAndEffects(currentCity);
       } else {
-        response = "죄송해요, 잘 이해하지 못했어요. 다시 말씀해 주세요!";
+        response = `잘 이해하지 못했어요. 의도 확률: ${JSON.stringify(probabilities)}`;
       }
     }
   }
@@ -585,7 +632,6 @@ async function sendChat() {
   memoryStorage.save('lastInput', input);
   memoryStorage.save('lastResponse', response);
   updateConversationHistory(input, response);
-  if (intent) learnFromInteractions(input, intent);
 }
 
 /***** 말풍선 출력 *****/
@@ -661,7 +707,7 @@ window.addEventListener("DOMContentLoaded", async function() {
   }
 
   await fetchAndUpdateKeywords();
-  await preloadIntentEmbeddings();
+  await updateEmbeddingsAndIntents();
 });
 
 window.addEventListener("resize", function() {
