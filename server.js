@@ -1,22 +1,27 @@
 require('dotenv').config();
 const express = require('express');
-const cors    = require('cors');
-const axios   = require('axios');
-const path    = require('path');
+const cors = require('cors');
+const axios = require('axios');
+const path = require('path');
 const {
   connectDB,
   saveSearchData,
   getAllSearchData
-} = require('./db.js'); // getAllSearchData 가져오기
+} = require('./db.js'); // 기존 DB 함수 가져오기
+
+// 추가 모듈 (형태소 분석 및 임베딩 가정)
+const { analyzeMorphology } = require('./morphology');
+const { generateEmbedding } = require('./embedding');
+const { analyzeIntent } = require('./intent');
 
 // 기존 라우트
-const searchRoute  = require('./search');
+const searchRoute = require('./search');
 const weatherRoute = require('./weather');
 
-const app  = express();
+const app = express();
 const port = process.env.PORT || 3000;
 
-// CORS, JSON 파싱
+// CORS, JSON 파싱 설정
 app.use(cors({
   origin: process.env.CLIENT_ORIGIN || '*'
 }));
@@ -37,7 +42,7 @@ connectDB()
           {
             params: { query },
             headers: {
-              'X-Naver-Client-Id':     process.env.NAVER_CLIENT_ID,
+              'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
               'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
             }
           }
@@ -60,10 +65,10 @@ connectDB()
           'https://www.googleapis.com/youtube/v3/search',
           {
             params: {
-              part:       'snippet',
-              q:          query,
+              part: 'snippet',
+              q: query,
               maxResults: 10,
-              key:        process.env.GOOGLE_API_KEY
+              key: process.env.GOOGLE_API_KEY
             }
           }
         );
@@ -72,7 +77,7 @@ connectDB()
           const vid = i.id.videoId;
           return {
             title: i.snippet.title,
-            url:   vid ? `https://www.youtube.com/watch?v=${vid}` : ''
+            url: vid ? `https://www.youtube.com/watch?v=${vid}` : ''
           };
         });
         res.json({ message: `YouTube 검색 완료: ${query}`, items });
@@ -94,14 +99,96 @@ connectDB()
       }
     });
 
-    // 4) 기존 모듈 라우트
+    // 4) POST /api/log - 클라이언트 로그 받기
+    app.post('/api/log', async (req, res) => {
+      const logData = req.body;
+      if (!logData) return res.status(400).json({ error: '로그 데이터가 필요합니다.' });
+      try {
+        await saveSearchData('log', 'client-log', logData);
+        res.json({ message: '로그 데이터 저장 완료' });
+      } catch (err) {
+        console.error('[API] 로그 데이터 저장 오류:', err.stack);
+        res.status(500).json({ error: '로그 데이터 저장 실패' });
+      }
+    });
+
+    // 5) POST /api/save-to-db - 학습용 데이터 저장
+    app.post('/api/save-to-db', async (req, res) => {
+      const trainingData = req.body;
+      if (!trainingData) return res.status(400).json({ error: '학습 데이터가 필요합니다.' });
+      try {
+        await saveSearchData('training', 'training-data', trainingData);
+        res.json({ message: '학습 데이터 저장 완료' });
+      } catch (err) {
+        console.error('[API] 학습 데이터 저장 오류:', err.stack);
+        res.status(500).json({ error: '학습 데이터 저장 실패' });
+      }
+    });
+
+    // 6) POST /api/embed - 문장 임베딩 생성
+    app.post('/api/embed', async (req, res) => {
+      const { text } = req.body;
+      if (!text) return res.status(400).json({ error: '텍스트가 필요합니다.' });
+      try {
+        const embedding = await generateEmbedding(text);
+        res.json({ message: '임베딩 생성 완료', embedding });
+      } catch (err) {
+        console.error('[API] 임베딩 생성 오류:', err.stack);
+        res.status(500).json({ error: '임베딩 생성 실패' });
+      }
+    });
+
+    // 7) POST /api/morph - 텍스트 형태소 분석
+    app.post('/api/morph', async (req, res) => {
+      const { text } = req.body;
+      if (!text) return res.status(400).json({ error: '텍스트가 필요합니다.' });
+      try {
+        const morphResult = await analyzeMorphology(text);
+        res.json({ message: '형태소 분석 완료', result: morphResult });
+      } catch (err) {
+        console.error('[API] 형태소 분석 오류:', err.stack);
+        res.status(500).json({ error: '형태소 분석 실패' });
+      }
+    });
+
+    // 8) POST /api/intent - 텍스트로 의도 분석
+    app.post('/api/intent', async (req, res) => {
+      const { text } = req.body;
+      if (!text) return res.status(400).json({ error: '텍스트가 필요합니다.' });
+      try {
+        const intentResult = await analyzeIntent(text);
+        res.json({ message: '의도 분석 완료', result: intentResult });
+      } catch (err) {
+        console.error('[API] 의도 분석 오류:', err.stack);
+        res.status(500).json({ error: '의도 분석 실패' });
+      }
+    });
+
+    // 9) GET /api/processed-data - 학습 데이터만 반환
+    app.get('/api/processed-data', async (req, res) => {
+      const limit = parseInt(req.query.limit) || 100;
+      try {
+        const allData = await getAllSearchData(limit);
+        const trainingData = allData.filter(item => item.type === 'training');
+        const processedData = trainingData.map(item => ({
+          intent: item.intent || 'unknown',
+          keywords: item.query ? item.query.split(' ') : []
+        }));
+        res.json({ message: `가공된 학습 데이터 ${processedData.length}개 반환`, data: processedData });
+      } catch (err) {
+        console.error('[API] 가공 데이터 불러오기 오류:', err.stack);
+        res.status(500).json({ error: '가공 데이터 불러오기 실패' });
+      }
+    });
+
+    // 10) 기존 모듈 라우트
     app.use('/api', searchRoute);
     app.use('/api', weatherRoute);
 
-    // 5) 정적 파일 서빙
+    // 11) 정적 파일 서빙
     app.use(express.static(path.join(__dirname, 'public')));
 
-    // 6) 서버 시작
+    // 12) 서버 시작
     app.listen(port, () => {
       console.log(`🚀 서버 실행 중: http://localhost:${port}`);
     });
