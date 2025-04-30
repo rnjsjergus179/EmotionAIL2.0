@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  
+  <!-- SEO를 위한 메타 태그 -->
+  <title>EmotionAIL - AI 3D 비서</title>
+  <meta name="description" content="EmotionAIL은 AI 3D 비서로, 자연어 처리, 음성 인식, 캘린더 관리, 날씨 정보 등을 제공합니다. 혁신적인 3D 인터랙션을 경험하세요.">
+  <meta name="keywords" content="AI 비서, 3D 비서, EmotionAIL, 음성 명령, 캘린더 AI, 웹 비서, 인공지능 비서, 한국 AI">
+  <meta name="author" content="Kwon Deok-Hyeon">
+  
+  <!-- SNS 미리보기를 위한 Open Graph 태그 -->
+  <meta property="og:title" content="EmotionAIL - AI 3D 비서">
+  <meta property="og:description" content="몰입형 AI 3D 비서를 경험해보세요. 실시간 인터랙션과 자연어 처리, 음성 인식까지!">
+  <meta property="og:image" content="https://raw.githubusercontent.com/rnjsjergus179/EmotionAIL2.0/main/AI3D비서.jpg">
+  <meta property="og:url" content="https://emotionailpremiumservice.site/2.0">
+  
+  <!-- 기존 스타일시트와 스크립트 -->
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+</head>
+<body>
+  <div id="right-hud">
+    <h3>채팅창</h3>
+    <select id="region-select" onchange="changeRegion(this.value)">
+      <option value="" disabled>지역 선택</option>
+    </select>
+    <div id="chat-log"></div>
+    <div id="chat-input-area">
+      <input type="text" id="chat-input" placeholder="채팅 입력..." />
+    </div>
+  </div>
+  <div id="hud-6">
+    <button onclick="startSpeechRecognition()">🎤 음성 입력</button>
+  </div>
+  <div id="hud-3">
+    <iframe id="map-iframe" src="https://www.google.com/maps?q=Seoul&output=embed" frameborder="0" style="width:100%; height:100%; border:0;" allowfullscreen></iframe>
+  </div>
+  <div id="left-hud">
+    <h3>캘린더</h3>
+    <div id="calendar-container">
+      <div id="calendar-header">
+        <button id="prev-month">◀</button>
+        <span id="month-year-label"></span>
+        <button id="next-month">▶</button>
+        <select id="year-select"></select>
+      </div>
+      <div id="calendar-actions">
+        <button id="delete-day-event">하루일정 삭제</button>
+      </div>
+      <div id="calendar-grid"></div>
+    </div>
+  </div>
+  <div id="speech-bubble"></div>
+  <div id="hud-7">버전 2.0</div>
+  <canvas id="canvas"></canvas>
+  <script src="main.js"></script>
+</body>
+</html>
