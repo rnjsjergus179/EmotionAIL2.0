@@ -1,5 +1,3 @@
-// main.js
-
 // TensorFlow.js가 HTML에 포함되어 있는지 확인하세요.
 // <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 
@@ -25,9 +23,9 @@ let KEYWORDS = {
   greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
   sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
   weather: ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"],
-  calendar: ["일정 알려줘", "일정 뭐야", "일정 보여줘"],
+  calendar: ["일정 알려줘"],
   time: ["시간 알려줘"],
-  delete: ["하루일정 삭제", "하루일과 삭제해줘", "일정 삭제"]
+  delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
 
 let intentWeightMatrix = {};
@@ -256,16 +254,14 @@ let intentModel;
 
 async function loadIntentModel() {
   try {
-    // 실제 모델 URL로 교체 필요
     intentModel = await tf.loadLayersModel('https://your-model-url.com/model.json');
-    console.log("Pre-trained intent model loaded successfully");
+    console.log("사전 학습된 의도 모델이 성공적으로 로드되었습니다.");
   } catch (error) {
-    console.error("Failed to load intent model:", error);
+    console.error("의도 모델 로드 실패:", error);
   }
 }
 
 async function softmaxIntentClassifier(inputText, historyEmbeddings) {
-  // Step 1: Jaccard Similarity 기반 키워드 매칭
   let maxJaccard = 0;
   let bestIntent = null;
 
@@ -274,9 +270,7 @@ async function softmaxIntentClassifier(inputText, historyEmbeddings) {
     let intentMaxJaccard = 0;
     for (const keyword of keywords) {
       const sim = jaccardSimilarity(inputText, keyword);
-      if (sim > intentMaxJaccard) {
-        intentMaxJaccard = sim;
-      }
+      if (sim > intentMaxJaccard) intentMaxJaccard = sim;
     }
     if (intentMaxJaccard > maxJaccard) {
       maxJaccard = intentMaxJaccard;
@@ -292,7 +286,6 @@ async function softmaxIntentClassifier(inputText, historyEmbeddings) {
     const embedding = await getEmbedding(inputText);
     return { intent: bestIntent, probabilities, embedding };
   } else {
-    // Step 2: Jaccard 실패 시 TensorFlow.js 모델 사용
     const inputEmbedding = await getEmbedding(inputText);
     if (intentModel) {
       const inputTensor = tf.tensor([inputEmbedding]);
@@ -317,7 +310,7 @@ async function softmaxIntentClassifier(inputText, historyEmbeddings) {
         return { intent: 'unknown', probabilities, embedding: inputEmbedding };
       }
     } else {
-      console.warn("Intent model not loaded, using fallback logic");
+      console.warn("의도 모델이 로드되지 않았습니다. 대체 로직을 사용합니다.");
       const sequenceEmbedding = getSequenceEmbedding(historyEmbeddings, inputEmbedding);
       const attendedEmbedding = selfAttention(sequenceEmbedding);
       
@@ -388,7 +381,7 @@ const memoryStorage = {
       const data = localStorage.getItem(key);
       return data ? JSON.parse(data) : null;
     } catch (e) {
-      console.error("Error loading key:", key, e);
+      console.error("키 로드 오류:", key, e);
       return null;
     }
   }
@@ -465,12 +458,16 @@ async function pipelineNewsSearch(userInput) {
 
 /***** 음성 출력 *****/
 function speakText(text) {
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "ko-KR";
-  utterance.volume = 1;
-  utterance.rate = 1.5;
-  utterance.pitch = 1;
-  window.speechSynthesis.speak(utterance);
+  try {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ko-KR";
+    utterance.volume = 1;
+    utterance.rate = 1.5;
+    utterance.pitch = 1;
+    window.speechSynthesis.speak(utterance);
+  } catch (error) {
+    console.error("음성 출력 오류:", error);
+  }
 }
 
 /***** 캘린더 관련 함수 *****/
@@ -480,103 +477,180 @@ function initCalendar() {
   const now = new Date();
   currentYear = now.getFullYear();
   currentMonth = now.getMonth();
+  populateYearSelect();
   renderCalendar(currentYear, currentMonth);
 
-  // 버튼 이벤트 설정
-  document.getElementById("prev-month")?.addEventListener("click", () => {
-    currentMonth--;
-    if (currentMonth < 0) {
-      currentMonth = 11;
-      currentYear--;
-    }
-    renderCalendar(currentYear, currentMonth);
-  });
+  const prevMonth = document.getElementById("prev-month");
+  const nextMonth = document.getElementById("next-month");
+  const yearSelect = document.getElementById("year-select");
+  const deleteDayEvent = document.getElementById("delete-day-event");
 
-  document.getElementById("next-month")?.addEventListener("click", () => {
-    currentMonth++;
-    if (currentMonth > 11) {
-      currentMonth = 0;
-      currentYear++;
-    }
-    renderCalendar(currentYear, currentMonth);
-  });
+  if (prevMonth) {
+    prevMonth.addEventListener("click", () => {
+      currentMonth--;
+      if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+      renderCalendar(currentYear, currentMonth);
+    });
+  }
+  if (nextMonth) {
+    nextMonth.addEventListener("click", () => {
+      currentMonth++;
+      if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+      renderCalendar(currentYear, currentMonth);
+    });
+  }
+  if (yearSelect) {
+    yearSelect.addEventListener("change", (e) => {
+      currentYear = parseInt(e.target.value);
+      renderCalendar(currentYear, currentMonth);
+    });
+  }
+  if (deleteDayEvent) {
+    deleteDayEvent.addEventListener("click", () => {
+      const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
+      if (dayStr) {
+        const dayNum = parseInt(dayStr);
+        const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth + 1}-${dayNum}`);
+        if (eventDiv) {
+          eventDiv.textContent = "";
+          const message = `${currentYear}-${currentMonth + 1}-${dayNum} 일정이 삭제되었습니다.`;
+          showSpeechBubbleInChunks(message);
+          let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+          delete calendarData[`${currentYear}-${currentMonth + 1}-${dayNum}`];
+          localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+        }
+      }
+    });
+  }
+}
+
+function populateYearSelect() {
+  const yearSelect = document.getElementById("year-select");
+  if (!yearSelect) return;
+  yearSelect.innerHTML = "";
+  for (let y = 2020; y <= 2070; y++) {
+    const option = document.createElement("option");
+    option.value = y;
+    option.textContent = y;
+    if (y === currentYear) option.selected = true;
+    yearSelect.appendChild(option);
+  }
 }
 
 function renderCalendar(year, month) {
-  const calendarGrid = document.getElementById("calendar-grid");
-  if (!calendarGrid) {
-    console.error("Calendar grid element not found");
-    return;
-  }
+  const monthNames = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
+  const monthYearLabel = document.getElementById("month-year-label");
+  if (monthYearLabel) monthYearLabel.textContent = `${year}년 ${monthNames[month]}`;
 
-  calendarGrid.innerHTML = ""; // 기존 내용 초기화
-  document.getElementById("calendar-title").textContent = `${year}년 ${month + 1}월`;
-
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  // 요일 헤더
+  const grid = document.getElementById("calendar-grid");
+  if (!grid) return;
+  grid.innerHTML = "";
   const daysOfWeek = ["일", "월", "화", "수", "목", "금", "토"];
   daysOfWeek.forEach(day => {
-    const dayElement = document.createElement("div");
-    dayElement.textContent = day;
-    dayElement.style.fontWeight = "bold";
-    calendarGrid.appendChild(dayElement);
+    const th = document.createElement("div");
+    th.style.fontWeight = "bold";
+    th.style.textAlign = "center";
+    th.textContent = day;
+    th.style.color = "#00ffcc";
+    th.style.textShadow = "0 0 3px #00ffcc";
+    grid.appendChild(th);
   });
-
-  // 빈 날짜 채우기
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
   for (let i = 0; i < firstDay; i++) {
-    calendarGrid.appendChild(document.createElement("div"));
+    grid.appendChild(document.createElement("div"));
   }
-
-  // 날짜 채우기
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dayElement = document.createElement("div");
-    dayElement.textContent = day;
-    dayElement.addEventListener("click", () => {
-      const eventText = prompt(`${year}년 ${month + 1}월 ${day}일 일정을 입력하세요:`);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const cell = document.createElement("div");
+    cell.innerHTML = `
+      <div class="day-number">${d}</div>
+      <div class="event" id="event-${year}-${month + 1}-${d}"></div>
+    `;
+    cell.addEventListener("click", () => {
+      const eventText = prompt(`${year}-${month + 1}-${d} 일정 입력:`);
       if (eventText) {
-        memoryStorage.save(`event_${year}_${month + 1}_${day}`, eventText);
-        alert("일정이 저장되었습니다.");
-        renderCalendar(year, month); // 일정 추가 후 캘린더 새로고침
+        const eventDiv = document.getElementById(`event-${year}-${month + 1}-${d}`);
+        if (eventDiv) {
+          if (eventDiv.textContent) {
+            eventDiv.textContent += "; " + eventText;
+          } else {
+            eventDiv.textContent = eventText;
+          }
+          showSpeechBubbleInChunks(`${year}-${month + 1}-${d}에 ${eventText} 일정이 추가되었습니다.`);
+          let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+          calendarData[`${year}-${month + 1}-${d}`] = eventDiv.textContent;
+          localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+        }
       }
     });
-
-    // 저장된 일정 표시
-    const eventKey = `event_${year}_${month + 1}_${day}`;
-    const eventText = memoryStorage.load(eventKey);
-    if (eventText) {
-      const eventSpan = document.createElement("span");
-      eventSpan.textContent = ` - ${eventText}`;
-      eventSpan.style.fontSize = "12px";
-      eventSpan.style.color = "blue";
-      dayElement.appendChild(eventSpan);
+    let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+    const dateKey = `${year}-${month + 1}-${d}`;
+    if (calendarData[dateKey]) {
+      cell.querySelector(`#event-${year}-${month + 1}-${d}`).textContent = calendarData[dateKey];
     }
-
-    calendarGrid.appendChild(dayElement);
+    grid.appendChild(cell);
   }
 }
 
 function deleteCalendarEvent(day) {
-  const eventKey = `event_${currentYear}_${currentMonth + 1}_${day}`;
-  if (memoryStorage.load(eventKey)) {
-    memoryStorage.save(eventKey, null);
-    renderCalendar(currentYear, currentMonth); // 삭제 후 캘린더 새로고침
-    return `${day}일의 일정이 삭제되었습니다.`;
+  if (typeof currentYear === 'undefined' || typeof currentMonth === 'undefined') {
+    const now = new Date();
+    currentYear = now.getFullYear();
+    currentMonth = now.getMonth();
   }
-  return "삭제할 일정이 없습니다.";
+  const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth + 1}-${day}`);
+  if (eventDiv) {
+    eventDiv.textContent = "";
+    let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+    delete calendarData[`${currentYear}-${currentMonth + 1}-${day}`];
+    localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+    return `${currentYear}-${currentMonth + 1}-${day} 일정이 삭제되었습니다.`;
+  } else {
+    return "해당 날짜에 일정이 없습니다.";
+  }
 }
 
-function getCalendarEvents() {
-  let events = "";
-  for (let day = 1; day <= 31; day++) {
-    const eventKey = `event_${currentYear}_${currentMonth + 1}_${day}`;
-    const eventText = memoryStorage.load(eventKey);
-    if (eventText) {
-      events += `${day}일: ${eventText}\n`;
-    }
+function getCalendarEvents(dateStr = null) {
+  const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+  if (!Object.keys(calendarData).length) {
+    return "저장된 일정이 없습니다. 먼저 날짜 셀을 클릭하여 일정을 입력해주세요.";
   }
-  return events || "현재 월에 일정이 없습니다.";
+  if (dateStr) {
+    if (calendarData[dateStr]) {
+      return `${dateStr}의 일정: ${calendarData[dateStr]}`;
+    } else {
+      return `${dateStr}에는 일정이 없습니다.`;
+    }
+  } else {
+    if (typeof currentYear === 'undefined' || typeof currentMonth === 'undefined') {
+      const now = new Date();
+      currentYear = now.getFullYear();
+      currentMonth = now.getMonth();
+    }
+    const currentMonthStr = `${currentYear}-${currentMonth + 1}`;
+    let events = [];
+    for (let key in calendarData) {
+      if (key.startsWith(currentMonthStr)) {
+        events.push(`${key}: ${calendarData[key]}`);
+      }
+    }
+    return events.length ? `현재 월(${currentMonthStr})의 일정:\n${events.join("\n")}` : `현재 월(${currentMonthStr})에는 일정이 없습니다.`;
+  }
+}
+
+function updateMap(currentCity) {
+  const regionMap = {
+    "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
+    "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
+    "안산": "Ansan", "파주": "Paju", "부산": "Busan", "대구": "Daegu", "광주": "Gwangju",
+    "대전": "Daejeon", "울산": "Ulsan", "제주": "Jeju", "전주": "Jeonju", "청주": "Cheongju",
+    "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
+  };
+  const englishCity = regionMap[currentCity] || "Seoul";
+  const mapIframe = document.getElementById("map-iframe");
+  if (mapIframe) {
+    mapIframe.src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
+  }
 }
 
 /***** 백엔드 API 호출 함수 *****/
@@ -585,9 +659,7 @@ async function getWeather(currentCity) {
     const position = await getUserLocation();
     const { latitude, longitude } = position;
     const cacheKey = `weather_${latitude}_${longitude}`;
-    if (apiCache[cacheKey]) {
-      return apiCache[cacheKey];
-    }
+    if (apiCache[cacheKey]) return apiCache[cacheKey];
     const response = await fetch(`${API_BASE_URL}/api/weather?lat=${latitude}&lon=${longitude}`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
@@ -599,7 +671,7 @@ async function getWeather(currentCity) {
     return result;
   } catch (error) {
     await logToServer(`날씨 API 호출 실패: ${error.message}`);
-    console.warn("Geolocation failed, falling back to default city:", currentCity);
+    console.warn("지리적 위치 조회 실패, 기본 도시로 전환:", currentCity);
     const regionMap = {
       "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
       "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
@@ -609,9 +681,7 @@ async function getWeather(currentCity) {
     };
     const englishCity = regionMap[currentCity] || "Seoul";
     const cacheKey = `weather_${englishCity}`;
-    if (apiCache[cacheKey]) {
-      return apiCache[cacheKey];
-    }
+    if (apiCache[cacheKey]) return apiCache[cacheKey];
     const response = await fetch(`${API_BASE_URL}/api/weather?city=${encodeURIComponent(englishCity)}`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
@@ -625,9 +695,7 @@ async function getWeather(currentCity) {
 
 async function getNaverSearchResults(query) {
   const cacheKey = `naver_${query}`;
-  if (apiCache[cacheKey]) {
-    return apiCache[cacheKey];
-  }
+  if (apiCache[cacheKey]) return apiCache[cacheKey];
   try {
     const response = await fetch(`${API_BASE_URL}/api/naver-search?q=${encodeURIComponent(query)}`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
@@ -649,9 +717,7 @@ async function getNaverSearchResults(query) {
 
 async function getYouTubeSearchResults(query) {
   const cacheKey = `youtube_${query}`;
-  if (apiCache[cacheKey]) {
-    return apiCache[cacheKey];
-  }
+  if (apiCache[cacheKey]) return apiCache[cacheKey];
   try {
     const response = await fetch(`${API_BASE_URL}/api/youtube-search?q=${encodeURIComponent(query)}`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
@@ -821,15 +887,8 @@ async function sendChat() {
   const processedData = await fetchAndUpdateKeywords();
 
   if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
-    response = getCalendarEvents();
-  } else if (lowerInput.includes("일정 삭제")) {
-    const dayStr = prompt("삭제할 일정의 날짜(일)를 입력하세요 (예: 15):");
-    if (dayStr) {
-      const dayNum = parseInt(dayStr);
-      response = deleteCalendarEvent(dayNum);
-    } else {
-      response = "삭제할 날짜를 입력하지 않으셨습니다.";
-    }
+    const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
+    response = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
   } else if (isNewsQuery(input)) {
     response = await pipelineNewsSearch(input);
   } else {
@@ -878,7 +937,7 @@ async function sendChat() {
           const now = new Date();
           response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
         } else if (intent === "delete") {
-          const dayStr = prompt("삭제할 일정의 날짜(일)를 입력하세요 (예: 15):");
+          const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
           if (dayStr) {
             const dayNum = parseInt(dayStr);
             response = deleteCalendarEvent(dayNum);
