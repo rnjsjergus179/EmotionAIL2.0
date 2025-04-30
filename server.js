@@ -11,8 +11,8 @@ const {
 
 // 추가 모듈 (형태소 분석 및 임베딩 가정)
 const { analyzeMorphology } = require('./morphology.js'); // GitHub 루트 디렉토리의 morphology.js 참조
-const { generateEmbedding } = require('./embedding');
-const { analyzeIntent } = require('./intent');
+const { generateEmbedding } = require('./embedding.js');
+const { analyzeIntent } = require('./intent.js');
 
 // 기존 라우트
 const searchRoute = require('./search');
