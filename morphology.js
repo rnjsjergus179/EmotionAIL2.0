@@ -4,7 +4,7 @@
 const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 
 // TensorFlow.js를 사용하기 위한 모듈 (설치 필요: npm install @tensorflow/tfjs)
-const tf = require('@tensorflow/tfjs');
+const tf = require('@tensorflow/tfjs-node');
 
 // 딥러닝 모델 관련 설정
 let morphologyModel = null;
