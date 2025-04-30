@@ -18,7 +18,7 @@
   
   <!-- 스타일시트와 스크립트 -->
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 </head>
 <body>
@@ -29,7 +29,8 @@
     </select>
     <div id="chat-log"></div>
     <div id="chat-input-area">
-      <input type="text" id="chat-input" placeholder="채팅 입력..." />
+      <input type="text" id="chat-input" placeholder="채팅 입력..." list="Charge" />
+      <datalist id="Charge"></datalist>
     </div>
   </div>
   <div id="hud-6">
@@ -53,9 +54,10 @@
       <div id="calendar-grid"></div>
     </div>
   </div>
-  <div id="speech-bubble"></div>
+  <div id="speech-bubble" style="position: absolute; display: none; background: white; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>
   <div id="hud-7">버전 2.0</div>
-  <canvas id="canvas"></canvas>
+  <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: -1;"></canvas>
   <script src="main.js"></script>
+  <script src="three.js"></script>
 </body>
 </html>
