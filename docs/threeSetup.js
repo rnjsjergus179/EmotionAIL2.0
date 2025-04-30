@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({
+export const scene = new THREE.Scene();
+export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+export const renderer = new THREE.WebGLRenderer({
   canvas: document.getElementById("canvas") || document.createElement("canvas"),
   alpha: true
 });
@@ -15,26 +15,26 @@ directionalLight.position.set(5, 10, 7).normalize();
 scene.add(directionalLight);
 scene.add(new THREE.AmbientLight(0x333333));
 
-const sunMaterial = new THREE.MeshStandardMaterial({
+export const sunMaterial = new THREE.MeshStandardMaterial({
   color: 0xffcc00,
   emissive: 0xff9900,
   transparent: true,
   opacity: 0
 });
-const sun = new THREE.Mesh(new THREE.SphereGeometry(1.5, 64, 64), sunMaterial);
+export const sun = new THREE.Mesh(new THREE.SphereGeometry(1.5, 64, 64), sunMaterial);
 scene.add(sun);
 
-const moonMaterial = new THREE.MeshStandardMaterial({
+export const moonMaterial = new THREE.MeshStandardMaterial({
   color: 0xcccccc,
   emissive: 0x222222,
   transparent: true,
   opacity: 1
 });
-const moon = new THREE.Mesh(new THREE.SphereGeometry(1.2, 64, 64), moonMaterial);
+export const moon = new THREE.Mesh(new THREE.SphereGeometry(1.2, 64, 64), moonMaterial);
 scene.add(moon);
 
-const stars = [];
-const fireflies = [];
+export const stars = [];
+export const fireflies = [];
 for (let i = 0; i < 200; i++) {
   const star = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
   star.position.set((Math.random() - 0.5) * 100, (Math.random() - 0.5) * 60, -20);
@@ -164,11 +164,11 @@ function createStreetlight() {
   lightGroup.add(lampLight);
   return lightGroup;
 }
-const characterStreetlight = createStreetlight();
+export const characterStreetlight = createStreetlight();
 characterStreetlight.position.set(1, -2, 0);
 scene.add(characterStreetlight);
 
-let rainGroup = new THREE.Group();
+export let rainGroup = new THREE.Group();
 scene.add(rainGroup);
 
 function initRain() {
@@ -193,7 +193,7 @@ function initRain() {
 initRain();
 rainGroup.visible = false;
 
-let houseCloudGroup = new THREE.Group();
+export let houseCloudGroup = new THREE.Group();
 scene.add(houseCloudGroup);
 
 function createHouseCloud() {
@@ -218,7 +218,7 @@ const singleCloud = createHouseCloud();
 houseCloudGroup.add(singleCloud);
 houseCloudGroup.position.set(0, 2, 0);
 
-let cloudRainGroup = new THREE.Group();
+export let cloudRainGroup = new THREE.Group();
 function initCloudRain() {
   const cloudRainCount = 100;
   const geometry = new THREE.BufferGeometry();
@@ -242,16 +242,16 @@ initCloudRain();
 cloudRainGroup.visible = false;
 houseCloudGroup.add(cloudRainGroup);
 
-let lightningLight = new THREE.PointLight(0xffffff, 0, 500);
+export let lightningLight = new THREE.PointLight(0xffffff, 0, 500);
 lightningLight.position.set(0, 50, 0);
 scene.add(lightningLight);
 
-const characterGroup = new THREE.Group();
+export const characterGroup = new THREE.Group();
 const charBody = new THREE.Mesh(
   new THREE.BoxGeometry(1, 1.5, 0.5),
   new THREE.MeshStandardMaterial({ color: 0x00cc66 })
 );
-const head = new THREE.Mesh(
+export const head = new THREE.Mesh(
   new THREE.SphereGeometry(0.5, 32, 32),
   new THREE.MeshStandardMaterial({ color: 0xffcc66 })
 );
@@ -301,7 +301,7 @@ characterGroup.add(
 characterGroup.position.y = -1;
 scene.add(characterGroup);
 
-const characterLight = new THREE.PointLight(0xffee88, 1, 15);
+export const characterLight = new THREE.PointLight(0xffee88, 1, 15);
 scene.add(characterLight);
 
 function createTree() {
@@ -327,7 +327,7 @@ for (let i = 0; i < 10; i++) {
   scene.add(tree);
 }
 
-function updateWeatherEffects(currentWeather) {
+export function updateWeatherEffects(currentWeather) {
   if (!currentWeather || typeof rainGroup === 'undefined' || typeof cloudRainGroup === 'undefined' || typeof houseCloudGroup === 'undefined') return;
   if (currentWeather.includes("비") || currentWeather.includes("소나기")) {
     rainGroup.visible = true;
@@ -343,7 +343,7 @@ function updateWeatherEffects(currentWeather) {
   }
 }
 
-function updateLightning(currentWeather) {
+export function updateLightning(currentWeather) {
   if (!currentWeather || typeof lightningLight === 'undefined') return;
   if (currentWeather.includes("번개") || currentWeather.includes("뇌우")) {
     if (Math.random() < 0.001) {
@@ -353,7 +353,7 @@ function updateLightning(currentWeather) {
   }
 }
 
-function updateHouseClouds() {
+export function updateHouseClouds() {
   if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
   const headWorldPos = new THREE.Vector3();
   try {
@@ -367,23 +367,8 @@ function updateHouseClouds() {
   houseCloudGroup.position.z = headWorldPos.z;
 }
 
-function updateBubblePosition() {
-  const bubble = document.getElementById("speech-bubble");
-  if (!bubble || typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
-  const headWorldPos = new THREE.Vector3();
-  try {
-    head.getWorldPosition(headWorldPos);
-  } catch (err) {
-    console.error("updateBubblePosition 에러:", err);
-    return;
-  }
-  const screenPos = headWorldPos.project(camera);
-  bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
-  bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
-}
-
-function animate() {
-  requestAnimationFrame(animate);
+export function animate(characterGroup, characterStreetlight, characterLight, stars, fireflies, sun, moon, head, camera) {
+  requestAnimationFrame(() => animate(characterGroup, characterStreetlight, characterLight, stars, fireflies, sun, moon, head, camera));
   const now = new Date();
   const headWorldPos = new THREE.Vector3();
   try {
@@ -453,11 +438,17 @@ function animate() {
   characterGroup.position.y = -1;
   characterGroup.rotation.x = 0;
 
+  updateWeatherEffects("");
+  updateHouseClouds();
+  updateLightning("");
+
   characterStreetlight.position.set(
     characterGroup.position.x + 1,
     -2,
     characterGroup.position.z
   );
+
+  updateBubblePosition();
 
   if (cloudRainGroup.visible) {
     const particles = cloudRainGroup.children[0];
@@ -474,9 +465,18 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-export {
-  scene, camera, renderer, characterGroup, characterStreetlight, characterLight,
-  stars, fireflies, sun, moon, head, rainGroup, cloudRainGroup, houseCloudGroup,
-  lightningLight, updateWeatherEffects, updateLightning, updateHouseClouds,
-  updateBubblePosition, animate
-};
+export function updateBubblePosition() {
+  const bubble = document.getElementById("speech-bubble");
+  if (!bubble) return;
+  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
+  const headWorldPos = new THREE.Vector3();
+  try {
+    head.getWorldPosition(headWorldPos);
+  } catch (err) {
+    console.error("updateBubblePosition 에러:", err);
+    return;
+  }
+  const screenPos = headWorldPos.project(camera);
+  bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
+  bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
+}
