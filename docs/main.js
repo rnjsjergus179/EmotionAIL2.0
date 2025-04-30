@@ -32,13 +32,13 @@ let KEYWORDS = {
   delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
 
-// 의도별 학습 가중치 행렬
+// 의도별 학습 가중치 행렬 초기화
 let intentWeightMatrix = {};
 Object.keys(KEYWORDS).forEach(intent => {
   intentWeightMatrix[intent] = Array(300).fill(0.01);
 });
 
-// GRU 상태
+// GRU 상태 초기화
 let gruHiddenState = Array(300).fill(0);
 
 // 대화 이력 임베딩
@@ -47,7 +47,7 @@ let historyEmbeddings = [];
 // 학습률
 let adaptiveLearningRate = 0.01;
 
-// Knowledge Graph
+// Knowledge Graph 설정
 const knowledgeGraph = {
   "넷플릭스": ["드라마", "영화"],
   "유튜브": ["영상", "비디오"],
@@ -81,8 +81,10 @@ async function sendChat() {
   let navigateUrl = "";
   const processedInput = await processText(input);
   const lowerInput = processedInput.toLowerCase();
-  let currentCity = "서울";
+  let currentCity = "서울"; // 기본 도시 설정
   let lastTopic = memoryStorage.load("lastTopic") || "";
+  
+  // 지역 목록
   const regionMap = {
     "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
     "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
@@ -91,8 +93,11 @@ async function sendChat() {
     "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
   };
   const regionList = Object.keys(regionMap);
+
+  // 키워드 및 가중치 업데이트
   await fetchAndUpdateKeywords(KEYWORDS, intentWeightMatrix);
 
+  // 사용자 입력에 따른 응답 처리
   if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
     response = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
@@ -128,6 +133,7 @@ async function sendChat() {
       }
     }
 
+    // 사이트 이동이 아닌 경우 의도 분류
     if (!response) {
       const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix, getEmbedding);
       if (intent && probabilities[intent] > 0.5) {
@@ -138,7 +144,7 @@ async function sendChat() {
         } else if (intent === "weather") {
           const weatherData = await getWeather(currentCity);
           response = weatherData.message;
-          updateWeatherEffects(weatherData.currentWeather);
+          updateWeatherEffects(weatherData.currentWeather); // threeSetup.js와 연결
         } else if (intent === "calendar") {
           response = getCalendarEvents();
         } else if (intent === "time") {
@@ -155,6 +161,7 @@ async function sendChat() {
         }
         lastTopic = memoryStorage.save("lastTopic", intent);
 
+        // 사용자 피드백 반영
         setTimeout(() => {
           const feedback = prompt("응답이 마음에 드시면 '좋아요', 아니라면 '싫어요'를 입력해주세요:");
           if (feedback && feedback.includes("좋아요")) {
@@ -175,7 +182,7 @@ async function sendChat() {
           updateMap(currentCity);
           const weatherData = await getWeather(currentCity);
           showSpeechBubbleInChunks(weatherData.message);
-          updateWeatherEffects(weatherData.currentWeather);
+          updateWeatherEffects(weatherData.currentWeather); // threeSetup.js와 연결
         } else {
           response = "죄송해요, 그 지역은 지원하지 않아요. 드롭다운 메뉴에서 선택해주세요.";
         }
@@ -187,18 +194,20 @@ async function sendChat() {
         updateMap(currentCity);
         const weatherData = await getWeather(currentCity);
         showSpeechBubbleInChunks(weatherData.message);
-        updateWeatherEffects(weatherData.currentWeather);
+        updateWeatherEffects(weatherData.currentWeather); // threeSetup.js와 연결
       } else {
         response = `잘 이해하지 못했어요. 의도 확률: ${JSON.stringify(probabilities)}`;
       }
     }
   }
 
+  // 응답 출력 및 대화 이력 업데이트
   showSpeechBubbleInChunks(response, isHTML);
   const embedding = await getEmbedding(input);
   updateConversationHistory(input, response, embedding, historyEmbeddings);
   gruHiddenState = updateGRUState(embedding, gruHiddenState);
 
+  // 사이트로 이동
   if (shouldNavigate) {
     setTimeout(() => { window.location.href = navigateUrl; }, 2000);
   }
@@ -208,9 +217,10 @@ async function sendChat() {
   memoryStorage.save('lastResponse', response);
 }
 
-// 이벤트 리스너
+// 이벤트 리스너 설정
 document.addEventListener("contextmenu", event => event.preventDefault());
 
+// 페이지 로드 시 초기화
 window.addEventListener("DOMContentLoaded", async function() {
   const chatInput = document.getElementById("chat-input");
   if (chatInput) {
@@ -219,6 +229,8 @@ window.addEventListener("DOMContentLoaded", async function() {
       if (e.key === "Enter") sendChat();
     });
   }
+
+  // 자동완성 데이터리스트 생성
   const autoCompleteList = document.createElement("datalist");
   autoCompleteList.id = "Charge";
   const allKeywords = Object.values(KEYWORDS).flat().concat(Object.keys(SITE_LINKS));
@@ -229,6 +241,7 @@ window.addEventListener("DOMContentLoaded", async function() {
   });
   document.body.appendChild(autoCompleteList);
 
+  // 지역 선택 드롭다운 설정
   const regionSelect = document.getElementById("region-select");
   if (regionSelect) {
     const regionMap = {
@@ -251,20 +264,22 @@ window.addEventListener("DOMContentLoaded", async function() {
   await fetchAndUpdateKeywords(KEYWORDS, intentWeightMatrix);
 });
 
+// 윈도우 크기 조정 시 카메라 및 렌더러 업데이트
 window.addEventListener("resize", function() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+// 페이지 로드 완료 시 초기화 및 애니메이션 시작
 window.addEventListener("load", async () => {
   try {
     initCalendar();
     updateMap("서울");
     const weatherData = await getWeather("서울");
     showSpeechBubbleInChunks(weatherData.message);
-    updateWeatherEffects(weatherData.currentWeather);
-    animate(characterGroup, characterStreetlight, characterLight, stars, fireflies, sun, moon, head, camera);
+    updateWeatherEffects(weatherData.currentWeather); // threeSetup.js와 연결
+    animate(characterGroup, characterStreetlight, characterLight, stars, fireflies, sun, moon, head, camera); // threeSetup.js와 연결
   } catch (err) {
     console.error("로드 이벤트 에러:", err);
   }
