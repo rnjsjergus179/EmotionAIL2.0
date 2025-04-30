@@ -1,4 +1,5 @@
-// main.js
+// TensorFlow.js가 HTML에 포함되어 있는지 확인하세요.
+// <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 
 /***** 사이트 링크 및 키워드 설정 *****/
 const SITE_LINKS = {
@@ -29,7 +30,7 @@ let KEYWORDS = {
 
 let intentWeightMatrix = {};
 Object.keys(KEYWORDS).forEach(intent => {
-  intentWeightMatrix[intent] = Array(300).fill(Math.random() * 0.02 - 0.01); // 무작위 초기화
+  intentWeightMatrix[intent] = Array(300).fill(0.01); // 임베딩 차원 300
 });
 
 const API_BASE_URL = 'https://emotionail2-0.onrender.com';
@@ -83,57 +84,69 @@ function softmaxArray(arr) {
   return exps.map(e => e / sumExps);
 }
 
+/***** Jaccard Similarity 함수 *****/
 function jaccardSimilarity(str1, str2) {
-  const set1 = new Set(str1.split(' '));
-  const set2 = new Set(str2.split(' '));
+  const set1 = new Set(str1);
+  const set2 = new Set(str2);
   const intersection = new Set([...set1].filter(x => set2.has(x)));
   const union = new Set([...set1, ...set2]);
   return intersection.size / union.size;
 }
 
+/***** 다층 신경망 (MLP) 구현 *****/
 function buildMLP(inputVector, layers = [128, 64, 32, Object.keys(intentWeightMatrix).length]) {
   let x = inputVector;
   for (let i = 0; i < layers.length - 1; i++) {
-    const weights = Array(layers[i]).fill().map(() => Array(x.length).fill(Math.random() * 0.02 - 0.01));
+    const weights = Array(layers[i]).fill().map(() => Array(x.length).fill(0.01));
     x = fullyConnected(x, weights);
     x = relu(x);
   }
-  const outputWeights = Array(layers[layers.length - 1]).fill().map(() => Array(x.length).fill(Math.random() * 0.02 - 0.01));
+  const outputWeights = Array(layers[layers.length - 1]).fill().map(() => Array(x.length).fill(0.01));
   x = fullyConnected(x, outputWeights);
   return softmax(x);
 }
 
+/***** Self-Attention 구현 *****/
 function selfAttention(embeddings) {
-  const scores = dotProduct(embeddings, embeddings) / Math.sqrt(embeddings.length);
+  const query = embeddings;
+  const key = embeddings;
+  const value = embeddings;
+  const scores = dotProduct(query, key) / Math.sqrt(embeddings.length);
   const attentionWeights = softmaxArray([scores]);
-  return weightedSum([embeddings], attentionWeights);
+  return weightedSum(value, attentionWeights);
 }
 
+/***** Sequence Memory 구현 *****/
 function getSequenceEmbedding(historyEmbeddings, currentEmbedding) {
   const all = historyEmbeddings.concat([currentEmbedding]);
   return averageVectors(all);
 }
 
+/***** 다중 모달 입력 - 위치 정보 감지 *****/
 function getUserLocation() {
   return new Promise((resolve, reject) => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         position => resolve(position.coords),
-        error => reject(new Error("위치 정보를 가져올 수 없습니다: " + error.message))
+        error => reject(error)
       );
     } else {
-      reject(new Error("이 브라우저는 Geolocation을 지원하지 않습니다."));
+      reject(new Error("이 브라우저는 지리적 위치를 지원하지 않습니다."));
     }
   });
 }
 
+/***** 자가 강화 학습 - 학습률 조정 *****/
 function adjustLearningRate(feedbackQuality) {
   if (feedbackQuality === "good") {
-    adaptiveLearningRate = Math.min(adaptiveLearningRate * 1.05, 0.1);
+    adaptiveLearningRate *= 1.05;
   } else if (feedbackQuality === "bad") {
-    adaptiveLearningRate = Math.max(adaptiveLearningRate * 0.95, 0.001);
+    adaptiveLearningRate *= 0.95;
   }
 }
+
+/***** 전역 변수 및 초기 설정 *****/
+document.addEventListener("contextmenu", event => event.preventDefault());
 
 async function logToServer(message) {
   try {
@@ -162,7 +175,7 @@ async function fetchAndUpdateKeywords() {
         KEYWORDS[intent] = [...new Set([...KEYWORDS[intent], ...keywords])];
       } else {
         KEYWORDS[intent] = [...new Set(keywords)];
-        intentWeightMatrix[intent] = Array(300).fill(Math.random() * 0.02 - 0.01);
+        intentWeightMatrix[intent] = Array(300).fill(0.01);
       }
     });
 
@@ -183,7 +196,6 @@ async function processText(text) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
     });
-    if (!response.ok) throw new Error("형태소 분석 요청 실패");
     const { analyzed } = await response.json();
     return analyzed ? analyzed.join(' ') : text;
   } catch (error) {
@@ -199,7 +211,6 @@ async function getEmbedding(text) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
     });
-    if (!response.ok) throw new Error("임베딩 요청 실패");
     const { embedding } = await response.json();
     return embedding || Array(300).fill(0);
   } catch (error) {
@@ -224,10 +235,11 @@ function sigmoid(x) {
   return 1 / (1 + Math.exp(-x));
 }
 
+/***** 미니 GRU 기억 구조 *****/
 function updateGRUState(inputEmbedding, prevHidden) {
-  const Wz = Array(300).fill(Math.random() * 0.02 - 0.01);
-  const Wr = Array(300).fill(Math.random() * 0.02 - 0.01);
-  const Wh = Array(300).fill(Math.random() * 0.02 - 0.01);
+  const Wz = Array(300).fill(0.01);
+  const Wr = Array(300).fill(0.01);
+  const Wh = Array(300).fill(0.01);
 
   const z = sigmoid(dotProduct(Wz, inputEmbedding) + dotProduct(Wz, prevHidden));
   const r = sigmoid(dotProduct(Wr, inputEmbedding) + dotProduct(Wr, prevHidden));
@@ -237,14 +249,15 @@ function updateGRUState(inputEmbedding, prevHidden) {
   return newHidden;
 }
 
+/***** Softmax 의도 분류기 (Jaccard + TensorFlow.js) *****/
 let intentModel;
 
 async function loadIntentModel() {
   try {
     intentModel = await tf.loadLayersModel('https://your-model-url.com/model.json');
-    console.log("Pre-trained intent model loaded successfully");
+    console.log("사전 학습된 의도 모델이 성공적으로 로드되었습니다.");
   } catch (error) {
-    console.error("Failed to load intent model:", error);
+    console.error("의도 모델 로드 실패:", error);
   }
 }
 
@@ -297,7 +310,7 @@ async function softmaxIntentClassifier(inputText, historyEmbeddings) {
         return { intent: 'unknown', probabilities, embedding: inputEmbedding };
       }
     } else {
-      console.warn("Intent model not loaded, using fallback logic");
+      console.warn("의도 모델이 로드되지 않았습니다. 대체 로직을 사용합니다.");
       const sequenceEmbedding = getSequenceEmbedding(historyEmbeddings, inputEmbedding);
       const attendedEmbedding = selfAttention(sequenceEmbedding);
       
@@ -332,6 +345,7 @@ async function softmaxIntentClassifier(inputText, historyEmbeddings) {
   }
 }
 
+/***** Self-Training 강화학습 *****/
 function updateIntentWeights(inputEmbedding, predictedIntent, userFeedback) {
   const reward = userFeedback === "positive" ? 1 : userFeedback === "negative" ? -1 : 0;
 
@@ -344,6 +358,7 @@ function updateIntentWeights(inputEmbedding, predictedIntent, userFeedback) {
   }
 }
 
+/***** Embedding + Intent Vector 업데이트 *****/
 async function updateEmbeddingsAndIntents() {
   const processedData = await fetchAndUpdateKeywords();
   for (let intent in KEYWORDS) {
@@ -356,20 +371,17 @@ async function updateEmbeddingsAndIntents() {
   }
 }
 
+/***** 메모리 저장 및 로드 *****/
 const memoryStorage = {
   save: function(key, value) {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch (e) {
-      console.error("LocalStorage 저장 오류:", e);
-    }
+    localStorage.setItem(key, JSON.stringify(value));
   },
   load: function(key) {
     try {
       const data = localStorage.getItem(key);
       return data ? JSON.parse(data) : null;
     } catch (e) {
-      console.error("LocalStorage 로드 오류:", key, e);
+      console.error("키 로드 오류:", key, e);
       return null;
     }
   }
@@ -386,6 +398,7 @@ function updateConversationHistory(input, response, embedding) {
   }
 }
 
+/***** 의도 인식 및 처리 *****/
 async function detectIntent(input, processedData) {
   const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings);
   gruHiddenState = updateGRUState(embedding, gruHiddenState);
@@ -394,7 +407,9 @@ async function detectIntent(input, processedData) {
     if (input.includes(concept)) {
       const relatedIntents = knowledgeGraph[concept];
       relatedIntents.forEach(relatedIntent => {
-        if (probabilities[relatedIntent]) probabilities[relatedIntent] *= 1.2;
+        if (probabilities[relatedIntent]) {
+          probabilities[relatedIntent] *= 1.2;
+        }
       });
     }
   }
@@ -441,26 +456,34 @@ async function pipelineNewsSearch(userInput) {
   return summary;
 }
 
+/***** 음성 출력 *****/
 function speakText(text) {
-  if ('speechSynthesis' in window) {
+  try {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "ko-KR";
     utterance.volume = 1;
     utterance.rate = 1.5;
     utterance.pitch = 1;
     window.speechSynthesis.speak(utterance);
-  } else {
-    console.warn("이 브라우저는 Web Speech API를 지원하지 않습니다.");
+  } catch (error) {
+    console.error("음성 출력 오류:", error);
   }
 }
 
+/***** 캘린더 관련 함수 *****/
+let currentYear, currentMonth;
 function deleteCalendarEvent(day) {
+  if (typeof currentYear === 'undefined' || typeof currentMonth === 'undefined') {
+    const now = new Date();
+    currentYear = now.getFullYear();
+    currentMonth = now.getMonth();
+  }
   const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth + 1}-${day}`);
   if (eventDiv) {
     eventDiv.textContent = "";
-    let calendarData = memoryStorage.load("calendarEvents") || {};
+    let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
     delete calendarData[`${currentYear}-${currentMonth + 1}-${day}`];
-    memoryStorage.save("calendarEvents", calendarData);
+    localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
     return `${currentYear}-${currentMonth + 1}-${day} 일정이 삭제되었습니다.`;
   } else {
     return "해당 날짜에 일정이 없습니다.";
@@ -468,7 +491,7 @@ function deleteCalendarEvent(day) {
 }
 
 function getCalendarEvents(dateStr = null) {
-  const calendarData = memoryStorage.load("calendarEvents") || {};
+  const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
   if (!Object.keys(calendarData).length) {
     return "저장된 일정이 없습니다. 먼저 날짜 셀을 클릭하여 일정을 입력해주세요.";
   }
@@ -479,6 +502,11 @@ function getCalendarEvents(dateStr = null) {
       return `${dateStr}에는 일정이 없습니다.`;
     }
   } else {
+    if (typeof currentYear === 'undefined' || typeof currentMonth === 'undefined') {
+      const now = new Date();
+      currentYear = now.getFullYear();
+      currentMonth = now.getMonth();
+    }
     const currentMonthStr = `${currentYear}-${currentMonth + 1}`;
     let events = [];
     for (let key in calendarData) {
@@ -490,6 +518,22 @@ function getCalendarEvents(dateStr = null) {
   }
 }
 
+function updateMap(currentCity) {
+  const regionMap = {
+    "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
+    "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
+    "안산": "Ansan", "파주": "Paju", "부산": "Busan", "대구": "Daegu", "광주": "Gwangju",
+    "대전": "Daejeon", "울산": "Ulsan", "제주": "Jeju", "전주": "Jeonju", "청주": "Cheongju",
+    "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
+  };
+  const englishCity = regionMap[currentCity] || "Seoul";
+  const mapIframe = document.getElementById("map-iframe");
+  if (mapIframe) {
+    mapIframe.src = `https://www.google.com/maps?q=${encodeURIComponent(englishCity)}&output=embed`;
+  }
+}
+
+/***** 백엔드 API 호출 함수 *****/
 async function getWeather(currentCity) {
   try {
     const position = await getUserLocation();
@@ -507,7 +551,7 @@ async function getWeather(currentCity) {
     return result;
   } catch (error) {
     await logToServer(`날씨 API 호출 실패: ${error.message}`);
-    console.warn("Geolocation failed, falling back to default city:", currentCity);
+    console.warn("지리적 위치 조회 실패, 기본 도시로 전환:", currentCity);
     const regionMap = {
       "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
       "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
@@ -573,6 +617,7 @@ async function getYouTubeSearchResults(query) {
   }
 }
 
+/***** 학습용 DB 저장 *****/
 async function saveToLearningDB(type, query, results) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/save-to-db`, {
@@ -588,26 +633,84 @@ async function saveToLearningDB(type, query, results) {
   }
 }
 
+/***** 날씨 효과 및 지역 변경 *****/
+async function updateWeatherAndEffects(currentCity, sendMessage = true) {
+  const weatherData = await getWeather(currentCity);
+  if (sendMessage) {
+    showSpeechBubbleInChunks(weatherData.message);
+  }
+  updateWeatherEffects(weatherData.currentWeather); // three.js 파일에서 정의된 함수 호출
+  return weatherData.currentWeather;
+}
+
+function changeRegion(value) {
+  const currentCity = value;
+  updateMap(currentCity);
+  updateWeatherAndEffects(currentCity);
+  const regionMap = {
+    "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
+    "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
+    "안산": "Ansan", "파주": "Paju", "부산": "Busan", "대구": "Daegu", "광주": "Gwangju",
+    "대전": "Daejeon", "울산": "Ulsan", "제주": "Jeju", "전주": "Jeonju", "청주": "Cheongju",
+    "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
+  };
+  const englishCity = regionMap[currentCity] || "Seoul";
+  const message = `지역이 ${currentCity} (${englishCity})로 변경되었습니다.`;
+  showSpeechBubbleInChunks(message);
+  return currentCity;
+}
+
+/***** 음성 인식 *****/
+function startSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert("이 브라우저는 음성 인식을 지원하지 않습니다.");
+    return;
+  }
+  const recognition = new SpeechRecognition();
+  recognition.lang = "ko-KR";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  recognition.start();
+  recognition.onresult = function(event) {
+    const transcript = event.results[0][0].transcript.trim();
+    if (confirm(`"${transcript}" 맞나요?`)) {
+      const chatInput = document.getElementById("chat-input");
+      if (chatInput) {
+        chatInput.value = transcript;
+        sendChat();
+      } else {
+        console.error("채팅 입력 요소를 찾을 수 없습니다.");
+      }
+    }
+  };
+  recognition.onerror = function(event) {
+    console.error("음성 인식 오류:", event.error);
+  };
+}
+
+/***** 대화 맥락 유지 *****/
 function updateContext(intent) {
   const lastTopic = intent;
   memoryStorage.save("lastTopic", lastTopic);
   return lastTopic;
 }
 
+/***** 채팅 전송 및 파이프라인 처리 *****/
 let lastChatTime = 0;
 const chatCooldown = 1000;
 
 async function sendChat() {
   const now = Date.now();
   if (now - lastChatTime < chatCooldown) {
-    console.log("Chat is on cooldown");
+    console.log("채팅이 쿨다운 상태입니다.");
     return;
   }
   lastChatTime = now;
 
   const inputEl = document.getElementById("chat-input");
   if (!inputEl) {
-    console.error("Chat input element not found");
+    console.error("채팅 입력 요소를 찾을 수 없습니다.");
     return;
   }
   const input = inputEl.value.trim();
@@ -740,37 +843,87 @@ async function sendChat() {
   memoryStorage.save('lastResponse', response);
 }
 
-function startSpeechRecognition() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    alert("이 브라우저는 음성 인식을 지원하지 않습니다.");
+/***** 말풍선 출력 *****/
+function showSpeechBubbleInChunks(text, isHTML = false, chunkSize = 15, delay = 500) {
+  const bubble = document.getElementById("speech-bubble");
+  if (!bubble) {
+    console.error("말풍선 요소를 찾을 수 없습니다.");
     return;
   }
-  const recognition = new SpeechRecognition();
-  recognition.lang = "ko-KR";
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
-  recognition.start();
-  recognition.onresult = function(event) {
-    const transcript = event.results[0][0].transcript.trim();
-    if (confirm(`"${transcript}" 맞나요?`)) {
-      const chatInput = document.getElementById("chat-input");
-      if (chatInput) {
-        chatInput.value = transcript;
-        sendChat();
+  bubble.style.opacity = 0;
+  bubble.style.display = "block";
+  let parts = isHTML ? text.split("<br>") : [];
+  if (!isHTML) {
+    for (let i = 0; i < text.length; i += chunkSize) parts.push(text.slice(i, i + chunkSize));
+  }
+  let index = 0;
+  bubble.innerHTML = "";
+
+  function showNextPart() {
+    if (index === 0) bubble.style.opacity = 1;
+    if (index < parts.length) {
+      if (isHTML) {
+        bubble.innerHTML += parts[index] + "<br>";
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = parts[index];
+        speakText(tempDiv.textContent);
       } else {
-        console.error("Chat input element not found");
+        bubble.textContent += parts[index];
+        speakText(parts[index]);
       }
+      index++;
+      requestAnimationFrame(showNextPart);
+    } else {
+      setTimeout(() => { bubble.style.opacity = 0; setTimeout(() => bubble.style.display = "none", 500); }, 2000);
     }
-  };
-  recognition.onerror = function(event) {
-    console.error("음성 인식 오류:", event.error);
-  };
+  }
+  requestAnimationFrame(showNextPart);
 }
 
+/***** DOM 이벤트 처리 *****/
 window.addEventListener("DOMContentLoaded", async function() {
+  const chatInput = document.getElementById("chat-input");
+  if (chatInput) {
+    chatInput.setAttribute("list", "Charge");
+    chatInput.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") sendChat();
+    });
+  } else {
+    console.error("DOMContentLoaded에서 채팅 입력 요소를 찾을 수 없습니다.");
+  }
+
+  const autoCompleteList = document.createElement("datalist");
+  autoCompleteList.id = "Charge";
+  const allKeywords = Object.values(KEYWORDS).flat().concat(Object.keys(SITE_LINKS));
+  allKeywords.forEach(kw => {
+    const option = document.createElement("option");
+    option.value = kw;
+    autoCompleteList.appendChild(option);
+  });
+  document.body.appendChild(autoCompleteList);
+
+  const regionSelect = document.getElementById("region-select");
+  if (regionSelect) {
+    const regionMap = {
+      "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
+      "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
+      "안산": "Ansan", "파주": "Paju", "부산": "Busan", "대구": "Daegu", "광주": "Gwangju",
+      "대전": "Daejeon", "울산": "Ulsan", "제주": "Jeju", "전주": "Jeonju", "청주": "Cheongju",
+      "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
+    };
+    const regionList = Object.keys(regionMap);
+    regionList.forEach(region => {
+      const option = document.createElement("option");
+      option.value = region;
+      option.textContent = `${region} (${regionMap[region]})`;
+      if (region === "서울") option.selected = true;
+      regionSelect.appendChild(option);
+    });
+  }
+
   await fetchAndUpdateKeywords();
   await updateEmbeddingsAndIntents();
+
   const savedHistory = memoryStorage.load("conversationHistory");
   if (savedHistory) {
     historyEmbeddings = savedHistory.slice(-1).map(item => item.embedding);
@@ -779,4 +932,131 @@ window.addEventListener("DOMContentLoaded", async function() {
 
 window.addEventListener("load", async () => {
   await loadIntentModel();
+  try {
+    initCalendar();
+    updateMap("서울");
+    await updateWeatherAndEffects("서울");
+  } catch (err) {
+    console.error("로드 이벤트 오류:", err);
+  }
 });
+
+/***** 캘린더 렌더링 *****/
+function initCalendar() {
+  const now = new Date();
+  currentYear = now.getFullYear();
+  currentMonth = now.getMonth();
+  populateYearSelect();
+  renderCalendar(currentYear, currentMonth);
+
+  const prevMonth = document.getElementById("prev-month");
+  const nextMonth = document.getElementById("next-month");
+  const yearSelect = document.getElementById("year-select");
+  const deleteDayEvent = document.getElementById("delete-day-event");
+
+  if (prevMonth) {
+    prevMonth.addEventListener("click", () => {
+      currentMonth--;
+      if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+      renderCalendar(currentYear, currentMonth);
+    });
+  }
+  if (nextMonth) {
+    nextMonth.addEventListener("click", () => {
+      currentMonth++;
+      if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+      renderCalendar(currentYear, currentMonth);
+    });
+  }
+  if (yearSelect) {
+    yearSelect.addEventListener("change", (e) => {
+      currentYear = parseInt(e.target.value);
+      renderCalendar(currentYear, currentMonth);
+    });
+  }
+  if (deleteDayEvent) {
+    deleteDayEvent.addEventListener("click", () => {
+      const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
+      if (dayStr) {
+        const dayNum = parseInt(dayStr);
+        const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth + 1}-${dayNum}`);
+        if (eventDiv) {
+          eventDiv.textContent = "";
+          const message = `${currentYear}-${currentMonth + 1}-${dayNum} 일정이 삭제되었습니다.`;
+          showSpeechBubbleInChunks(message);
+          let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+          delete calendarData[`${currentYear}-${currentMonth + 1}-${dayNum}`];
+          localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+        }
+      }
+    });
+  }
+}
+
+function populateYearSelect() {
+  const yearSelect = document.getElementById("year-select");
+  if (!yearSelect) return;
+  yearSelect.innerHTML = "";
+  for (let y = 2020; y <= 2070; y++) {
+    const option = document.createElement("option");
+    option.value = y;
+    option.textContent = y;
+    if (y === currentYear) option.selected = true;
+    yearSelect.appendChild(option);
+  }
+}
+
+function renderCalendar(year, month) {
+  const monthNames = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
+  const monthYearLabel = document.getElementById("month-year-label");
+  if (monthYearLabel) monthYearLabel.textContent = `${year}년 ${monthNames[month]}`;
+
+  const grid = document.getElementById("calendar-grid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  const daysOfWeek = ["일", "월", "화", "수", "목", "금", "토"];
+  daysOfWeek.forEach(day => {
+    const th = document.createElement("div");
+    th.style.fontWeight = "bold";
+    th.style.textAlign = "center";
+    th.textContent = day;
+    th.style.color = "#00ffcc";
+    th.style.textShadow = "0 0 3px #00ffcc";
+    grid.appendChild(th);
+  });
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let i = 0; i < firstDay; i++) {
+    grid.appendChild(document.createElement("div"));
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const cell = document.createElement("div");
+    cell.innerHTML = `
+      <div class="day-number">${d}</div>
+      <div class="event" id="event-${year}-${month + 1}-${d}"></div>
+    `;
+    cell.addEventListener("click", () => {
+      const eventText = prompt(`${year}-${month + 1}-${d} 일정 입력:`);
+      if (eventText) {
+        const eventDiv = document.getElementById(`event-${year}-${month + 1}-${d}`);
+        if (eventDiv) {
+          if (eventDiv.textContent) {
+            eventDiv.textContent += "; " + eventText;
+          } else {
+            eventDiv.textContent = eventText;
+          }
+          showSpeechBubbleInChunks(`${year}-${month + 1}-${d}에 ${eventText} 일정이 추가되었습니다.`);
+          let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+          calendarData[`${year}-${month + 1}-${d}`] = eventDiv.textContent;
+          localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+        }
+      }
+    });
+    let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+    const dateKey = `${year}-${month + 1}-${d}`;
+    if (calendarData[dateKey]) {
+      cell.querySelector(`#event-${year}-${month + 1}-${d}`).textContent = calendarData[dateKey];
+    }
+    grid.appendChild(cell);
+  }
+}
