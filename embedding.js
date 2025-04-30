@@ -5,7 +5,6 @@ require('dotenv').config();
 
 // TensorFlow.js 및 관련 모듈 임포트
 const tf = require('@tensorflow/tfjs-node');
-const { AutoTokenizer } = require('@xenova/transformers');
 
 // 사전 학습된 모델 경로 (환경 변수에서 가져오거나 기본값 설정)
 const MODEL_PATH = process.env.MODEL_PATH || 'https://your-model-url.com/model';
