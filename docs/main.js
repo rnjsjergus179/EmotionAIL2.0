@@ -1,15 +1,15 @@
-import { SITE_LINKS, KEYWORDS, regionMap, regionList } from './config.js';
-import { logToServer, fetchAndUpdateKeywords, processText, getEmbedding } from './api.js';
-import { initializeIntentWeightMatrix, historyEmbeddings, gruHiddenState, adaptiveLearningRate, adjustLearningRate, currentWeather } from './memory.js';
-import { softmaxIntentClassifier, updateIntentWeights, detectIntent } from './ai/intent.js';
-import { getWeather } from './weather.js';
-import { deleteCalendarEvent, getCalendarEvents, initCalendar, currentYear, currentMonth } from './calendar.js';
-import { speakText, startSpeechRecognition } from './speech.js';
-import { getNaverSearchResults, getYouTubeSearchResults, pipelineNewsSearch, isNewsQuery } from './search.js';
-import { animate } from './threeD.js'; // threeD.js에서 애니메이션 처리
-import { initThree, camera, renderer } from './threeSetup.js'; // threeSetup.js에서 초기 설정 가져오기
-import { updateBubblePosition } from './ui.js'; // ui.js에서 말풍선 위치 업데이트
-import { vectorAdd, vectorMultiply } from './utils.js'; // 경로를 상대 경로로 수정
+import { SITE_LINKS, KEYWORDS, regionMap, regionList } from '../config.js'; // docs 폴더에서 상위 폴더의 config.js
+import { logToServer, fetchAndUpdateKeywords, processText, getEmbedding } from '../api.js'; // docs 폴더에서 상위 폴더의 api.js
+import { initializeIntentWeightMatrix, historyEmbeddings, gruHiddenState, adaptiveLearningRate, adjustLearningRate, currentWeather } from '../memory.js'; // docs 폴더에서 상위 폴더의 memory.js
+import { softmaxIntentClassifier, updateIntentWeights, detectIntent } from '../ai/intent.js'; // docs 폴더에서 상위 폴더의 ai/intent.js
+import { getWeather } from '../weather.js'; // docs 폴더에서 상위 폴더의 weather.js
+import { deleteCalendarEvent, getCalendarEvents, initCalendar, currentYear, currentMonth } from '../calendar.js'; // docs 폴더에서 상위 폴더의 calendar.js
+import { speakText, startSpeechRecognition } from '../speech.js'; // docs 폴더에서 상위 폴더의 speech.js
+import { getNaverSearchResults, getYouTubeSearchResults, pipelineNewsSearch, isNewsQuery } from '../search.js'; // docs 폴더에서 상위 폴더의 search.js
+import { animate } from '../threeD.js'; // docs 폴더에서 상위 폴더의 threeD.js
+import { initThree, camera, renderer } from '../threeSetup.js'; // docs 폴더에서 상위 폴더의 threeSetup.js
+import { updateBubblePosition } from '../ui.js'; // docs 폴더에서 상위 폴더의 ui.js
+import { vectorAdd, vectorMultiply } from '../ai/utils.js'; // docs 폴더에서 상위 폴더의 ai/utils.js
 
 // 의도 가중치 행렬 초기화
 initializeIntentWeightMatrix(Object.keys(KEYWORDS));
