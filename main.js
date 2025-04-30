@@ -1,6 +1,5 @@
-/***** TensorFlow.js 포함 (딥러닝 모델 강화를 위해) *****/
-// Note: Ensure TensorFlow.js is included in your HTML via a script tag or module bundler
-// Example: <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+// Note: Ensure TensorFlow.js is included in your HTML via a script tag
+// <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 
 /***** 사이트 링크 및 키워드 설정 *****/
 const SITE_LINKS = {
@@ -29,25 +28,16 @@ let KEYWORDS = {
   delete: ["하루일정 삭제", "하루일과 삭제해줘", "하루일과", "하루일저", "하루 일관"]
 };
 
-// 의도별 학습 가중치 행렬 (Softmax 분류기용)
 let intentWeightMatrix = {};
 Object.keys(KEYWORDS).forEach(intent => {
-  intentWeightMatrix[intent] = Array(300).fill(0.01); // 임베딩 차원 300 가정
+  intentWeightMatrix[intent] = Array(300).fill(0.01); // Embedding dimension 300
 });
 
-// 백엔드 API 기본 URL
 const API_BASE_URL = 'https://emotionail2-0.onrender.com';
-
-// GRU 상태 (히든 스테이트)
 let gruHiddenState = Array(300).fill(0);
-
-// 최근 대화 이력 임베딩 (Sequence Memory용, 메모리 최적화를 위해 1개만 유지)
 let historyEmbeddings = [];
-
-// 자가 강화 학습을 위한 학습률
 let adaptiveLearningRate = 0.01;
 
-// Knowledge Graph 정의
 const knowledgeGraph = {
   "넷플릭스": ["드라마", "영화"],
   "유튜브": ["영상", "비디오"],
@@ -55,7 +45,6 @@ const knowledgeGraph = {
   "일정": ["calendar"]
 };
 
-// API 응답 캐시 (API 지식 기억 장치)
 const apiCache = {};
 
 /***** 유틸리티 함수 *****/
@@ -93,6 +82,15 @@ function softmaxArray(arr) {
   const exps = arr.map(val => Math.exp(val - maxVal));
   const sumExps = exps.reduce((a, b) => a + b, 0);
   return exps.map(e => e / sumExps);
+}
+
+/***** Jaccard Similarity 함수 *****/
+function jaccardSimilarity(str1, str2) {
+  const set1 = new Set(str1);
+  const set2 = new Set(str2);
+  const intersection = new Set([...set1].filter(x => set2.has(x)));
+  const union = new Set([...set1, ...set2]);
+  return intersection.size / union.size;
 }
 
 /***** 다층 신경망 (MLP) 구현 *****/
@@ -150,7 +148,6 @@ function adjustLearningRate(feedbackQuality) {
 /***** 전역 변수 및 초기 설정 *****/
 document.addEventListener("contextmenu", event => event.preventDefault());
 
-// 서버로 로그 전송 함수
 async function logToServer(message) {
   try {
     await fetch(`${API_BASE_URL}/api/log`, {
@@ -163,11 +160,10 @@ async function logToServer(message) {
   }
 }
 
-// MongoDB에서 키워드 가져오기 및 업데이트
 async function fetchAndUpdateKeywords() {
   try {
     await logToServer("MongoDB 데이터 가져오기 시작");
-    const response = await fetch(`${API_BASE_URL}/api/processed-data?limit=100`);
+    const response = await fetch(`${API_BASE_URL}/api/processed-data?limit=1000`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
     if (!Array.isArray(data)) throw new Error("응답 데이터가 배열이 아님");
@@ -192,7 +188,6 @@ async function fetchAndUpdateKeywords() {
   }
 }
 
-// 텍스트 전처리 (형태소 분석)
 async function processText(text) {
   if (!text || typeof text !== 'string') return "";
   try {
@@ -209,8 +204,6 @@ async function processText(text) {
   }
 }
 
-/***** 벡터 및 행렬 연산 *****/
-// 문장 임베딩 가져오기
 async function getEmbedding(text) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/embed`, {
@@ -226,7 +219,6 @@ async function getEmbedding(text) {
   }
 }
 
-// 배열 연산 유틸리티
 function vectorAdd(a, b) {
   return a.map((val, i) => val + b[i]);
 }
@@ -243,11 +235,11 @@ function sigmoid(x) {
   return 1 / (1 + Math.exp(-x));
 }
 
-/***** 1. 자체 미니 GRU 기억 구조 *****/
+/***** 미니 GRU 기억 구조 *****/
 function updateGRUState(inputEmbedding, prevHidden) {
-  const Wz = Array(300).fill(0.01); // 업데이트 게이트 가중치
-  const Wr = Array(300).fill(0.01); // 리셋 게이트 가중치
-  const Wh = Array(300).fill(0.01); // 히든 상태 가중치
+  const Wz = Array(300).fill(0.01);
+  const Wr = Array(300).fill(0.01);
+  const Wh = Array(300).fill(0.01);
 
   const z = sigmoid(dotProduct(Wz, inputEmbedding) + dotProduct(Wz, prevHidden));
   const r = sigmoid(dotProduct(Wr, inputEmbedding) + dotProduct(Wr, prevHidden));
@@ -257,73 +249,108 @@ function updateGRUState(inputEmbedding, prevHidden) {
   return newHidden;
 }
 
-/***** 2. Softmax 의도 분류기 (TensorFlow.js로 강화) *****/
+/***** Softmax 의도 분류기 (Jaccard + TensorFlow.js) *****/
 let intentModel;
 
 async function loadIntentModel() {
   try {
-    // 실제 모델 URL로 교체 필요 (예: DistilBERT 기반 경량 모델)
-    intentModel = await tf.loadLayersModel('https://your-model-url.com/model.json'); // 실제 모델 URL로 변경
+    // Replace with your actual model URL
+    intentModel = await tf.loadLayersModel('https://your-model-url.com/model.json');
     console.log("Pre-trained intent model loaded successfully");
   } catch (error) {
     console.error("Failed to load intent model:", error);
-    // Fallback to default logic if model loading fails
   }
 }
 
 async function softmaxIntentClassifier(inputText, historyEmbeddings) {
-  const inputEmbedding = await getEmbedding(inputText);
-  
-  if (intentModel) {
-    const inputTensor = tf.tensor([inputEmbedding]);
-    const prediction = intentModel.predict(inputTensor);
-    const probabilitiesArray = prediction.dataSync();
-    const intents = Object.keys(intentWeightMatrix);
+  // Step 1: Jaccard Similarity 기반 키워드 매칭 (기본)
+  let maxJaccard = 0;
+  let bestIntent = null;
+
+  for (const intent in KEYWORDS) {
+    const keywords = KEYWORDS[intent];
+    let intentMaxJaccard = 0;
+    for (const keyword of keywords) {
+      const sim = jaccardSimilarity(inputText, keyword);
+      if (sim > intentMaxJaccard) {
+        intentMaxJaccard = sim;
+      }
+    }
+    if (intentMaxJaccard > maxJaccard) {
+      maxJaccard = intentMaxJaccard;
+      bestIntent = intent;
+    }
+  }
+
+  if (maxJaccard >= 0.3) {
     const probabilities = {};
-    let maxProb = 0;
-    let detectedIntent = null;
-
-    probabilitiesArray.forEach((prob, index) => {
-      probabilities[intents[index]] = prob;
-      if (prob > maxProb) {
-        maxProb = prob;
-        detectedIntent = intents[index];
-      }
-    });
-
-    return { intent: detectedIntent, probabilities, embedding: inputEmbedding };
+    for (const intent in KEYWORDS) {
+      probabilities[intent] = intent === bestIntent ? 1 : 0;
+    }
+    const embedding = await getEmbedding(inputText);
+    return { intent: bestIntent, probabilities, embedding };
   } else {
-    console.warn("Intent model not loaded, using fallback logic");
-    const sequenceEmbedding = getSequenceEmbedding(historyEmbeddings, inputEmbedding);
-    const attendedEmbedding = selfAttention(sequenceEmbedding);
-    
-    let logits = {};
-    let expSum = 0;
+    // Step 2: Jaccard 실패 시 딥러닝 모델 사용
+    const inputEmbedding = await getEmbedding(inputText);
+    if (intentModel) {
+      const inputTensor = tf.tensor([inputEmbedding]);
+      const prediction = intentModel.predict(inputTensor);
+      const probabilitiesArray = prediction.dataSync();
+      const intents = Object.keys(KEYWORDS);
+      const probabilities = {};
+      let maxProb = 0;
+      let detectedIntent = null;
 
-    for (let intent in intentWeightMatrix) {
-      logits[intent] = dotProduct(attendedEmbedding, intentWeightMatrix[intent]);
-      expSum += Math.exp(logits[intent]);
-    }
+      probabilitiesArray.forEach((prob, index) => {
+        probabilities[intents[index]] = prob;
+        if (prob > maxProb) {
+          maxProb = prob;
+          detectedIntent = intents[index];
+        }
+      });
 
-    let probabilities = {};
-    for (let intent in logits) {
-      probabilities[intent] = Math.exp(logits[intent]) / expSum;
-    }
+      if (maxProb >= 0.5) {
+        return { intent: detectedIntent, probabilities, embedding: inputEmbedding };
+      } else {
+        return { intent: 'unknown', probabilities, embedding: inputEmbedding };
+      }
+    } else {
+      console.warn("Intent model not loaded, using fallback logic");
+      const sequenceEmbedding = getSequenceEmbedding(historyEmbeddings, inputEmbedding);
+      const attendedEmbedding = selfAttention(sequenceEmbedding);
+      
+      let logits = {};
+      let expSum = 0;
 
-    let maxProb = 0;
-    let detectedIntent = null;
-    for (let intent in probabilities) {
-      if (probabilities[intent] > maxProb) {
-        maxProb = probabilities[intent];
-        detectedIntent = intent;
+      for (let intent in intentWeightMatrix) {
+        logits[intent] = dotProduct(attendedEmbedding, intentWeightMatrix[intent]);
+        expSum += Math.exp(logits[intent]);
+      }
+
+      let probabilities = {};
+      for (let intent in logits) {
+        probabilities[intent] = Math.exp(logits[intent]) / expSum;
+      }
+
+      let maxProb = 0;
+      let detectedIntent = null;
+      for (let intent in probabilities) {
+        if (probabilities[intent] > maxProb) {
+          maxProb = probabilities[intent];
+          detectedIntent = intent;
+        }
+      }
+
+      if (maxProb >= 0.5) {
+        return { intent: detectedIntent, probabilities, embedding: attendedEmbedding };
+      } else {
+        return { intent: 'unknown', probabilities, embedding: attendedEmbedding };
       }
     }
-
-    return { intent: detectedIntent, probabilities, embedding: attendedEmbedding };
   }
 }
 
-/***** 3. Self-Training 강화학습 *****/
+/***** Self-Training 강화학습 *****/
 function updateIntentWeights(inputEmbedding, predictedIntent, userFeedback) {
   const reward = userFeedback === "positive" ? 1 : userFeedback === "negative" ? -1 : 0;
 
@@ -336,7 +363,7 @@ function updateIntentWeights(inputEmbedding, predictedIntent, userFeedback) {
   }
 }
 
-/***** 4. Embedding + Intent Vector 업데이트 *****/
+/***** Embedding + Intent Vector 업데이트 *****/
 async function updateEmbeddingsAndIntents() {
   const processedData = await fetchAndUpdateKeywords();
   for (let intent in KEYWORDS) {
@@ -369,14 +396,14 @@ function updateConversationHistory(input, response, embedding) {
   try {
     let history = memoryStorage.load("conversationHistory") || [];
     history.push({ timestamp: Date.now(), input, response, embedding });
-    historyEmbeddings = [embedding]; // 최근 1개만 유지
-    memoryStorage.save("conversationHistory", history.slice(-50)); // 최근 50개 대화 저장
+    historyEmbeddings = [embedding];
+    memoryStorage.save("conversationHistory", history.slice(-50));
   } catch (e) {
     console.error("대화 이력 저장 오류:", e);
   }
 }
 
-/***** 의도 인식 및 처리 (Knowledge Graph 통합) *****/
+/***** 의도 인식 및 처리 *****/
 async function detectIntent(input, processedData) {
   const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings);
   gruHiddenState = updateGRUState(embedding, gruHiddenState);
@@ -401,7 +428,7 @@ async function detectIntent(input, processedData) {
     }
   }
 
-  if (probabilities[detectedIntent] > 0.5) {
+  if (probabilities[detectedIntent] > 0.5 || detectedIntent !== 'unknown') {
     return detectedIntent;
   }
 
@@ -483,7 +510,7 @@ function getCalendarEvents(dateStr = null) {
 
 function updateMap(currentCity) {
   const regionMap = {
-    "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
+    "서울ispanic: "Se","인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
     "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
     "안산": "Ansan", "파주": "Paju", "부산": "Busan", "대구": "Daegu", "광주": "Gwangju",
     "대전": "Daejeon", "울산": "Ulsan", "제주": "Jeju", "전주": "Jeonju", "청주": "Cheongju",
@@ -496,7 +523,7 @@ function updateMap(currentCity) {
   }
 }
 
-/***** 백엔드 API 호출 함수 (다중 모달 입력 통합) *****/
+/***** 백엔드 API 호출 함수 *****/
 async function getWeather(currentCity) {
   try {
     const position = await getUserLocation();
@@ -663,7 +690,7 @@ function changeRegion(value) {
   return currentCity;
 }
 
-/***** 음성 인식 (다중 모달 입력) *****/
+/***** 음성 인식 *****/
 function startSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
@@ -699,9 +726,9 @@ function updateContext(intent) {
   return lastTopic;
 }
 
-/***** 채팅 전송 및 파이프라인 처리 (냉각 기능 추가) *****/
+/***** 채팅 전송 및 파이프라인 처리 *****/
 let lastChatTime = 0;
-const chatCooldown = 1000; // 1초 쿨다운
+const chatCooldown = 1000;
 
 async function sendChat() {
   const now = Date.now();
@@ -774,7 +801,7 @@ async function sendChat() {
 
     if (!response) {
       const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings);
-      if (intent && probabilities[intent] > 0.5) {
+      if (intent && (probabilities[intent] > 0.5 || intent !== 'unknown')) {
         if (intent === "greetings") {
           response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
         } else if (intent === "sleep") {
@@ -927,15 +954,14 @@ window.addEventListener("DOMContentLoaded", async function() {
   await fetchAndUpdateKeywords();
   await updateEmbeddingsAndIntents();
 
-  // 페이지 새로고침 후 상태 복원
   const savedHistory = memoryStorage.load("conversationHistory");
   if (savedHistory) {
-    historyEmbeddings = savedHistory.slice(-1).map(item => item.embedding); // 최근 1개만 로드
+    historyEmbeddings = savedHistory.slice(-1).map(item => item.embedding);
   }
 });
 
 window.addEventListener("load", async () => {
-  await loadIntentModel(); // 사전 학습 모델 로드
+  await loadIntentModel();
   try {
     initCalendar();
     updateMap("서울");
@@ -1074,7 +1100,7 @@ function renderCalendar(year, month) {
   }
 }
 
-/***** Three.js 및 3D 배경 렌더링 (메모리 최적화) *****/
+/***** Three.js 및 3D 배경 렌더링 *****/
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({
@@ -1110,13 +1136,13 @@ scene.add(moon);
 
 const stars = [];
 const fireflies = [];
-for (let i = 0; i < 100; i++) { // 별 개수 200 -> 100으로 감소
+for (let i = 0; i < 100; i++) {
   const star = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
   star.position.set((Math.random() - 0.5) * 100, (Math.random() - 0.5) * 60, -20);
   scene.add(star);
   stars.push(star);
 }
-for (let i = 0; i < 30; i++) { // 반딧불이 개수 60 -> 30으로 감소
+for (let i = 0; i < 30; i++) {
   const firefly = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffff99 }));
   firefly.position.set((Math.random() - 0.5) * 40, (Math.random() - 0.5) * 20, -10);
   scene.add(firefly);
@@ -1247,7 +1273,7 @@ let rainGroup = new THREE.Group();
 scene.add(rainGroup);
 
 function initRain() {
-  const rainCount = 1000; // 2000 -> 1000으로 감소하여 메모리 최적화
+  const rainCount = 1000;
   const rainGeometry = new THREE.BufferGeometry();
   const positions = new Float32Array(rainCount * 3);
   for (let i = 0; i < rainCount; i++) {
@@ -1295,7 +1321,7 @@ houseCloudGroup.position.set(0, 2, 0);
 
 let cloudRainGroup = new THREE.Group();
 function initCloudRain() {
-  const cloudRainCount = 50; // 100 -> 50으로 감소하여 메모리 최적화
+  const cloudRainCount = 50;
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(cloudRainCount * 3);
   for (let i = 0; i < cloudRainCount; i++) {
