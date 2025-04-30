@@ -367,6 +367,22 @@ export function updateHouseClouds() {
   houseCloudGroup.position.z = headWorldPos.z;
 }
 
+export function updateBubblePosition() {
+  const bubble = document.getElementById("speech-bubble");
+  if (!bubble) return;
+  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
+  const headWorldPos = new THREE.Vector3();
+  try {
+    head.getWorldPosition(headWorldPos);
+  } catch (err) {
+    console.error("updateBubblePosition 에러:", err);
+    return;
+  }
+  const screenPos = headWorldPos.project(camera);
+  bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
+  bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
+}
+
 export function animate(characterGroup, characterStreetlight, characterLight, stars, fireflies, sun, moon, head, camera) {
   requestAnimationFrame(() => animate(characterGroup, characterStreetlight, characterLight, stars, fireflies, sun, moon, head, camera));
   const now = new Date();
@@ -438,17 +454,11 @@ export function animate(characterGroup, characterStreetlight, characterLight, st
   characterGroup.position.y = -1;
   characterGroup.rotation.x = 0;
 
-  updateWeatherEffects("");
-  updateHouseClouds();
-  updateLightning("");
-
   characterStreetlight.position.set(
     characterGroup.position.x + 1,
     -2,
     characterGroup.position.z
   );
-
-  updateBubblePosition();
 
   if (cloudRainGroup.visible) {
     const particles = cloudRainGroup.children[0];
@@ -463,20 +473,4 @@ export function animate(characterGroup, characterStreetlight, characterLight, st
   }
 
   renderer.render(scene, camera);
-}
-
-export function updateBubblePosition() {
-  const bubble = document.getElementById("speech-bubble");
-  if (!bubble) return;
-  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
-  const headWorldPos = new THREE.Vector3();
-  try {
-    head.getWorldPosition(headWorldPos);
-  } catch (err) {
-    console.error("updateBubblePosition 에러:", err);
-    return;
-  }
-  const screenPos = headWorldPos.project(camera);
-  bubble.style.left = ((screenPos.x * 0.5 + 0.5) * window.innerWidth) + "px";
-  bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
 }
