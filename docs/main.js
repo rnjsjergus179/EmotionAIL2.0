@@ -1,7 +1,7 @@
 import { SITE_LINKS, KEYWORDS, regionMap, regionList } from './config.js';
 import { logToServer, fetchAndUpdateKeywords, processText, getEmbedding } from './api.js';
 import { initializeIntentWeightMatrix, historyEmbeddings, gruHiddenState, adaptiveLearningRate, adjustLearningRate, currentWeather } from './memory.js';
-import { softmaxIntentClassifier, updateIntentWeights, detectIntent } from './intent.js';
+import { softmaxIntentClassifier, updateIntentWeights, detectIntent } from './ai/intent.js';
 import { getWeather } from './weather.js';
 import { deleteCalendarEvent, getCalendarEvents, initCalendar, currentYear, currentMonth } from './calendar.js';
 import { speakText, startSpeechRecognition } from './speech.js';
