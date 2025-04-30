@@ -1,3 +1,6 @@
+/***** TensorFlow.js 포함 (딥러닝 모델 강화를 위해) *****/
+import * as tf from 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js';
+
 /***** 사이트 링크 및 키워드 설정 *****/
 const SITE_LINKS = {
   "빙": "https://www.bing.com",
@@ -35,9 +38,9 @@ Object.keys(KEYWORDS).forEach(intent => {
 const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 
 // GRU 상태 (히든 스테이트)
-let gruHiddenState = Array(300).fill(0); // 초기값 0 벡터
+let gruHiddenState = Array(300).fill(0);
 
-// 최근 대화 이력 임베딩 (Sequence Memory용)
+// 최근 대화 이력 임베딩 (Sequence Memory용, 메모리 최적화를 위해 1개만 유지)
 let historyEmbeddings = [];
 
 // 자가 강화 학습을 위한 학습률
@@ -50,6 +53,9 @@ const knowledgeGraph = {
   "날씨": ["weather"],
   "일정": ["calendar"]
 };
+
+// API 응답 캐시 (API 지식 기억 장치)
+const apiCache = {};
 
 /***** 유틸리티 함수 *****/
 function fullyConnected(input, weights) {
@@ -248,35 +254,69 @@ function updateGRUState(inputEmbedding, prevHidden) {
   return newHidden;
 }
 
-/***** 2. Softmax 의도 분류기 (Sequence Memory와 Self-Attention 통합) *****/
+/***** 2. Softmax 의도 분류기 (TensorFlow.js로 강화) *****/
+let intentModel;
+
+async function loadIntentModel() {
+  try {
+    // 실제 모델 URL로 교체 필요 (예: DistilBERT 기반 경량 모델)
+    intentModel = await tf.loadLayersModel('https://example.com/path/to/model.json');
+    console.log("Pre-trained intent model loaded successfully");
+  } catch (error) {
+    console.error("Failed to load intent model:", error);
+  }
+}
+
 async function softmaxIntentClassifier(inputText, historyEmbeddings) {
+  if (!intentModel) {
+    console.error("Intent model not loaded, falling back to default");
+    const inputEmbedding = await getEmbedding(inputText);
+    const sequenceEmbedding = getSequenceEmbedding(historyEmbeddings, inputEmbedding);
+    const attendedEmbedding = selfAttention(sequenceEmbedding);
+    
+    let logits = {};
+    let expSum = 0;
+
+    for (let intent in intentWeightMatrix) {
+      logits[intent] = dotProduct(attendedEmbedding, intentWeightMatrix[intent]);
+      expSum += Math.exp(logits[intent]);
+    }
+
+    let probabilities = {};
+    for (let intent in logits) {
+      probabilities[intent] = Math.exp(logits[intent]) / expSum;
+    }
+
+    let maxProb = 0;
+    let detectedIntent = null;
+    for (let intent in probabilities) {
+      if (probabilities[intent] > maxProb) {
+        maxProb = probabilities[intent];
+        detectedIntent = intent;
+      }
+    }
+
+    return { intent: detectedIntent, probabilities, embedding: attendedEmbedding };
+  }
+
   const inputEmbedding = await getEmbedding(inputText);
-  const sequenceEmbedding = getSequenceEmbedding(historyEmbeddings, inputEmbedding);
-  const attendedEmbedding = selfAttention(sequenceEmbedding);
-  
-  let logits = {};
-  let expSum = 0;
-
-  for (let intent in intentWeightMatrix) {
-    logits[intent] = dotProduct(attendedEmbedding, intentWeightMatrix[intent]);
-    expSum += Math.exp(logits[intent]);
-  }
-
-  let probabilities = {};
-  for (let intent in logits) {
-    probabilities[intent] = Math.exp(logits[intent]) / expSum;
-  }
-
+  const inputTensor = tf.tensor([inputEmbedding]);
+  const prediction = intentModel.predict(inputTensor);
+  const probabilitiesArray = prediction.dataSync();
+  const intents = Object.keys(intentWeightMatrix);
+  const probabilities = {};
   let maxProb = 0;
   let detectedIntent = null;
-  for (let intent in probabilities) {
-    if (probabilities[intent] > maxProb) {
-      maxProb = probabilities[intent];
-      detectedIntent = intent;
-    }
-  }
 
-  return { intent: detectedIntent, probabilities, embedding: attendedEmbedding };
+  probabilitiesArray.forEach((prob, index) => {
+    probabilities[intents[index]] = prob;
+    if (prob > maxProb) {
+      maxProb = prob;
+      detectedIntent = intents[index];
+    }
+  });
+
+  return { intent: detectedIntent, probabilities, embedding: inputEmbedding };
 }
 
 /***** 3. Self-Training 강화학습 *****/
@@ -305,7 +345,7 @@ async function updateEmbeddingsAndIntents() {
   }
 }
 
-/***** 메모리 저장 *****/
+/***** 메모리 저장 및 로드 *****/
 const memoryStorage = {
   save: function(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
@@ -325,9 +365,8 @@ function updateConversationHistory(input, response, embedding) {
   try {
     let history = memoryStorage.load("conversationHistory") || [];
     history.push({ timestamp: Date.now(), input, response });
-    historyEmbeddings.push(embedding);
-    memoryStorage.save("conversationHistory", history.slice(-50));
-    historyEmbeddings = historyEmbeddings.slice(-3); // 최근 3개 대화만 유지
+    historyEmbeddings = [embedding]; // 메모리 최적화를 위해 최근 1개만 유지
+    memoryStorage.save("conversationHistory", history.slice(-50)); // 최근 50개 대화 저장
   } catch(e) {
     console.error("대화 이력 저장 오류:", e);
   }
@@ -338,13 +377,12 @@ async function detectIntent(input, processedData) {
   const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings);
   gruHiddenState = updateGRUState(embedding, gruHiddenState);
 
-  // Knowledge Graph를 활용한 의도 보정
   for (let concept in knowledgeGraph) {
     if (input.includes(concept)) {
       const relatedIntents = knowledgeGraph[concept];
       relatedIntents.forEach(relatedIntent => {
         if (probabilities[relatedIntent]) {
-          probabilities[relatedIntent] *= 1.2; // 가중치 조정
+          probabilities[relatedIntent] *= 1.2;
         }
       });
     }
@@ -460,13 +498,19 @@ async function getWeather(currentCity) {
   try {
     const position = await getUserLocation();
     const { latitude, longitude } = position;
+    const cacheKey = `weather_${latitude}_${longitude}`;
+    if (apiCache[cacheKey]) {
+      return apiCache[cacheKey];
+    }
     const response = await fetch(`${API_BASE_URL}/api/weather?lat=${latitude}&lon=${longitude}`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
     const currentWeather = data.description;
     const message = `현재 위치의 날씨는 ${data.description}이고, 기온은 ${data.temperature}°C입니다.`;
     await logToServer("날씨 API 호출 성공");
-    return { message, currentWeather };
+    const result = { message, currentWeather };
+    apiCache[cacheKey] = result;
+    return result;
   } catch (error) {
     await logToServer(`날씨 API 호출 실패: ${error.message}`);
     const regionMap = {
@@ -477,22 +521,33 @@ async function getWeather(currentCity) {
       "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
     };
     const englishCity = regionMap[currentCity] || "Seoul";
+    const cacheKey = `weather_${englishCity}`;
+    if (apiCache[cacheKey]) {
+      return apiCache[cacheKey];
+    }
     const response = await fetch(`${API_BASE_URL}/api/weather?city=${encodeURIComponent(englishCity)}`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
     const currentWeather = data.description;
     const message = `오늘 ${currentCity}의 날씨는 ${data.description}이고, 기온은 ${data.temperature}°C입니다.`;
-    return { message, currentWeather };
+    const result = { message, currentWeather };
+    apiCache[cacheKey] = result;
+    return result;
   }
 }
 
 async function getNaverSearchResults(query) {
+  const cacheKey = `naver_${query}`;
+  if (apiCache[cacheKey]) {
+    return apiCache[cacheKey];
+  }
   try {
     const response = await fetch(`${API_BASE_URL}/api/naver-search?q=${encodeURIComponent(query)}`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
     if (data.items && data.items.length > 0) {
       const results = data.items.map(item => item.title.replace(/<[^>]+>/g, '')).join('\n- ');
+      apiCache[cacheKey] = results;
       await saveToLearningDB('naver', query, results);
       await logToServer("네이버 검색 API 호출 성공");
       return results;
@@ -506,12 +561,17 @@ async function getNaverSearchResults(query) {
 }
 
 async function getYouTubeSearchResults(query) {
+  const cacheKey = `youtube_${query}`;
+  if (apiCache[cacheKey]) {
+    return apiCache[cacheKey];
+  }
   try {
     const response = await fetch(`${API_BASE_URL}/api/youtube-search?q=${encodeURIComponent(query)}`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
     const data = await response.json();
     if (data.items && data.items.length > 0) {
       const results = data.items.map(item => `<a href="${item.url}" target="_blank">${item.title}</a>`).join('<br>');
+      apiCache[cacheKey] = results;
       await saveToLearningDB('youtube', query, data.items);
       await logToServer("유튜브 검색 API 호출 성공");
       return results;
@@ -627,8 +687,18 @@ function updateContext(intent) {
   return lastTopic;
 }
 
-/***** 채팅 전송 및 파이프라인 처리 *****/
+/***** 채팅 전송 및 파이프라인 처리 (냉각 기능 추가) *****/
+let lastChatTime = 0;
+const chatCooldown = 1000; // 1초 쿨다운
+
 async function sendChat() {
+  const now = Date.now();
+  if (now - lastChatTime < chatCooldown) {
+    console.log("Chat is on cooldown");
+    return;
+  }
+  lastChatTime = now;
+
   const inputEl = document.getElementById("chat-input");
   if (!inputEl) return;
   const input = inputEl.value.trim();
@@ -713,7 +783,6 @@ async function sendChat() {
         }
         lastTopic = updateContext(intent);
 
-        // 사용자 피드백 수집 및 학습
         setTimeout(() => {
           const feedback = prompt("응답이 마음에 드시면 '좋아요', 아니라면 '싫어요'를 입력해주세요:");
           if (feedback && feedback.includes("좋아요")) {
@@ -836,6 +905,23 @@ window.addEventListener("DOMContentLoaded", async function() {
 
   await fetchAndUpdateKeywords();
   await updateEmbeddingsAndIntents();
+
+  // 페이지 새로고침 후 상태 복원
+  const savedHistory = memoryStorage.load("conversationHistory");
+  if (savedHistory) {
+    historyEmbeddings = savedHistory.slice(-1).map(item => item.embedding); // 최근 1개만 로드
+  }
+});
+
+window.addEventListener("load", async () => {
+  await loadIntentModel(); // 사전 학습 모델 로드
+  try {
+    initCalendar();
+    updateMap("서울");
+    await updateWeatherAndEffects("서울");
+  } catch (err) {
+    console.error("로드 이벤트 에러:", err);
+  }
 });
 
 window.addEventListener("resize", function() {
@@ -843,16 +929,6 @@ window.addEventListener("resize", function() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-  }
-});
-
-window.addEventListener("load", async () => {
-  try {
-    initCalendar();
-    updateMap("서울");
-    await updateWeatherAndEffects("서울");
-  } catch (err) {
-    console.error("로드 이벤트 에러:", err);
   }
 });
 
@@ -977,7 +1053,7 @@ function renderCalendar(year, month) {
   }
 }
 
-/***** Three.js 및 3D 배경 렌더링 *****/
+/***** Three.js 및 3D 배경 렌더링 (메모리 최적화) *****/
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({
@@ -1013,13 +1089,13 @@ scene.add(moon);
 
 const stars = [];
 const fireflies = [];
-for (let i = 0; i < 200; i++) {
+for (let i = 0; i < 100; i++) { // 별 개수 200 -> 100으로 감소
   const star = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
   star.position.set((Math.random() - 0.5) * 100, (Math.random() - 0.5) * 60, -20);
   scene.add(star);
   stars.push(star);
 }
-for (let i = 0; i < 60; i++) {
+for (let i = 0; i < 30; i++) { // 반딧불이 개수 60 -> 30으로 감소
   const firefly = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffff99 }));
   firefly.position.set((Math.random() - 0.5) * 40, (Math.random() - 0.5) * 20, -10);
   scene.add(firefly);
