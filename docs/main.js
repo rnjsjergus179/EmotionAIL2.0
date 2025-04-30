@@ -1,5 +1,5 @@
 import { processText, fetchAndUpdateKeywords, getEmbedding, getWeather, getNaverSearchResults, getYouTubeSearchResults } from './api.js';
-import { softmaxIntentClassifier, updateGRUState, updateIntentWeights } from '/ai/ml.js';
+import { softmaxIntentClassifier, updateGRUState, updateIntentWeights } from './ai/ml.js';
 import { memoryStorage, updateConversationHistory } from './memory.js';
 import { showSpeechBubbleInChunks, deleteCalendarEvent, getCalendarEvents, updateMap, initCalendar } from './ui.js';
 import { scene, camera, renderer, characterGroup, characterStreetlight, characterLight, stars, fireflies, sun, moon, head, rainGroup, cloudRainGroup, houseCloudGroup, lightningLight, updateWeatherEffects, updateLightning, updateHouseClouds, updateBubblePosition, animate } from './threeSetup.js';
