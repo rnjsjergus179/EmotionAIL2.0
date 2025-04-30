@@ -328,7 +328,7 @@ for (let i = 0; i < 10; i++) {
 }
 
 function updateWeatherEffects(currentWeather) {
-  if (!currentWeather) return;
+  if (!currentWeather || typeof rainGroup === 'undefined' || typeof cloudRainGroup === 'undefined' || typeof houseCloudGroup === 'undefined') return;
   if (currentWeather.includes("비") || currentWeather.includes("소나기")) {
     rainGroup.visible = true;
     cloudRainGroup.visible = true;
@@ -344,7 +344,7 @@ function updateWeatherEffects(currentWeather) {
 }
 
 function updateLightning(currentWeather) {
-  if (!currentWeather) return;
+  if (!currentWeather || typeof lightningLight === 'undefined') return;
   if (currentWeather.includes("번개") || currentWeather.includes("뇌우")) {
     if (Math.random() < 0.001) {
       lightningLight.intensity = 5;
@@ -353,8 +353,8 @@ function updateLightning(currentWeather) {
   }
 }
 
-function updateHouseClouds(head) {
-  if (!head || typeof head.getWorldPosition !== "function") return;
+function updateHouseClouds() {
+  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
   const headWorldPos = new THREE.Vector3();
   try {
     head.getWorldPosition(headWorldPos);
@@ -367,12 +367,12 @@ function updateHouseClouds(head) {
   houseCloudGroup.position.z = headWorldPos.z;
 }
 
-function updateBubblePosition(head, camera) {
+function updateBubblePosition() {
   const bubble = document.getElementById("speech-bubble");
-  if (!bubble || !head || typeof head.getWorldPosition !== "function") return;
+  if (!bubble || typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
   const headWorldPos = new THREE.Vector3();
   try {
-    head.getWorldPositio(headWorldPos);
+    head.getWorldPosition(headWorldPos);
   } catch (err) {
     console.error("updateBubblePosition 에러:", err);
     return;
@@ -382,12 +382,12 @@ function updateBubblePosition(head, camera) {
   bubble.style.top = ((1 - (screenPos.y * 0.5 + 0.5)) * window.innerHeight - 50) + "px";
 }
 
-function animate(characterGroup, characterStreetlight, characterLight, stars, fireflies, sun, moon, head, camera) {
-  requestAnimationFrame(() => animate(characterGroup, characterStreetlight, characterLight, stars, fireflies, sun, moon, head, camera));
+function animate() {
+  requestAnimationFrame(animate);
   const now = new Date();
   const headWorldPos = new THREE.Vector3();
   try {
-    if (head && typeof head.getWorldPosition === "function") {
+    if (typeof head !== 'undefined' && head !== null && typeof head.getWorldPosition === "function") {
       head.getWorldPosition(headWorldPos);
     }
   } catch (err) {
