@@ -1,5 +1,6 @@
 /***** TensorFlow.js 포함 (딥러닝 모델 강화를 위해) *****/
-import * as tf from 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js';
+// Note: Ensure TensorFlow.js is included in your HTML via a script tag or module bundler
+// Example: <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 
 /***** 사이트 링크 및 키워드 설정 *****/
 const SITE_LINKS = {
@@ -127,13 +128,12 @@ function getSequenceEmbedding(historyEmbeddings, currentEmbedding) {
 function getUserLocation() {
   return new Promise((resolve, reject) => {
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(position => {
-        resolve(position.coords);
-      }, error => {
-        reject(error);
-      });
+      navigator.geolocation.getCurrentPosition(
+        position => resolve(position.coords),
+        error => reject(error)
+      );
     } else {
-      reject("Geolocation is not supported by this browser.");
+      reject(new Error("Geolocation is not supported by this browser."));
     }
   });
 }
@@ -230,12 +230,15 @@ async function getEmbedding(text) {
 function vectorAdd(a, b) {
   return a.map((val, i) => val + b[i]);
 }
+
 function vectorSubtract(a, b) {
   return a.map((val, i) => val - b[i]);
 }
+
 function vectorMultiply(a, scalar) {
   return a.map(val => val * scalar);
 }
+
 function sigmoid(x) {
   return 1 / (1 + Math.exp(-x));
 }
@@ -260,17 +263,37 @@ let intentModel;
 async function loadIntentModel() {
   try {
     // 실제 모델 URL로 교체 필요 (예: DistilBERT 기반 경량 모델)
-    intentModel = await tf.loadLayersModel('https://example.com/path/to/model.json');
+    intentModel = await tf.loadLayersModel('https://your-model-url.com/model.json'); // 실제 모델 URL로 변경
     console.log("Pre-trained intent model loaded successfully");
   } catch (error) {
     console.error("Failed to load intent model:", error);
+    // Fallback to default logic if model loading fails
   }
 }
 
 async function softmaxIntentClassifier(inputText, historyEmbeddings) {
-  if (!intentModel) {
-    console.error("Intent model not loaded, falling back to default");
-    const inputEmbedding = await getEmbedding(inputText);
+  const inputEmbedding = await getEmbedding(inputText);
+  
+  if (intentModel) {
+    const inputTensor = tf.tensor([inputEmbedding]);
+    const prediction = intentModel.predict(inputTensor);
+    const probabilitiesArray = prediction.dataSync();
+    const intents = Object.keys(intentWeightMatrix);
+    const probabilities = {};
+    let maxProb = 0;
+    let detectedIntent = null;
+
+    probabilitiesArray.forEach((prob, index) => {
+      probabilities[intents[index]] = prob;
+      if (prob > maxProb) {
+        maxProb = prob;
+        detectedIntent = intents[index];
+      }
+    });
+
+    return { intent: detectedIntent, probabilities, embedding: inputEmbedding };
+  } else {
+    console.warn("Intent model not loaded, using fallback logic");
     const sequenceEmbedding = getSequenceEmbedding(historyEmbeddings, inputEmbedding);
     const attendedEmbedding = selfAttention(sequenceEmbedding);
     
@@ -298,25 +321,6 @@ async function softmaxIntentClassifier(inputText, historyEmbeddings) {
 
     return { intent: detectedIntent, probabilities, embedding: attendedEmbedding };
   }
-
-  const inputEmbedding = await getEmbedding(inputText);
-  const inputTensor = tf.tensor([inputEmbedding]);
-  const prediction = intentModel.predict(inputTensor);
-  const probabilitiesArray = prediction.dataSync();
-  const intents = Object.keys(intentWeightMatrix);
-  const probabilities = {};
-  let maxProb = 0;
-  let detectedIntent = null;
-
-  probabilitiesArray.forEach((prob, index) => {
-    probabilities[intents[index]] = prob;
-    if (prob > maxProb) {
-      maxProb = prob;
-      detectedIntent = intents[index];
-    }
-  });
-
-  return { intent: detectedIntent, probabilities, embedding: inputEmbedding };
 }
 
 /***** 3. Self-Training 강화학습 *****/
@@ -354,7 +358,7 @@ const memoryStorage = {
     try {
       const data = localStorage.getItem(key);
       return data ? JSON.parse(data) : null;
-    } catch(e) {
+    } catch (e) {
       console.error("Error loading key:", key, e);
       return null;
     }
@@ -364,10 +368,10 @@ const memoryStorage = {
 function updateConversationHistory(input, response, embedding) {
   try {
     let history = memoryStorage.load("conversationHistory") || [];
-    history.push({ timestamp: Date.now(), input, response });
-    historyEmbeddings = [embedding]; // 메모리 최적화를 위해 최근 1개만 유지
+    history.push({ timestamp: Date.now(), input, response, embedding });
+    historyEmbeddings = [embedding]; // 최근 1개만 유지
     memoryStorage.save("conversationHistory", history.slice(-50)); // 최근 50개 대화 저장
-  } catch(e) {
+  } catch (e) {
     console.error("대화 이력 저장 오류:", e);
   }
 }
@@ -473,8 +477,7 @@ function getCalendarEvents(dateStr = null) {
         events.push(`${key}: ${calendarData[key]}`);
       }
     }
-    return events.length ? `현재 월(${currentMonthStr})의 일정:\n${events.join("\n")}`
-                         : `현재 월(${currentMonthStr})에는 일정이 없습니다.`;
+    return events.length ? `현재 월(${currentMonthStr})의 일정:\n${events.join("\n")}` : `현재 월(${currentMonthStr})에는 일정이 없습니다.`;
   }
 }
 
@@ -513,6 +516,7 @@ async function getWeather(currentCity) {
     return result;
   } catch (error) {
     await logToServer(`날씨 API 호출 실패: ${error.message}`);
+    console.warn("Geolocation failed, falling back to default city:", currentCity);
     const regionMap = {
       "서울": "Seoul", "인천": "Incheon", "수원": "Suwon", "고양": "Goyang", "성남": "Seongnam",
       "용인": "Yongin", "부천": "Bucheon", "안양": "Anyang", "의정부": "Uijeongbu", "광명": "Gwangmyeong",
@@ -602,7 +606,10 @@ async function saveToLearningDB(type, query, results) {
 
 /***** 날씨 효과 및 지역 변경 *****/
 function updateWeatherEffects(currentWeather) {
-  if (!currentWeather || typeof rainGroup === 'undefined' || typeof cloudRainGroup === 'undefined' || typeof houseCloudGroup === 'undefined') return;
+  if (!currentWeather || typeof rainGroup === 'undefined' || typeof cloudRainGroup === 'undefined' || typeof houseCloudGroup === 'undefined') {
+    console.warn("Weather effects not fully initialized");
+    return;
+  }
   if (currentWeather.includes("비") || currentWeather.includes("소나기")) {
     rainGroup.visible = true;
     cloudRainGroup.visible = true;
@@ -618,7 +625,10 @@ function updateWeatherEffects(currentWeather) {
 }
 
 function updateLightning(currentWeather) {
-  if (!currentWeather || typeof lightningLight === 'undefined') return;
+  if (!currentWeather || typeof lightningLight === 'undefined') {
+    console.warn("Lightning effect not initialized");
+    return;
+  }
   if (currentWeather.includes("번개") || currentWeather.includes("뇌우")) {
     if (Math.random() < 0.001) {
       lightningLight.intensity = 5;
@@ -672,6 +682,8 @@ function startSpeechRecognition() {
       if (chatInput) {
         chatInput.value = transcript;
         sendChat();
+      } else {
+        console.error("Chat input element not found");
       }
     }
   };
@@ -700,7 +712,10 @@ async function sendChat() {
   lastChatTime = now;
 
   const inputEl = document.getElementById("chat-input");
-  if (!inputEl) return;
+  if (!inputEl) {
+    console.error("Chat input element not found");
+    return;
+  }
   const input = inputEl.value.trim();
   if (!input) return;
 
@@ -834,7 +849,10 @@ async function sendChat() {
 /***** 말풍선 출력 *****/
 function showSpeechBubbleInChunks(text, isHTML = false, chunkSize = 15, delay = 500) {
   const bubble = document.getElementById("speech-bubble");
-  if (!bubble) return;
+  if (!bubble) {
+    console.error("Speech bubble element not found");
+    return;
+  }
   bubble.style.opacity = 0;
   bubble.style.display = "block";
   let parts = isHTML ? text.split("<br>") : [];
@@ -873,7 +891,10 @@ window.addEventListener("DOMContentLoaded", async function() {
     chatInput.addEventListener("keydown", function(e) {
       if (e.key === "Enter") sendChat();
     });
+  } else {
+    console.error("Chat input element not found on DOMContentLoaded");
   }
+
   const autoCompleteList = document.createElement("datalist");
   autoCompleteList.id = "Charge";
   const allKeywords = Object.values(KEYWORDS).flat().concat(Object.keys(SITE_LINKS));
@@ -1226,7 +1247,7 @@ let rainGroup = new THREE.Group();
 scene.add(rainGroup);
 
 function initRain() {
-  const rainCount = 2000;
+  const rainCount = 1000; // 2000 -> 1000으로 감소하여 메모리 최적화
   const rainGeometry = new THREE.BufferGeometry();
   const positions = new Float32Array(rainCount * 3);
   for (let i = 0; i < rainCount; i++) {
@@ -1274,7 +1295,7 @@ houseCloudGroup.position.set(0, 2, 0);
 
 let cloudRainGroup = new THREE.Group();
 function initCloudRain() {
-  const cloudRainCount = 100;
+  const cloudRainCount = 50; // 100 -> 50으로 감소하여 메모리 최적화
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(cloudRainCount * 3);
   for (let i = 0; i < cloudRainCount; i++) {
@@ -1297,7 +1318,10 @@ cloudRainGroup.visible = false;
 houseCloudGroup.add(cloudRainGroup);
 
 function updateHouseClouds() {
-  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
+  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") {
+    console.warn("Head object not properly initialized");
+    return;
+  }
   const headWorldPos = new THREE.Vector3();
   try {
     head.getWorldPosition(headWorldPos);
@@ -1497,7 +1521,10 @@ animate();
 function updateBubblePosition() {
   const bubble = document.getElementById("speech-bubble");
   if (!bubble) return;
-  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") return;
+  if (typeof head === 'undefined' || head === null || typeof head.getWorldPosition !== "function") {
+    console.warn("Head object not available for bubble positioning");
+    return;
+  }
   const headWorldPos = new THREE.Vector3();
   try {
     head.getWorldPosition(headWorldPos);
