@@ -6,11 +6,15 @@ import { getWeather } from './weather.js';
 import { deleteCalendarEvent, getCalendarEvents, initCalendar, currentYear, currentMonth } from './calendar.js';
 import { speakText, startSpeechRecognition } from './speech.js';
 import { getNaverSearchResults, getYouTubeSearchResults, pipelineNewsSearch, isNewsQuery } from './search.js';
-import { camera, renderer, animate, updateBubblePosition } from './threeD.js';
-import { vectorAdd, vectorMultiply } from '/ai/utils.js';
+import { animate } from './threeD.js'; // threeD.js에서 애니메이션 처리
+import { initThree, camera, renderer } from './threeSetup.js'; // threeSetup.js에서 초기 설정 가져오기
+import { updateBubblePosition } from './ui.js'; // ui.js에서 말풍선 위치 업데이트
+import { vectorAdd, vectorMultiply } from './utils.js'; // 경로를 상대 경로로 수정
 
+// 의도 가중치 행렬 초기화
 initializeIntentWeightMatrix(Object.keys(KEYWORDS));
 
+// 로컬 스토리지 관리 객체
 const memoryStorage = {
   save: function(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
@@ -26,6 +30,7 @@ const memoryStorage = {
   }
 };
 
+// 대화 이력 업데이트
 function updateConversationHistory(input, response, embedding) {
   try {
     let history = memoryStorage.load("conversationHistory") || [];
@@ -38,6 +43,7 @@ function updateConversationHistory(input, response, embedding) {
   }
 }
 
+// 키워드 임베딩 및 의도 업데이트
 async function updateEmbeddingsAndIntents() {
   const processedData = await fetchAndUpdateKeywords();
   for (let intent in KEYWORDS) {
@@ -50,6 +56,7 @@ async function updateEmbeddingsAndIntents() {
   }
 }
 
+// 지도 업데이트
 function updateMap(currentCity) {
   const englishCity = regionMap[currentCity] || "Seoul";
   const mapIframe = document.getElementById("map-iframe");
@@ -58,6 +65,7 @@ function updateMap(currentCity) {
   }
 }
 
+// 날씨 및 효과 업데이트
 async function updateWeatherAndEffects(currentCity, sendMessage = true) {
   const weatherData = await getWeather(currentCity);
   if (sendMessage) {
@@ -67,6 +75,7 @@ async function updateWeatherAndEffects(currentCity, sendMessage = true) {
   return weatherData.currentWeather;
 }
 
+// 지역 변경
 function changeRegion(value) {
   const currentCity = value;
   updateMap(currentCity);
@@ -77,12 +86,14 @@ function changeRegion(value) {
   return currentCity;
 }
 
+// 대화 컨텍스트 업데이트
 function updateContext(intent) {
   const lastTopic = intent;
   memoryStorage.save("lastTopic", lastTopic);
   return lastTopic;
 }
 
+// 채팅 전송
 async function sendChat() {
   const inputEl = document.getElementById("chat-input");
   if (!inputEl) return;
@@ -209,6 +220,7 @@ async function sendChat() {
   memoryStorage.save('lastResponse', response);
 }
 
+// 말풍선 표시
 function showSpeechBubbleInChunks(text, isHTML = false, chunkSize = 15, delay = 500) {
   const bubble = document.getElementById("speech-bubble");
   if (!bubble) return;
@@ -242,8 +254,10 @@ function showSpeechBubbleInChunks(text, isHTML = false, chunkSize = 15, delay = 
   requestAnimationFrame(showNextPart);
 }
 
+// 우클릭 방지
 document.addEventListener("contextmenu", event => event.preventDefault());
 
+// DOM 로드 시 실행
 window.addEventListener("DOMContentLoaded", async function() {
   const chatInput = document.getElementById("chat-input");
   if (chatInput) {
@@ -277,6 +291,7 @@ window.addEventListener("DOMContentLoaded", async function() {
   await updateEmbeddingsAndIntents();
 });
 
+// 창 크기 조정 시
 window.addEventListener("resize", function() {
   if (camera && renderer) {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -285,12 +300,14 @@ window.addEventListener("resize", function() {
   }
 });
 
+// 페이지 로드 시 실행
 window.addEventListener("load", async () => {
   try {
-    initCalendar(showSpeechBubbleInChunks);
-    updateMap("서울");
-    await updateWeatherAndEffects("서울");
-    animate(updateBubblePosition);
+    initThree(); // Three.js 초기화
+    initCalendar(showSpeechBubbleInChunks); // 캘린더 초기화
+    updateMap("서울"); // 초기 지도 설정
+    await updateWeatherAndEffects("서울"); // 초기 날씨 설정
+    animate(updateBubblePosition); // 애니메이션 시작
   } catch (err) {
     console.error("로드 이벤트 에러:", err);
   }
