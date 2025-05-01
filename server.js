@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -10,7 +11,7 @@ const {
 } = require('./db.js'); // MongoDB 연결 및 함수 가져오기
 
 // 라우트 가져오기
-
+const searchRoute = require('./search');
 const weatherRoute = require('./weather');
 
 const app = express();
@@ -149,7 +150,8 @@ connectDB()
       }
     });
 
-    // 7) 기존 모듈 라우트 설
+    // 7) 기존 모듈 라우트 설정
+    app.use('/api', searchRoute);
     app.use('/api', weatherRoute);
 
     // 8) 정적 파일 서빙
@@ -162,5 +164,5 @@ connectDB()
   })
   .catch(err => {
     console.error('❌ MongoDB 연결 오류:', err.stack);
-    process.exit(1 multi);
+    process.exit(1); // 수정: '1 multi' 대신 '1'만 전달
   });
