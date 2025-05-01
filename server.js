@@ -11,7 +11,7 @@ const {
 } = require('./db.js'); // MongoDB 연결 및 함수 가져오기
 
 // 라우트 가져오기
-const searchRoute = require('./search');
+
 const weatherRoute = require('./weather');
 
 const app = express();
@@ -151,7 +151,7 @@ connectDB()
     });
 
     // 7) 기존 모듈 라우트 설정
-    app.use('/api', searchRoute);
+    
     app.use('/api', weatherRoute);
 
     // 8) 정적 파일 서빙
