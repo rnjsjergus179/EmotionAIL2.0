@@ -256,13 +256,23 @@ function updateGRUState(inputEmbedding, prevHidden) {
 
 /***** Softmax 의도 분류기 (Jaccard + TensorFlow.js) *****/
 let intentModel;
+let localIntentModel; // ./model.json을 위한 변수 추가
 
 async function loadIntentModel() {
   try {
-    intentModel = await tf.loadLayersModel('/model.json');
+    intentModel = await tf.loadLayersModel('https://emotionail2-0.onrende/'); // 첫 번째 이미지: model URL 수정
     console.log("사전 학습된 의도 모델이 성공적으로 로드되었습니다.");
   } catch (error) {
     console.error("의도 모델 로드 실패:", error);
+  }
+}
+
+async function loadLocalIntentModel() { // 두 번째 이미지: ./model.json 별도 로드
+  try {
+    localIntentModel = await tf.loadLayersModel('./model.json');
+    console.log("로컬 의도 모델이 성공적으로 로드되었습니다.");
+  } catch (error) {
+    console.error("로컬 의도 모델 로드 실패:", error);
   }
 }
 
@@ -936,7 +946,8 @@ window.addEventListener("DOMContentLoaded", async function() {
 });
 
 window.addEventListener("load", async () => {
-  await loadIntentModel();
+  await loadIntentModel(); // https://emotionail2-0.onrende/ 로드
+  await loadLocalIntentModel(); // ./model.json 로드
   try {
     initCalendar();
     updateMap("서울");
