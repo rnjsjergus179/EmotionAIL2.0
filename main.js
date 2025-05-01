@@ -1,4 +1,6 @@
-// main.js
+import * as utils from './utils.js';
+import * as intentProcessor from './intentProcessor.js';
+import { initCalendar, getCalendarEvents, deleteCalendarEvent } from './calendar.js';
 
 // Note: 백엔드는 MongoDB URI를 사용하여 데이터베이스 연결을 처리합니다.
 // 모든 데이터베이스 작업은 백엔드 API 호출을 통해 수행됩니다.
@@ -75,12 +77,12 @@ async function fetchAndUpdateKeywords() {
     data.forEach(item => {
       const intent = item.intent;
       const keywords = item.keywords.map(kw => kw.trim().toLowerCase()).slice(0, 50);
-      const binaryKeywords = keywords.map(kw => textToBinaryVector(kw));
+      const binaryKeywords = keywords.map(kw => utils.textToBinaryVector(kw));
       if (KEYWORDS[intent]) {
         KEYWORDS[intent] = [...new Set([...KEYWORDS[intent], ...keywords])];
       } else {
         KEYWORDS[intent] = [...new Set(keywords)];
-        intentWeightMatrix[intent] = averageVectors(binaryKeywords);
+        intentWeightMatrix[intent] = utils.averageVectors(binaryKeywords);
       }
     });
 
@@ -95,12 +97,12 @@ async function fetchAndUpdateKeywords() {
 
 /***** Self-Attention 구현 *****/
 function selfAttention(embeddings) {
-  const query = quantizeVector(embeddings);
-  const key = quantizeVector(embeddings);
+  const query = utils.quantizeVector(embeddings);
+  const key = utils.quantizeVector(embeddings);
   const value = embeddings;
-  const scores = dotProduct(query, key) / Math.sqrt(embeddings.length);
-  const attentionWeights = softmaxArray([scores]);
-  return weightedSum(value, attentionWeights);
+  const scores = utils.dotProduct(query, key) / Math.sqrt(embeddings.length);
+  const attentionWeights = utils.softmaxArray([scores]);
+  return utils.weightedSum(value, attentionWeights);
 }
 
 /***** 다중 모달 입력 - 위치 정보 감지 *****/
@@ -132,20 +134,20 @@ function updateIntentWeights(inputEmbedding, predictedIntent, userFeedback) {
 
   for (let intent in intentWeightMatrix) {
     const grad = intent === predictedIntent ? reward : -reward / (Object.keys(intentWeightMatrix).length - 1);
-    intentWeightMatrix[intent] = vectorAdd(
+    intentWeightMatrix[intent] = utils.vectorAdd(
       intentWeightMatrix[intent],
-      vectorMultiply(inputEmbedding, adaptiveLearningRate * grad)
+      utils.vectorMultiply(inputEmbedding, adaptiveLearningRate * grad)
     );
-    intentWeightMatrix[intent] = quantizeVector(intentWeightMatrix[intent]);
+    intentWeightMatrix[intent] = utils.quantizeVector(intentWeightMatrix[intent]);
   }
 }
 
 /***** Embedding + Intent Vector 업데이트 *****/
 async function updateEmbeddingsAndIntents() {
   for (let intent in KEYWORDS) {
-    const keywordEmbeddings = await Promise.all(KEYWORDS[intent].map(keyword => getEmbedding(keyword)));
-    const avgEmbedding = averageVectors(keywordEmbeddings);
-    intentWeightMatrix[intent] = quantizeVector(normalizeVector(avgEmbedding));
+    const keywordEmbeddings = await Promise.all(KEYWORDS[intent].map(keyword => intentProcessor.getEmbedding(keyword)));
+    const avgEmbedding = utils.averageVectors(keywordEmbeddings);
+    intentWeightMatrix[intent] = utils.quantizeVector(utils.normalizeVector(avgEmbedding));
   }
 }
 
@@ -168,8 +170,8 @@ const memoryStorage = {
 async function updateConversationHistory(input, response, embedding) {
   try {
     let history = memoryStorage.load("conversationHistory") || [];
-    const binaryResponse = textToBinaryVector(response);
-    history.push({ timestamp: Date.now(), input, response, embedding: quantizeVector(embedding), binaryResponse });
+    const binaryResponse = utils.textToBinaryVector(response);
+    history.push({ timestamp: Date.now(), input, response, embedding: utils.quantizeVector(embedding), binaryResponse });
     historyEmbeddings = [embedding];
     memoryStorage.save("conversationHistory", history.slice(-50));
     await saveToMongoDB({ input, response, embedding: binaryResponse });
@@ -194,8 +196,8 @@ async function saveToMongoDB(data) {
 
 /***** 의도 인식 및 처리 *****/
 async function detectIntent(input, processedData) {
-  const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
-  gruHiddenState = updateGRUState(embedding, gruHiddenState);
+  const { intent, probabilities, embedding } = await intentProcessor.softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
+  gruHiddenState = intentProcessor.updateGRUState(embedding, gruHiddenState);
 
   for (let concept in knowledgeGraph) {
     if (input.includes(concept)) {
@@ -308,7 +310,7 @@ async function getNaverSearchResults(query) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/naver-search?q=${encodeURIComponent(query)}`);
     if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
-    const data = await response.json();
+    const data = await response菜单.json();
     if (data.items && data.items.length > 0) {
       const results = data.items.map(item => item.title.replace(/<[^>]+>/g, '')).join('\n- ');
       apiCache[cacheKey] = results;
@@ -439,8 +441,7 @@ async function sendChat() {
 
   const inputEl = document.getElementById("chat-input");
   if (!inputEl) {
-    console.error("채팅 입력 요소를 찾을 수 없습니다.");
-    return;
+    throw new Error("채팅 입력 요소를 찾을 수 없습니다.");
   }
   const input = inputEl.value.trim();
   if (!input) return;
@@ -449,7 +450,7 @@ async function sendChat() {
   let isHTML = false;
   let shouldNavigate = false;
   let navigateUrl = "";
-  const processedInput = await processText(input);
+  const processedInput = await intentProcessor.processText(input);
   const lowerInput = processedInput.toLowerCase();
   let currentCity = "서울";
   let lastTopic = memoryStorage.load("lastTopic") || "";
@@ -499,7 +500,7 @@ async function sendChat() {
     }
 
     if (!response) {
-      const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
+      const { intent, probabilities, embedding } = await intentProcessor.softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
       if (intent && (probabilities[intent] > 0.5 || intent !== 'unknown')) {
         if (intent === "greetings") {
           response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
@@ -560,7 +561,7 @@ async function sendChat() {
   }
 
   showSpeechBubbleInChunks(response, isHTML);
-  const embedding = await getEmbedding(input);
+  const embedding = await intentProcessor.getEmbedding(input);
   await updateConversationHistory(input, response, embedding);
 
   if (shouldNavigate) {
@@ -614,8 +615,18 @@ window.addEventListener("DOMContentLoaded", async function() {
   const chatInput = document.getElementById("chat-input");
   if (chatInput) {
     chatInput.setAttribute("list", "Charge");
-    chatInput.addEventListener("keydown", function(e) {
-      if (e.key === "Enter") sendChat();
+    chatInput.addEventListener("keydown", async function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault(); // 기본 동작 방지
+        await logToServer("전.엔터를 입력하세요."); // 엔터키 입력 전 메시지 전송
+        try {
+          await sendChat(); // 채팅 전송 시도
+          await logToServer("💯전송 되었습니다!"); // 성공 시 메시지 전송
+        } catch (error) {
+          await logToServer("채팅창 엔터 연결실패‼️"); // 실패 시 메시지 전송
+          console.error("채팅 전송 실패:", error);
+        }
+      }
     });
   } else {
     console.error("DOMContentLoaded에서 채팅 입력 요소를 찾을 수 없습니다.");
