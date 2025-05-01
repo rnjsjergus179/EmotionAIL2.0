@@ -10,6 +10,7 @@ const {
 } = require('./db.js'); // MongoDB 연결 및 함수 가져오기
 
 // 라우트 가져오기
+
 const weatherRoute = require('./weather');
 
 const app = express();
@@ -148,7 +149,7 @@ connectDB()
       }
     });
 
-    // 7) 기존 모듈 라우트 설정 (weatherRoute만 남김)
+    // 7) 기존 모듈 라우트 설
     app.use('/api', weatherRoute);
 
     // 8) 정적 파일 서빙
@@ -161,5 +162,5 @@ connectDB()
   })
   .catch(err => {
     console.error('❌ MongoDB 연결 오류:', err.stack);
-    process.exit(1);
+    process.exit(1 multi);
   });
