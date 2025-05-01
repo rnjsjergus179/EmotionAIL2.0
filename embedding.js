@@ -9,8 +9,9 @@ const fs = require('fs');
 const path = require('path');
 
 // Vocabulary mapping (DB에서 내려받은 토큰에 매핑할 사전)
-// vocab.json 파일이 현재 디렉토리에 있어야 함
-const vocabPath = path.join(__dirname, 'vocab.json');
+// vocab.json 파일이 GitHub 프로젝트 루트 디렉토리에 있어야 함
+const rootDir = path.resolve(__dirname, '..'); // 상위 디렉토리(루트)로 이동
+const vocabPath = path.join(rootDir, 'vocab.json');
 if (!fs.existsSync(vocabPath)) {
   console.error(`vocab.json 파일이 ${vocabPath}에 없습니다.`);
   process.exit(1);
@@ -26,8 +27,6 @@ async function initializeEmbeddingMatrix() {
   if (process.env.PRETRAINED_EMBED_PATH) {
     // 사전학습된 임베딩 로드 (예: TensorFlow SavedModel, npy 등)
     // TODO: PRETRAINED_EMBED_PATH에 맞는 로드 로직을 구현하세요.
-    // 예시: TensorFlow.js 모델 로드
-    // embeddingMatrix = await tf.loadLayersModel(process.env.PRETRAINED_EMBED_PATH);
     console.log('사전학습 임베딩 로드를 구현하세요.');
   } else {
     // 사전학습된 임베딩이 없으면 랜덤으로 초기화
