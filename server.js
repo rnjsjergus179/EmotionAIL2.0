@@ -3,11 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
-const {
-  connectDB,
-  saveSearchData,
-  getAllSearchData
-} = require('./db.js'); // 기존 DB 함수 가져오기
+const mongoose = require('mongoose'); // MongoDB 연결을 위해 mongoose 사용
 
 // 기존 라우트
 const searchRoute = require('./search');
@@ -22,17 +18,54 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// MongoDB 연결 후 라우팅 셋업
-connectDB()
-  .then(() => {
-    console.log('✅ MongoDB 연결 완료');
+// MongoDB 연결 함수
+async function connectDB() {
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log('😀 MongoDB에 연결되었습니다.');
+    return true;
+  } catch (error) {
+    console.error('🫨 MongoDB 연결 오류:', error.stack);
+    throw error; // 오류를 상위로 전달
+  }
+}
+
+// MongoDB 데이터 저장 및 조회 함수 (db.js 대신 임시 정의)
+const SearchDataSchema = new mongoose.Schema({
+  type: String,
+  query: String,
+  data: Object,
+  timestamp: { type: Date, default: Date.now }
+});
+const SearchData = mongoose.model('SearchData', SearchDataSchema);
+
+async function saveSearchData(type, query, data) {
+  const searchData = new SearchData({ type, query, data });
+  await searchData.save();
+}
+
+async function getAllSearchData(limit = 0) {
+  return await SearchData.find().limit(limit);
+}
+
+// 서버 시작 함수
+async function startServer() {
+  try {
+    await connectDB(); // MongoDB 연결 대기
+
+    // MongoDB 연결 상태 모니터링
+    mongoose.connection.on('connected', () => console.log('🫢 MongoDB 연결 성공'));
+    mongoose.connection.on('error', (err) => console.error('👍 MongoDB 연결 실패:', err.stack));
 
     // 1) 네이버 검색 API
     app.get('/api/naver-search', async (req, res) => {
       const query = req.query.q;
       if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
       try {
-        console.log(`[Render] 네이버 검색 호출 전: ${query}`); // 호출 전 로그
+        console.log(`😆 [Render] 네이버 검색 호출 전: ${query}`);
         const { data } = await axios.get(
           'https://openapi.naver.com/v1/search/webkr.json',
           {
@@ -43,7 +76,7 @@ connectDB()
             }
           }
         );
-        console.log(`[Render] 네이버 검색 호출 후: ${query}`); // 호출 후 로그
+        console.log(`😃 [Render] 네이버 검색 호출 후: ${query}`);
         await saveSearchData('naver', query, data);
         const items = data.items.map(item => ({ title: item.title, link: item.link }));
         res.json({ message: `네이버 검색 완료: ${query}`, items });
@@ -58,7 +91,7 @@ connectDB()
       const query = req.query.q;
       if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
       try {
-        console.log(`[Render] YouTube 검색 호출 전: ${query}`); // 호출 전 로그
+        console.log(`😆 [Render] YouTube 검색 호출 전: ${query}`);
         const { data } = await axios.get(
           'https://www.googleapis.com/youtube/v3/search',
           {
@@ -70,7 +103,7 @@ connectDB()
             }
           }
         );
-        console.log(`[Render] YouTube 검색 호출 후: ${query}`); // 호출 후 로그
+        console.log(`😃 [Render] YouTube 검색 호출 후: ${query}`);
         await saveSearchData('youtube', query, data);
         const items = data.items.map(i => {
           const vid = i.id.videoId;
@@ -89,10 +122,10 @@ connectDB()
     // 3) MongoDB에 저장된 검색 기록 불러오기
     app.get('/api/getData', async (req, res) => {
       try {
-        console.log('[Render] MongoDB 데이터 불러오기 호출 전'); // 호출 전 로그
+        console.log('😆 [Render] MongoDB 데이터 불러오기 호출 전');
         const data = await getAllSearchData();
-        console.log('[Render] MongoDB 데이터 불러오기 호출 후'); // 호출 후 로그
-        console.log('✅ /api/getData 호출 — 데이터 개수:', data.length);
+        console.log('😃 [Render] MongoDB 데이터 불러오기 호출 후');
+        console.log('💯 /api/getData 호출 — 데이터 개수:', data.length);
         res.json(data);
       } catch (err) {
         console.error('[API] 데이터 가져오기 오류:', err.stack);
@@ -105,9 +138,9 @@ connectDB()
       const logData = req.body;
       if (!logData) return res.status(400).json({ error: '로그 데이터가 필요합니다.' });
       try {
-        console.log('[Render] 클라이언트 로그 저장 호출 전'); // 호출 전 로그
+        console.log('😆 [Render] 클라이언트 로그 저장 호출 전');
         await saveSearchData('log', 'client-log', logData);
-        console.log('[Render] 클라이언트 로그 저장 호출 후'); // 호출 후 로그
+        console.log('😃 [Render] 클라이언트 로그 저장 호출 후');
         res.json({ message: '로그 데이터 저장 완료' });
       } catch (err) {
         console.error('[API] 로그 데이터 저장 오류:', err.stack);
@@ -120,9 +153,9 @@ connectDB()
       const trainingData = req.body;
       if (!trainingData) return res.status(400).json({ error: '학습 데이터가 필요합니다.' });
       try {
-        console.log('[Render] 학습 데이터 저장 호출 전'); // 호출 전 로그
+        console.log('😆 [Render] 학습 데이터 저장 호출 전');
         await saveSearchData('training', 'training-data', trainingData);
-        console.log('[Render] 학습 데이터 저장 호출 후'); // 호출 후 로그
+        console.log('😃 [Render] 학습 데이터 저장 호출 후');
         res.json({ message: '학습 데이터 저장 완료' });
       } catch (err) {
         console.error('[API] 학습 데이터 저장 오류:', err.stack);
@@ -134,9 +167,9 @@ connectDB()
     app.get('/api/processed-data', async (req, res) => {
       const limit = parseInt(req.query.limit) || 100;
       try {
-        console.log('[Render] 가공 데이터 불러오기 호출 전'); // 호출 전 로그
+        console.log('😆 [Render] 가공 데이터 불러오기 호출 전');
         const allData = await getAllSearchData(limit);
-        console.log('[Render] 가공 데이터 불러오기 호출 후'); // 호출 후 로그
+        console.log('😃 [Render] 가공 데이터 불러오기 호출 후');
         const trainingData = allData.filter(item => item.type === 'training');
         const processedData = trainingData.map(item => ({
           intent: item.intent || 'unknown',
@@ -160,8 +193,11 @@ connectDB()
     app.listen(port, () => {
       console.log(`🚀 서버 실행 중: http://localhost:${port}`);
     });
-  })
-  .catch(err => {
-    console.error('❌ MongoDB 연결 오류:', err.stack);
+  } catch (err) {
+    console.error('❌ 서버 시작 실패:', err.stack);
     process.exit(1);
-  });
+  }
+}
+
+// 서버 시작
+startServer();
