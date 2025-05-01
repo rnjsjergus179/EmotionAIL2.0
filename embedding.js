@@ -23,7 +23,7 @@ async function loadModel() {
 
 // 텍스트를 임베딩으로 변환하는 함수
 // - 입력: 단일 문자열 또는 문자열 배열
-// - 출력: Float32Array (첫 번째 문장 임베딩)
+// - 출력: Float32Array (첫 번째 문장 임베딩) 또는 2D 배열
 async function generateEmbedding(text) {
   if (!model) {
     throw new Error('모델이 로드되지 않았습니다. initialize()를 먼저 호출하세요.');
