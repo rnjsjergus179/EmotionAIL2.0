@@ -9,11 +9,6 @@ const {
   getAllSearchData
 } = require('./db.js'); // 기존 DB 함수 가져오기
 
-// 추가 모듈 (형태소 분석 및 임베딩 가정)
-const { analyzeMorphology } = require('./morphology.js'); // GitHub 루트 디렉토리의 morphology.js 참조
-const { generateEmbedding } = require('./embedding.js');
-const { analyzeIntent } = require('./intent.js');
-
 // 기존 라우트
 const searchRoute = require('./search');
 const weatherRoute = require('./weather');
@@ -37,6 +32,7 @@ connectDB()
       const query = req.query.q;
       if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
       try {
+        console.log(`[Render] 네이버 검색 호출 전: ${query}`); // 호출 전 로그
         const { data } = await axios.get(
           'https://openapi.naver.com/v1/search/webkr.json',
           {
@@ -47,6 +43,7 @@ connectDB()
             }
           }
         );
+        console.log(`[Render] 네이버 검색 호출 후: ${query}`); // 호출 후 로그
         await saveSearchData('naver', query, data);
         const items = data.items.map(item => ({ title: item.title, link: item.link }));
         res.json({ message: `네이버 검색 완료: ${query}`, items });
@@ -61,6 +58,7 @@ connectDB()
       const query = req.query.q;
       if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
       try {
+        console.log(`[Render] YouTube 검색 호출 전: ${query}`); // 호출 전 로그
         const { data } = await axios.get(
           'https://www.googleapis.com/youtube/v3/search',
           {
@@ -72,6 +70,7 @@ connectDB()
             }
           }
         );
+        console.log(`[Render] YouTube 검색 호출 후: ${query}`); // 호출 후 로그
         await saveSearchData('youtube', query, data);
         const items = data.items.map(i => {
           const vid = i.id.videoId;
@@ -90,7 +89,9 @@ connectDB()
     // 3) MongoDB에 저장된 검색 기록 불러오기
     app.get('/api/getData', async (req, res) => {
       try {
+        console.log('[Render] MongoDB 데이터 불러오기 호출 전'); // 호출 전 로그
         const data = await getAllSearchData();
+        console.log('[Render] MongoDB 데이터 불러오기 호출 후'); // 호출 후 로그
         console.log('✅ /api/getData 호출 — 데이터 개수:', data.length);
         res.json(data);
       } catch (err) {
@@ -104,7 +105,9 @@ connectDB()
       const logData = req.body;
       if (!logData) return res.status(400).json({ error: '로그 데이터가 필요합니다.' });
       try {
+        console.log('[Render] 클라이언트 로그 저장 호출 전'); // 호출 전 로그
         await saveSearchData('log', 'client-log', logData);
+        console.log('[Render] 클라이언트 로그 저장 호출 후'); // 호출 후 로그
         res.json({ message: '로그 데이터 저장 완료' });
       } catch (err) {
         console.error('[API] 로그 데이터 저장 오류:', err.stack);
@@ -117,7 +120,9 @@ connectDB()
       const trainingData = req.body;
       if (!trainingData) return res.status(400).json({ error: '학습 데이터가 필요합니다.' });
       try {
+        console.log('[Render] 학습 데이터 저장 호출 전'); // 호출 전 로그
         await saveSearchData('training', 'training-data', trainingData);
+        console.log('[Render] 학습 데이터 저장 호출 후'); // 호출 후 로그
         res.json({ message: '학습 데이터 저장 완료' });
       } catch (err) {
         console.error('[API] 학습 데이터 저장 오류:', err.stack);
@@ -125,50 +130,13 @@ connectDB()
       }
     });
 
-    // 6) POST /api/embed - 문장 임베딩 생성
-    app.post('/api/embed', async (req, res) => {
-      const { text } = req.body;
-      if (!text) return res.status(400).json({ error: '텍스트가 필요합니다.' });
-      try {
-        const embedding = await generateEmbedding(text);
-        res.json({ message: '임베딩 생성 완료', embedding });
-      } catch (err) {
-        console.error('[API] 임베딩 생성 오류:', err.stack);
-        res.status(500).json({ error: '임베딩 생성 실패' });
-      }
-    });
-
-    // 7) POST /api/morph - 텍스트 형태소 분석
-    app.post('/api/morph', async (req, res) => {
-      const { text } = req.body;
-      if (!text) return res.status(400).json({ error: '텍스트가 필요합니다.' });
-      try {
-        const morphResult = await analyzeMorphology(text);
-        res.json({ message: '형태소 분석 완료', result: morphResult });
-      } catch (err) {
-        console.error('[API] 형태소 분석 오류:', err.stack);
-        res.status(500).json({ error: '형태소 분석 실패' });
-      }
-    });
-
-    // 8) POST /api/intent - 텍스트로 의도 분석
-    app.post('/api/intent', async (req, res) => {
-      const { text } = req.body;
-      if (!text) return res.status(400).json({ error: '텍스트가 필요합니다.' });
-      try {
-        const intentResult = await analyzeIntent(text);
-        res.json({ message: '의도 분석 완료', result: intentResult });
-      } catch (err) {
-        console.error('[API] 의도 분석 오류:', err.stack);
-        res.status(500).json({ error: '의도 분석 실패' });
-      }
-    });
-
-    // 9) GET /api/processed-data - 학습 데이터만 반환
+    // 6) GET /api/processed-data - 학습 데이터만 반환
     app.get('/api/processed-data', async (req, res) => {
       const limit = parseInt(req.query.limit) || 100;
       try {
+        console.log('[Render] 가공 데이터 불러오기 호출 전'); // 호출 전 로그
         const allData = await getAllSearchData(limit);
+        console.log('[Render] 가공 데이터 불러오기 호출 후'); // 호출 후 로그
         const trainingData = allData.filter(item => item.type === 'training');
         const processedData = trainingData.map(item => ({
           intent: item.intent || 'unknown',
@@ -181,14 +149,14 @@ connectDB()
       }
     });
 
-    // 10) 기존 모듈 라우트
+    // 7) 기존 모듈 라우트
     app.use('/api', searchRoute);
     app.use('/api', weatherRoute);
 
-    // 11) 정적 파일 서빙
+    // 8) 정적 파일 서빙
     app.use(express.static(path.join(__dirname, 'public')));
 
-    // 12) 서버 시작
+    // 9) 서버 시작
     app.listen(port, () => {
       console.log(`🚀 서버 실행 중: http://localhost:${port}`);
     });
