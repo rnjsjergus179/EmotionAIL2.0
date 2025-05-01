@@ -3,50 +3,83 @@
 // 환경 변수 로드
 require('dotenv').config();
 
-// TensorFlow.js 및 Universal Sentence Encoder 임포트
+// TensorFlow.js 및 파일 시스템 모듈 임포트
 const tf = require('@tensorflow/tfjs-node');
-const use = require('@tensorflow-models/universal-sentence-encoder');
+const fs = require('fs');
+const path = require('path');
 
-// 모델 변수
-let model = null;
+// Vocabulary mapping (DB에서 내려받은 토큰에 매핑할 사전)
+// vocab.json 파일이 현재 디렉토리에 있어야 함
+const vocabPath = path.join(__dirname, 'vocab.json');
+if (!fs.existsSync(vocabPath)) {
+  console.error(`vocab.json 파일이 ${vocabPath}에 없습니다.`);
+  process.exit(1);
+}
+const vocab = JSON.parse(fs.readFileSync(vocabPath, 'utf8'));
+const VOCAB_SIZE = Object.keys(vocab).length;
+const EMBEDDING_DIM = parseInt(process.env.EMBEDDING_DIM, 10) || 128;
 
-// 모델 로드 함수
-async function loadModel() {
-  try {
-    model = await use.load();
-    console.log('✅ Universal Sentence Encoder 로드 완료');
-  } catch (err) {
-    console.error('❌ USE 모델 로드 실패:', err);
-    throw err;
+// 임베딩 행렬 초기화 (랜덤 또는 사전학습 가중치 로드)
+let embeddingMatrix;
+
+async function initializeEmbeddingMatrix() {
+  if (process.env.PRETRAINED_EMBED_PATH) {
+    // 사전학습된 임베딩 로드 (예: TensorFlow SavedModel, npy 등)
+    // TODO: PRETRAINED_EMBED_PATH에 맞는 로드 로직을 구현하세요.
+    // 예시: TensorFlow.js 모델 로드
+    // embeddingMatrix = await tf.loadLayersModel(process.env.PRETRAINED_EMBED_PATH);
+    console.log('사전학습 임베딩 로드를 구현하세요.');
+  } else {
+    // 사전학습된 임베딩이 없으면 랜덤으로 초기화
+    embeddingMatrix = tf.variable(
+      tf.randomNormal([VOCAB_SIZE, EMBEDDING_DIM], 0, 0.1),
+      true,
+      'embeddingMatrix'
+    );
   }
+  console.log(`Embedding matrix initialized: [${VOCAB_SIZE}, ${EMBEDDING_DIM}]`);
 }
 
-// 텍스트를 임베딩으로 변환하는 함수
-// - 입력: 단일 문자열 또는 문자열 배열
-// - 출력: Float32Array (첫 번째 문장 임베딩) 또는 2D 배열
-async function generateEmbedding(text) {
-  if (!model) {
-    throw new Error('모델이 로드되지 않았습니다. initialize()를 먼저 호출하세요.');
+/**
+ * @param {string[]} tokens - 자모음/영단어 토큰 배열
+ * @returns {Promise<number[]>} - 평균 임베딩 벡터 (length = EMBEDDING_DIM)
+ */
+async function generateEmbedding(tokens) {
+  if (!embeddingMatrix) {
+    throw new Error('Embedding matrix가 초기화되지 않았습니다.');
+  }
+  if (!Array.isArray(tokens) || tokens.length === 0) {
+    // 빈 입력 시 0벡터 반환
+    return Array(EMBEDDING_DIM).fill(0);
   }
 
-  try {
-    const embeddings = await model.embed(text);
-    const array = embeddings.arraySync();
-    return Array.isArray(text)
-      ? array      // 배열 모드: 모든 문장에 대한 배열 리턴
-      : array[0];  // 단일 문자열: 첫 번째 임베딩만 리턴
-  } catch (err) {
-    console.error('❌ 임베딩 생성 중 오류:', err);
-    throw err;
-  }
+  // 1) 토큰 → 인덱스로 매핑 (없으면 <unk> 이용)
+  const unkIndex = vocab['<unk>'] || 0;
+  const indices = tokens.map(t => (vocab[t] !== undefined ? vocab[t] : unkIndex));
+
+  // 2) Tensor 생성 (shape: [seq_len])
+  const idxTensor = tf.tensor1d(indices, 'int32');
+
+  // 3) 임베딩 조회 (shape: [seq_len, EMBEDDING_DIM])
+  const embeds = tf.gather(embeddingMatrix, idxTensor);
+
+  // 4) 평균 계산 (shape: [EMBEDDING_DIM])
+  const meanEmbed = embeds.mean(0);
+
+  // 5) JS 배열로 변환
+  const result = await meanEmbed.array();
+
+  // 메모리 해제
+  idxTensor.dispose();
+  embeds.dispose();
+  meanEmbed.dispose();
+
+  return result;
 }
 
 // 초기화 실행
-async function initialize() {
-  await loadModel();
-}
-initialize().catch(err => {
-  console.error('❌ embedding.js 초기화 실패:', err);
+initializeEmbeddingMatrix().catch(err => {
+  console.error('Embedding matrix 초기화 실패:', err);
   process.exit(1);
 });
 
