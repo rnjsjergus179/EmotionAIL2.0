@@ -57,11 +57,11 @@
   <div id="hud-7">버전 2.0</div>
   <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: -1;"></canvas>
   
-  <!-- JavaScript 스크립트 연결 -->
-  <script type="module" src="utils.js"></script>
-  <script type="module" src="intentProcessor.js"></script>
-  <script type="module" src="calendar.js"></script>
-  <script type="module" src="main.js"></script>
-  <script type="module" src="three.js"></script>
+  <!-- JavaScript 스크립트 연결 (모듈 대신 일반 스크립트, defer 속성 추가) -->
+  <script src="utils.js" defer></script>
+  <script src="intentProcessor.js" defer></script>
+  <script src="calendar.js" defer></script>
+  <script src="three.js" defer></script>
+  <script src="main.js" defer></script>
 </body>
 </html>
