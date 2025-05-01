@@ -8,7 +8,7 @@ const tf = require('@tensorflow/tfjs-node');
 
 // 딥러닝 모델 관련 설정
 let morphologyModel = null;
-const MODEL_URL = 'https://your-model-url.com/model.json'; // 실제 사전 학습된 모델 URL로 대체
+const MODEL_URL = 'https://https://www.emotionail.site//model.json'; // 실제 사전 학습된 모델 URL로 대체
 
 /**
  * 딥러닝 형태소 분석 모델을 로드합니다.
