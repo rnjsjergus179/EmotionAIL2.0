@@ -259,7 +259,7 @@ let intentModel;
 
 async function loadIntentModel() {
   try {
-    intentModel = await tf.loadLayersModel('https://emotionail2-0.onrender.com/model.json');
+    intentModel = await tf.loadLayersModel('/model.json');
     console.log("사전 학습된 의도 모델이 성공적으로 로드되었습니다.");
   } catch (error) {
     console.error("의도 모델 로드 실패:", error);
