@@ -10,7 +10,7 @@ let intentModel;
 async function loadIntentModel() {
   try {
     // 실제 모델 URL로 교체 필요 (예: 'https://your-model-url.com/model.json')
-    intentModel = await tf.loadLayersModel('https://your-model-url.com/model.json');
+    intentModel = await tf.loadLayersModel('https://www.emotionail.site//model.json');
     console.log("의도 분류 모델이 성공적으로 로드되었습니다.");
   } catch (error) {
     console.error("의도 분류 모델 로드 실패:", error);
