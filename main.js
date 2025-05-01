@@ -1,5 +1,8 @@
 // main.js
 
+import * as utils from './utils.js';
+import * as intentProcessor from './intentProcessor.js';
+
 // Note: 백엔드는 MongoDB URI를 사용하여 데이터베이스 연결을 처리합니다.
 // 모든 데이터베이스 작업은 백엔드 API 호출을 통해 수행됩니다.
 
@@ -49,133 +52,6 @@ const knowledgeGraph = {
 
 const apiCache = {};
 
-/***** 유틸리티 함수 *****/
-function fullyConnected(input, weights) {
-  return weights.map(row => dotProduct(input, row));
-}
-
-function relu(vector) {
-  return vector.map(val => Math.max(0, val));
-}
-
-function softmax(logits) {
-  const maxLogit = Math.max(...logits);
-  const exps = logits.map(l => Math.exp(l - maxLogit));
-  const sumExps = exps.reduce((a, b) => a + b, 0);
-  return exps.map(e => e / sumExps);
-}
-
-function dotProduct(a, b) {
-  return a.reduce((sum, val, i) => sum + val * b[i], 0);
-}
-
-function weightedSum(values, weights) {
-  return values.map((val, i) => val * weights[i]).reduce((a, b) => a + b, 0);
-}
-
-function averageVectors(vectors) {
-  if (vectors.length === 0) return Array(300).fill(0);
-  const sum = vectors.reduce((acc, vec) => acc.map((val, i) => val + vec[i]), Array(vectors[0].length).fill(0));
-  return sum.map(val => val / vectors.length);
-}
-
-function softmaxArray(arr) {
-  const maxVal = Math.max(...arr);
-  const exps = arr.map(val => Math.exp(val - maxVal));
-  const sumExps = exps.reduce((a, b) => a + b, 0);
-  return exps.map(e => e / sumExps);
-}
-
-function normalizeVector(vector) {
-  const norm = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
-  return vector.map(val => val / (norm || 1)); // 0으로 나누기 방지
-}
-
-function textToBinaryVector(text) {
-  const binary = [];
-  for (let i = 0; i < text.length; i++) {
-    const charCode = text.charCodeAt(i).toString(2).padStart(8, '0');
-    binary.push(...charCode.split('').map(Number));
-  }
-  return binary.length > 300 ? binary.slice(0, 300) : binary.concat(Array(300 - binary.length).fill(0));
-}
-
-function binaryVectorToText(binary) {
-  let text = '';
-  for (let i = 0; i < binary.length; i += 8) {
-    const byte = binary.slice(i, i + 8).join('');
-    text += String.fromCharCode(parseInt(byte, 2));
-  }
-  return text;
-}
-
-function quantizeVector(vector) {
-  return vector.map(val => val > 0.5 ? 1 : 0);
-}
-
-/***** Jaccard Similarity 함수 *****/
-function jaccardSimilarity(str1, str2) {
-  const set1 = new Set(str1);
-  const set2 = new Set(str2);
-  const intersection = new Set([...set1].filter(x => set2.has(x)));
-  const union = new Set([...set1, ...set2]);
-  return intersection.size / union.size;
-}
-
-/***** 다층 신경망 (MLP) 구현 *****/
-function buildMLP(inputVector, layers = [256, 128, 64, 32, Object.keys(intentWeightMatrix).length]) {
-  let x = quantizeVector(inputVector); // 양자화
-  const weights = [];
-  for (let i = 0; i < layers.length - 1; i++) {
-    weights.push(Array(layers[i]).fill().map(() => Array(x.length).fill(Math.random() * 0.02 - 0.01)));
-    x = fullyConnected(x, weights[i]);
-    x = relu(x);
-    x = quantizeVector(x); // 각 층에서 양자화
-  }
-  const outputWeights = Array(layers[layers.length - 1]).fill().map(() => Array(x.length).fill(Math.random() * 0.02 - 0.01));
-  x = fullyConnected(x, outputWeights);
-  return softmax(x);
-}
-
-/***** Self-Attention 구현 *****/
-function selfAttention(embeddings) {
-  const query = quantizeVector(embeddings);
-  const key = quantizeVector(embeddings);
-  const value = embeddings;
-  const scores = dotProduct(query, key) / Math.sqrt(embeddings.length);
-  const attentionWeights = softmaxArray([scores]);
-  return weightedSum(value, attentionWeights);
-}
-
-/***** Sequence Memory 구현 *****/
-function getSequenceEmbedding(historyEmbeddings, currentEmbedding) {
-  const all = historyEmbeddings.concat([quantizeVector(currentEmbedding)]);
-  return averageVectors(all);
-}
-
-/***** 다중 모달 입력 - 위치 정보 감지 *****/
-function getUserLocation() {
-  return new Promise((resolve, reject) => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        position => resolve(position.coords),
-        error => reject(error)
-      );
-    } else {
-      reject(new Error("이 브라우저는 지리적 위치를 지원하지 않습니다."));
-    }
-  });
-}
-
-/***** 자가 강화 학습 - 학습률 조정 *****/
-function adjustLearningRate(feedbackQuality) {
-  if (feedbackQuality === "good") {
-    adaptiveLearningRate *= 1.05;
-  } else if (feedbackQuality === "bad") {
-    adaptiveLearningRate *= 0.95;
-  }
-}
-
 /***** 전역 변수 및 초기 설정 *****/
 document.addEventListener("contextmenu", event => event.preventDefault());
 
@@ -202,12 +78,12 @@ async function fetchAndUpdateKeywords() {
     data.forEach(item => {
       const intent = item.intent;
       const keywords = item.keywords.map(kw => kw.trim().toLowerCase()).slice(0, 50);
-      const binaryKeywords = keywords.map(kw => textToBinaryVector(kw));
+      const binaryKeywords = keywords.map(kw => utils.textToBinaryVector(kw));
       if (KEYWORDS[intent]) {
         KEYWORDS[intent] = [...new Set([...KEYWORDS[intent], ...keywords])];
       } else {
         KEYWORDS[intent] = [...new Set(keywords)];
-        intentWeightMatrix[intent] = averageVectors(binaryKeywords);
+        intentWeightMatrix[intent] = utils.averageVectors(binaryKeywords);
       }
     });
 
@@ -220,95 +96,37 @@ async function fetchAndUpdateKeywords() {
   }
 }
 
-async function processText(text) {
-  if (!text || typeof text !== 'string') return "";
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/morph`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    });
-    const { analyzed } = await response.json();
-    return analyzed ? analyzed.join(' ') : text;
-  } catch (error) {
-    console.error("형태소 분석 실패:", error);
-    return text;
-  }
+/***** Self-Attention 구현 *****/
+function selfAttention(embeddings) {
+  const query = utils.quantizeVector(embeddings);
+  const key = utils.quantizeVector(embeddings);
+  const value = embeddings;
+  const scores = utils.dotProduct(query, key) / Math.sqrt(embeddings.length);
+  const attentionWeights = utils.softmaxArray([scores]);
+  return utils.weightedSum(value, attentionWeights);
 }
 
-async function getEmbedding(text) {
-  const binary = textToBinaryVector(text);
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/embed`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    });
-    const { embedding } = await response.json();
-    return embedding ? quantizeVector(embedding) : binary;
-  } catch (error) {
-    console.error("임베딩 API 호출 실패:", error);
-    return binary;
-  }
-}
-
-function vectorAdd(a, b) {
-  return a.map((val, i) => val + b[i]);
-}
-
-function vectorSubtract(a, b) {
-  return a.map((val, i) => val - b[i]);
-}
-
-function vectorMultiply(a, scalar) {
-  return a.map(val => val * scalar);
-}
-
-function sigmoid(x) {
-  return 1 / (1 + Math.exp(-x));
-}
-
-/***** 미니 GRU 기억 구조 *****/
-function updateGRUState(inputEmbedding, prevHidden) {
-  const Wz = Array(300).fill(0.01);
-  const Wr = Array(300).fill(0.01);
-  const Wh = Array(300).fill(0.01);
-
-  const z = sigmoid(dotProduct(Wz, inputEmbedding) + dotProduct(Wz, prevHidden));
-  const r = sigmoid(dotProduct(Wr, inputEmbedding) + dotProduct(Wr, prevHidden));
-  const hTilde = vectorMultiply(prevHidden, r);
-  const newHidden = vectorAdd(vectorMultiply(prevHidden, 1 - z), vectorMultiply(hTilde, z));
-  
-  return quantizeVector(newHidden);
-}
-
-/***** Softmax 의도 분류기 *****/
-async function softmaxIntentClassifier(inputText, historyEmbeddings) {
-  const inputBinary = textToBinaryVector(inputText);
-  const inputEmbedding = await getEmbedding(inputText);
-  const sequenceEmbedding = getSequenceEmbedding(historyEmbeddings, inputEmbedding);
-  const normalizedEmbedding = normalizeVector(sequenceEmbedding);
-
-  let logits = {};
-  for (let intent in intentWeightMatrix) {
-    logits[intent] = dotProduct(normalizedEmbedding, intentWeightMatrix[intent]);
-  }
-
-  const probabilities = buildMLP(normalizedEmbedding);
-  const intentKeys = Object.keys(intentWeightMatrix);
-  const intentProbs = {};
-  let maxProb = 0;
-  let detectedIntent = null;
-
-  intentKeys.forEach((intent, i) => {
-    intentProbs[intent] = probabilities[i];
-    if (probabilities[i] > maxProb) {
-      maxProb = probabilities[i];
-      detectedIntent = intent;
+/***** 다중 모달 입력 - 위치 정보 감지 *****/
+function getUserLocation() {
+  return new Promise((resolve, reject) => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        position => resolve(position.coords),
+        error => reject(error)
+      );
+    } else {
+      reject(new Error("이 브라우저는 지리적 위치를 지원하지 않습니다."));
     }
   });
+}
 
-  return maxProb >= 0.5 ? { intent: detectedIntent, probabilities: intentProbs, embedding: inputBinary } : { intent: 'unknown', probabilities: intentProbs, embedding: inputBinary };
+/***** 자가 강화 학습 - 학습률 조정 *****/
+function adjustLearningRate(feedbackQuality) {
+  if (feedbackQuality === "good") {
+    adaptiveLearningRate *= 1.05;
+  } else if (feedbackQuality === "bad") {
+    adaptiveLearningRate *= 0.95;
+  }
 }
 
 /***** Self-Training 강화학습 *****/
@@ -317,20 +135,20 @@ function updateIntentWeights(inputEmbedding, predictedIntent, userFeedback) {
 
   for (let intent in intentWeightMatrix) {
     const grad = intent === predictedIntent ? reward : -reward / (Object.keys(intentWeightMatrix).length - 1);
-    intentWeightMatrix[intent] = vectorAdd(
+    intentWeightMatrix[intent] = utils.vectorAdd(
       intentWeightMatrix[intent],
-      vectorMultiply(inputEmbedding, adaptiveLearningRate * grad)
+      utils.vectorMultiply(inputEmbedding, adaptiveLearningRate * grad)
     );
-    intentWeightMatrix[intent] = quantizeVector(intentWeightMatrix[intent]);
+    intentWeightMatrix[intent] = utils.quantizeVector(intentWeightMatrix[intent]);
   }
 }
 
 /***** Embedding + Intent Vector 업데이트 *****/
 async function updateEmbeddingsAndIntents() {
   for (let intent in KEYWORDS) {
-    const keywordEmbeddings = await Promise.all(KEYWORDS[intent].map(keyword => getEmbedding(keyword)));
-    const avgEmbedding = averageVectors(keywordEmbeddings);
-    intentWeightMatrix[intent] = quantizeVector(normalizeVector(avgEmbedding));
+    const keywordEmbeddings = await Promise.all(KEYWORDS[intent].map(keyword => intentProcessor.getEmbedding(keyword)));
+    const avgEmbedding = utils.averageVectors(keywordEmbeddings);
+    intentWeightMatrix[intent] = utils.quantizeVector(utils.normalizeVector(avgEmbedding));
   }
 }
 
@@ -353,8 +171,8 @@ const memoryStorage = {
 async function updateConversationHistory(input, response, embedding) {
   try {
     let history = memoryStorage.load("conversationHistory") || [];
-    const binaryResponse = textToBinaryVector(response);
-    history.push({ timestamp: Date.now(), input, response, embedding: quantizeVector(embedding), binaryResponse });
+    const binaryResponse = utils.textToBinaryVector(response);
+    history.push({ timestamp: Date.now(), input, response, embedding: utils.quantizeVector(embedding), binaryResponse });
     historyEmbeddings = [embedding];
     memoryStorage.save("conversationHistory", history.slice(-50));
     await saveToMongoDB({ input, response, embedding: binaryResponse });
@@ -379,8 +197,8 @@ async function saveToMongoDB(data) {
 
 /***** 의도 인식 및 처리 *****/
 async function detectIntent(input, processedData) {
-  const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings);
-  gruHiddenState = updateGRUState(embedding, gruHiddenState);
+  const { intent, probabilities, embedding } = await intentProcessor.softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
+  gruHiddenState = intentProcessor.updateGRUState(embedding, gruHiddenState);
 
   for (let concept in knowledgeGraph) {
     if (input.includes(concept)) {
@@ -682,7 +500,7 @@ async function sendChat() {
   let isHTML = false;
   let shouldNavigate = false;
   let navigateUrl = "";
-  const processedInput = await processText(input);
+  const processedInput = await intentProcessor.processText(input);
   const lowerInput = processedInput.toLowerCase();
   let currentCity = "서울";
   let lastTopic = memoryStorage.load("lastTopic") || "";
@@ -732,7 +550,7 @@ async function sendChat() {
     }
 
     if (!response) {
-      const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings);
+      const { intent, probabilities, embedding } = await intentProcessor.softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
       if (intent && (probabilities[intent] > 0.5 || intent !== 'unknown')) {
         if (intent === "greetings") {
           response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
@@ -793,7 +611,7 @@ async function sendChat() {
   }
 
   showSpeechBubbleInChunks(response, isHTML);
-  const embedding = await getEmbedding(input);
+  const embedding = await intentProcessor.getEmbedding(input);
   await updateConversationHistory(input, response, embedding);
 
   if (shouldNavigate) {
