@@ -59,7 +59,7 @@ connectDB()
       const query = req.query.q;
       if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
       try {
-        console.log(`[Render] 네이버 검색 호출 전: ${query}`);
+        console.log(`[Render] 네이버 검색 호출전.출력중입니다.‼️: ${query}`);
         const { data } = await axios.get(
           'https://openapi.naver.com/v1/search/webkr.json',
           {
@@ -70,7 +70,7 @@ connectDB()
             }
           }
         );
-        console.log(`[Render] 네이버 검색 호출 후: ${query}`);
+        console.log(`[Render] 네이버 검색 호출후.출력성공💯: ${query}`);
         await saveSearchData('naver', query, data);
         const items = data.items.map(item => ({ title: item.title, link: item.link }));
         res.json({ message: `네이버 검색 완료: ${query}`, items });
@@ -85,7 +85,7 @@ connectDB()
       const query = req.query.q;
       if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
       try {
-        console.log(`[Render] YouTube 검색 호출 전: ${query}`);
+        console.log(`[Render] YouTube 검색 호출전.출력중입니다.‼️: ${query}`);
         const { data } = await axios.get(
           'https://www.googleapis.com/youtube/v3/search',
           {
@@ -97,7 +97,7 @@ connectDB()
             }
           }
         );
-        console.log(`[Render] YouTube 검색 호출 후: ${query}`);
+        console.log(`[Render] YouTube 검색 호출후.출력성공💯: ${query}`);
         await saveSearchData('youtube', query, data);
         const items = data.items.map(i => {
           const vid = i.id.videoId;
@@ -116,9 +116,9 @@ connectDB()
     // **3. MongoDB에 저장된 검색 기록 불러오기**
     app.get('/api/getData', async (req, res) => {
       try {
-        console.log('[Render] MongoDB 데이터 불러오기 호출 전');
+        console.log('[Render] MongoDB 데이터 불러오기 호출전.출력중입니다.‼️');
         const data = await getAllSearchData();
-        console.log('[Render] MongoDB 데이터 불러오기 호출 후');
+        console.log('[Render] MongoDB 데이터 불러오기 호출후.출력성공💯');
         console.log('✅ /api/getData 호출 — 데이터 개수:', data.length);
         res.json(data);
       } catch (err) {
@@ -132,9 +132,9 @@ connectDB()
       const logData = req.body;
       if (!logData) return res.status(400).json({ error: '로그 데이터가 필요합니다.' });
       try {
-        console.log('[Render] 클라이언트 로그 저장 호출 전');
-        await saveSearchData('client-log', 'client-log', logData); // 'log' 대신 'client-log' 사용
-        console.log('[Render] 클라이언트 로그 저장 호출 후');
+        console.log('[Render] 클라이언트 로그 저장 호출전.출력중입니다.‼️');
+        await saveSearchData('client-log', 'client-log', logData);
+        console.log('[Render] 클라이언트 로그 저장 호출후.출력성공💯');
         res.json({ message: '로그 데이터 저장 완료' });
       } catch (err) {
         console.error('[API] 로그 데이터 저장 오류:', err.stack);
@@ -147,9 +147,9 @@ connectDB()
       const trainingData = req.body;
       if (!trainingData) return res.status(400).json({ error: '학습 데이터가 필요합니다.' });
       try {
-        console.log('[Render] 학습 데이터 저장 호출 전');
+        console.log('[Render] 학습 데이터 저장 호출전.출력중입니다.‼️');
         await saveSearchData('training', 'training-data', trainingData);
-        console.log('[Render] 학습 데이터 저장 호출 후');
+        console.log('[Render] 학습 데이터 저장 호출후.출력성공💯');
         res.json({ message: '학습 데이터 저장 완료' });
       } catch (err) {
         console.error('[API] 학습 데이터 저장 오류:', err.stack);
@@ -161,12 +161,12 @@ connectDB()
     app.get('/api/processed-data', async (req, res) => {
       const limit = parseInt(req.query.limit) || 100;
       try {
-        console.log('[Render] 가공 데이터 불러오기 호출 전');
+        console.log('[Render] 가공 데이터 불러오기 호출전.출력중입니다.‼️');
         const allData = await getAllSearchData(limit);
-        console.log('[Render] 가공 데이터 불러오기 호출 후');
-        const trainingData = allData.filter(item => item.source === 'training'); // 'type' 대신 'source' 사용
+        console.log('[Render] 가공 데이터 불러오기 호출후.출력성공💯');
+        const trainingData = allData.filter(item => item.source === 'training');
         const processedData = trainingData.map(item => ({
-          intent: item.results.intent || 'unknown', // results에서 intent 추출 (스키마 수정 필요 시 주의)
+          intent: item.results.intent || 'unknown',
           keywords: item.query ? item.query.split(' ') : []
         }));
         res.json({ message: `가공된 학습 데이터 ${processedData.length}개 반환`, data: processedData });
@@ -177,7 +177,6 @@ connectDB()
     });
 
     // **7. 기존 모듈 라우트 설정**
-    
     app.use('/api', weatherRoute);
 
     // **8. 정적 파일 서빙**
