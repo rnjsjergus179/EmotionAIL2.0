@@ -1,9 +1,12 @@
-// main.js
-
-import * as intentProcessor from './intentProcessor.js';
-
 // Note: 백엔드는 MongoDB URI를 사용하여 데이터베이스 연결을 처리합니다.
 // 모든 데이터베이스 작업은 백엔드 API 호출을 통해 수행됩니다.
+
+// intentProcessor.js의 함수들을 window에 등록하여 HTML에서 전역 변수로 호출 가능하게 함
+// 수정: import * as intentProcessor from './intentProcessor.js'; 를 제거하고, 전역 변수로 직접 할당
+window.processText = processText;
+window.getEmbedding = getEmbedding;
+window.softmaxIntentClassifier = softmaxIntentClassifier;
+window.updateGRUState = updateGRUState;
 
 /***** 사이트 링크 및 키워드 설정 *****/
 const SITE_LINKS = {
@@ -145,7 +148,7 @@ function updateIntentWeights(inputEmbedding, predictedIntent, userFeedback) {
 /***** Embedding + Intent Vector 업데이트 *****/
 async function updateEmbeddingsAndIntents() {
   for (let intent in KEYWORDS) {
-    const keywordEmbeddings = await Promise.all(KEYWORDS[intent].map(keyword => getEmbedding(keyword)));
+    const keywordEmbeddings = await Promise.all(KEYWORDS[intent].map(keyword => window.getEmbedding(keyword)));
     const avgEmbedding = averageVectors(keywordEmbeddings);
     intentWeightMatrix[intent] = quantizeVector(normalizeVector(avgEmbedding));
   }
@@ -196,8 +199,8 @@ async function saveToMongoDB(data) {
 
 /***** 의도 인식 및 처리 *****/
 async function detectIntent(input, processedData) {
-  const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
-  gruHiddenState = updateGRUState(embedding, gruHiddenState);
+  const { intent, probabilities, embedding } = await window.softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
+  gruHiddenState = window.updateGRUState(embedding, gruHiddenState);
 
   for (let concept in knowledgeGraph) {
     if (input.includes(concept)) {
@@ -451,7 +454,7 @@ async function sendMessage() {
   let isHTML = false;
   let shouldNavigate = false;
   let navigateUrl = "";
-  const processedInput = await processText(input);
+  const processedInput = await window.processText(input);
   const lowerInput = processedInput.toLowerCase();
   let currentCity = "서울";
   let lastTopic = memoryStorage.load("lastTopic") || "";
@@ -501,7 +504,7 @@ async function sendMessage() {
     }
 
     if (!response) {
-      const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
+      const { intent, probabilities, embedding } = await window.softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
       if (intent && (probabilities[intent] > 0.5 || intent !== 'unknown')) {
         if (intent === "greetings") {
           response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
@@ -562,7 +565,7 @@ async function sendMessage() {
   }
 
   showSpeechBubbleInChunks(response, isHTML);
-  const embedding = await getEmbedding(input);
+  const embedding = await window.getEmbedding(input);
   await updateConversationHistory(input, response, embedding);
 
   if (shouldNavigate) {
