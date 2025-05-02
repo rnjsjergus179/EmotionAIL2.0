@@ -26,7 +26,9 @@ let KEYWORDS = {
   greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
   sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
   weather: ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"],
-  time: ["시간 알려줘"]
+  time: ["시간 알려줘"],
+  calendar: ["일정 알려줘", "오늘 일정", "이번 주 일정", "일정 확인", "일정 보여줘"],
+  region: ["서울", "인천", "수원", "고양", "성남", "용인", "부천", "안양", "의정부", "광명", "안산", "파주", "부산", "대구", "광주", "대전", "울산", "제주", "전주", "청주", "포항", "여수", "김해"]
 };
 
 let intentWeightMatrix = {};
@@ -42,7 +44,9 @@ let adaptiveLearningRate = 0.01;
 const knowledgeGraph = {
   "넷플릭스": ["드라마", "영화"],
   "유튜브": ["영상", "비디오"],
-  "날씨": ["weather"]
+  "날씨": ["weather"],
+  "일정": ["calendar"],
+  "지역": ["region", "location", "city"]
 };
 
 const apiCache = {};
@@ -733,6 +737,20 @@ async function sendChat() {
         } else if (intent === "time") {
           const now = new Date();
           response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
+        } else if (intent === "calendar") {
+          response = "아직 캘린더 기능을 완전히 지원하지 않습니다. 어떤 일정을 확인하고 싶으신가요?";
+        } else if (intent === "region") {
+          const newCity = regionList.find(city => input.includes(city));
+          if (newCity) {
+            currentCity = newCity;
+            const regionSelect = document.getElementById("region-select");
+            if (regionSelect) regionSelect.value = newCity;
+            response = `지역을 ${newCity}(으)로 변경했습니다!`;
+            updateMap(currentCity);
+            await updateWeatherAndEffects(currentCity);
+          } else {
+            response = "지원하는 지역을 말씀해 주세요. 예: 서울, 인천";
+          }
         }
         lastTopic = updateContext(intent);
 
