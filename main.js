@@ -1,10 +1,10 @@
 // main.js
 
 // 모듈 import (intentProcessor.js, utils.js, three.js, calendar.js에서 필요한 함수 가져오기)
-import * as intentProcessor from './intentProcessor.js';
-import * as utils from './utils.js';
-import * as three from './three.js';  // three.js 모듈 import
-import * as calendar from './calendar.js';  // calendar.js 모듈 import
+import { processText } from './utils.js';
+import { getEmbedding, softmaxIntentClassifier, updateGRUState } from './intentProcessor.js';
+import { initCalendar, getCalendarEvents, deleteCalendarEvent } from './calendar.js';
+import { startThreeJS, updateWeatherEffects } from './three.js';
 
 // Note: 백엔드는 MongoDB URI를 사용하여 데이터베이스 연결을 처리합니다.
 // 모든 데이터베이스 작업은 백엔드 API 호출을 통해 수행됩니다.
@@ -81,12 +81,12 @@ async function fetchAndUpdateKeywords() {
     data.forEach(item => {
       const intent = item.intent;
       const keywords = item.keywords.map(kw => kw.trim().toLowerCase()).slice(0, 50);
-      const binaryKeywords = keywords.map(kw => utils.textToBinaryVector(kw));
+      const binaryKeywords = keywords.map(kw => processText(kw)); // utils.js에서 가져온 함수 사용
       if (KEYWORDS[intent]) {
         KEYWORDS[intent] = [...new Set([...KEYWORDS[intent], ...keywords])];
       } else {
         KEYWORDS[intent] = [...new Set(keywords)];
-        intentWeightMatrix[intent] = utils.averageVectors(binaryKeywords);
+        intentWeightMatrix[intent] = binaryKeywords.reduce((acc, vec) => acc.map((v, i) => v + vec[i])).map(v => v / binaryKeywords.length);
       }
     });
 
@@ -101,12 +101,12 @@ async function fetchAndUpdateKeywords() {
 
 /***** Self-Attention 구현 *****/
 function selfAttention(embeddings) {
-  const query = utils.quantizeVector(embeddings);
-  const key = utils.quantizeVector(embeddings);
+  const query = embeddings.map(v => Math.round(v));
+  const key = embeddings.map(v => Math.round(v));
   const value = embeddings;
-  const scores = utils.dotProduct(query, key) / Math.sqrt(embeddings.length);
-  const attentionWeights = utils.softmaxArray([scores]);
-  return utils.weightedSum(value, attentionWeights);
+  const scores = query.reduce((sum, q, i) => sum + q * key[i], 0) / Math.sqrt(embeddings.length);
+  const attentionWeights = [Math.exp(scores) / (Math.exp(scores) + 1)];
+  return value.map((v, i) => v * attentionWeights[0]);
 }
 
 /***** 다중 모달 입력 - 위치 정보 감지 *****/
@@ -138,20 +138,19 @@ function updateIntentWeights(inputEmbedding, predictedIntent, userFeedback) {
 
   for (let intent in intentWeightMatrix) {
     const grad = intent === predictedIntent ? reward : -reward / (Object.keys(intentWeightMatrix).length - 1);
-    intentWeightMatrix[intent] = utils.vectorAdd(
-      intentWeightMatrix[intent],
-      utils.vectorMultiply(inputEmbedding, adaptiveLearningRate * grad)
+    intentWeightMatrix[intent] = intentWeightMatrix[intent].map(
+      (w, i) => w + inputEmbedding[i] * adaptiveLearningRate * grad
     );
-    intentWeightMatrix[intent] = utils.quantizeVector(intentWeightMatrix[intent]);
+    intentWeightMatrix[intent] = intentWeightMatrix[intent].map(v => Math.round(v));
   }
 }
 
 /***** Embedding + Intent Vector 업데이트 *****/
 async function updateEmbeddingsAndIntents() {
   for (let intent in KEYWORDS) {
-    const keywordEmbeddings = await Promise.all(KEYWORDS[intent].map(keyword => intentProcessor.getEmbedding(keyword)));
-    const avgEmbedding = utils.averageVectors(keywordEmbeddings);
-    intentWeightMatrix[intent] = utils.quantizeVector(utils.normalizeVector(avgEmbedding));
+    const keywordEmbeddings = await Promise.all(KEYWORDS[intent].map(keyword => getEmbedding(keyword)));
+    const avgEmbedding = keywordEmbeddings.reduce((acc, vec) => acc.map((v, i) => v + vec[i])).map(v => v / keywordEmbeddings.length);
+    intentWeightMatrix[intent] = avgEmbedding.map(v => v / Math.sqrt(avgEmbedding.reduce((sum, v) => sum + v * v, 0)));
   }
 }
 
@@ -174,8 +173,8 @@ const memoryStorage = {
 async function updateConversationHistory(input, response, embedding) {
   try {
     let history = memoryStorage.load("conversationHistory") || [];
-    const binaryResponse = utils.textToBinaryVector(response);
-    history.push({ timestamp: Date.now(), input, response, embedding: utils.quantizeVector(embedding), binaryResponse });
+    const binaryResponse = processText(response); // utils.js에서 가져온 함수 사용
+    history.push({ timestamp: Date.now(), input, response, embedding: embedding.map(v => Math.round(v)), binaryResponse });
     historyEmbeddings = [embedding];
     memoryStorage.save("conversationHistory", history.slice(-50));
     await saveToMongoDB({ input, response, embedding: binaryResponse });
@@ -200,8 +199,8 @@ async function saveToMongoDB(data) {
 
 /***** 의도 인식 및 처리 *****/
 async function detectIntent(input, processedData) {
-  const { intent, probabilities, embedding } = await intentProcessor.softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
-  gruHiddenState = intentProcessor.updateGRUState(embedding, gruHiddenState);
+  const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
+  gruHiddenState = updateGRUState(embedding, gruHiddenState);
 
   for (let concept in knowledgeGraph) {
     if (input.includes(concept)) {
@@ -374,7 +373,7 @@ async function updateWeatherAndEffects(currentCity, sendMessage = true) {
   if (sendMessage) {
     showSpeechBubbleInChunks(weatherData.message);
   }
-  three.updateWeatherEffects(weatherData.currentWeather); // three.js에서 정의된 함수 호출
+  updateWeatherEffects(weatherData.currentWeather); // three.js에서 정의된 함수 호출
   return weatherData.currentWeather;
 }
 
@@ -455,7 +454,7 @@ async function sendMessage() {
   let isHTML = false;
   let shouldNavigate = false;
   let navigateUrl = "";
-  const processedInput = await utils.processText(input);
+  const processedInput = await processText(input);
   const lowerInput = processedInput.toLowerCase();
   let currentCity = "서울";
   let lastTopic = memoryStorage.load("lastTopic") || "";
@@ -471,7 +470,7 @@ async function sendMessage() {
 
   if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
-    response = dateMatch ? calendar.getCalendarEvents(dateMatch[0]) : calendar.getCalendarEvents();
+    response = dateMatch ? getCalendarEvents(dateMatch[0]) : getCalendarEvents();
   } else if (isNewsQuery(input)) {
     response = await pipelineNewsSearch(input);
   } else {
@@ -505,7 +504,7 @@ async function sendMessage() {
     }
 
     if (!response) {
-      const { intent, probabilities, embedding } = await intentProcessor.softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
+      const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
       if (intent && (probabilities[intent] > 0.5 || intent !== 'unknown')) {
         if (intent === "greetings") {
           response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
@@ -515,7 +514,7 @@ async function sendMessage() {
           const weatherData = await getWeather(currentCity);
           response = weatherData.message;
         } else if (intent === "calendar") {
-          response = calendar.getCalendarEvents();
+          response = getCalendarEvents();
         } else if (intent === "time") {
           const now = new Date();
           response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
@@ -523,7 +522,7 @@ async function sendMessage() {
           const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
           if (dayStr) {
             const dayNum = parseInt(dayStr);
-            response = calendar.deleteCalendarEvent(dayNum);
+            response = deleteCalendarEvent(dayNum);
           } else {
             response = "삭제할 날짜를 입력하지 않으셨습니다.";
           }
@@ -566,7 +565,7 @@ async function sendMessage() {
   }
 
   showSpeechBubbleInChunks(response, isHTML);
-  const embedding = await intentProcessor.getEmbedding(input);
+  const embedding = await getEmbedding(input);
   await updateConversationHistory(input, response, embedding);
 
   if (shouldNavigate) {
@@ -667,7 +666,8 @@ window.addEventListener("DOMContentLoaded", async function() {
 
 window.addEventListener("load", async () => {
   try {
-    calendar.initCalendar();  // calendar.js에서 초기화
+    startThreeJS(); // three.js에서 초기화
+    initCalendar(); // calendar.js에서 초기화
     updateMap("서울");
     await updateWeatherAndEffects("서울");
   } catch (err) {
