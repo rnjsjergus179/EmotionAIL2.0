@@ -1,13 +1,12 @@
 // main.js
 
-// 1. 모든 import 문을 파일 최상단에 위치
-import { processText } from './utils.js';
-import { getEmbedding, softmaxIntentClassifier, updateGRUState } from './intentProcessor.js';
-import { initCalendar, getCalendarEvents, deleteCalendarEvent } from './calendar.js';
-import { startThreeJS, updateWeatherEffects } from './three.js';
+// TensorFlow.js가 HTML에 포함되어 있는지 확인하세요.
+// <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 
-// 2. 글로벌 상수 선언
-const API_BASE_URL = 'https://emotionail2-0.onrender.com';
+// Note: 백엔드는 MongoDB URI를 사용하여 데이터베이스 연결을 처리합니다.
+// 모든 데이터베이스 작업은 백엔드 API 호출을 통해 수행됩니다.
+
+/***** 사이트 링크 및 키워드 설정 *****/
 const SITE_LINKS = {
   "빙": "https://www.bing.com",
   "네이버": "https://www.naver.com",
@@ -39,6 +38,7 @@ Object.keys(KEYWORDS).forEach(intent => {
   intentWeightMatrix[intent] = Array(300).fill(0.01); // 임베딩 차원 300
 });
 
+const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 let gruHiddenState = Array(300).fill(0);
 let historyEmbeddings = [];
 let adaptiveLearningRate = 0.01;
@@ -52,67 +52,79 @@ const knowledgeGraph = {
 
 const apiCache = {};
 
-// 3. logToServer 함수 정의
-async function logToServer(message) {
-  try {
-    await fetch(`${API_BASE_URL}/api/log`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message })
-    });
-  } catch (error) {
-    console.error("서버 로깅 실패:", error.message);
-  }
+/***** 유틸리티 함수 *****/
+function fullyConnected(input, weights) {
+  return weights.map(row => dotProduct(input, row));
 }
 
-// 4. 모듈 로드 완료 시 로깅 (IIFE 사용)
-(async () => {
-  await logToServer('😴 모듈 로드 완료');
-})();
+function relu(vector) {
+  return vector.map(val => Math.max(0, val));
+}
 
-// Note: 백엔드는 MongoDB URI를 사용하여 데이터베이스 연결을 처리합니다.
-// 모든 데이터베이스 작업은 백엔드 API 호출을 통해 수행됩니다.
+function softmax(logits) {
+  const maxLogit = Math.max(...logits);
+  const exps = logits.map(l => Math.exp(l - maxLogit));
+  const sumExps = exps.reduce((a, b) => a + b, 0);
+  return exps.map(e => e / sumExps);
+}
 
-/***** 전역 변수 및 초기 설정 *****/
-document.addEventListener("contextmenu", event => event.preventDefault());
+function dotProduct(a, b) {
+  return a.reduce((sum, val, i) => sum + val * b[i], 0);
+}
 
-async function fetchAndUpdateKeywords() {
-  try {
-    await logToServer("MongoDB 데이터 가져오기 시작");
-    const response = await fetch(`${API_BASE_URL}/api/processed-data?limit=1000`);
-    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
-    const data = await response.json();
-    if (!Array.isArray(data)) throw new Error("응답 데이터가 배열이 아님");
+function weightedSum(values, weights) {
+  return values.map((val, i) => val * weights[i]).reduce((a, b) => a + b, 0);
+}
 
-    data.forEach(item => {
-      const intent = item.intent;
-      const keywords = item.keywords.map(kw => kw.trim().toLowerCase()).slice(0, 50);
-      const binaryKeywords = keywords.map(kw => processText(kw)); // utils.js에서 가져온 함수 사용
-      if (KEYWORDS[intent]) {
-        KEYWORDS[intent] = [...new Set([...KEYWORDS[intent], ...keywords])];
-      } else {
-        KEYWORDS[intent] = [...new Set(keywords)];
-        intentWeightMatrix[intent] = binaryKeywords.reduce((acc, vec) => acc.map((v, i) => v + vec[i])).map(v => v / binaryKeywords.length);
-      }
-    });
+function averageVectors(vectors) {
+  if (vectors.length === 0) return Array(300).fill(0);
+  const sum = vectors.reduce((acc, vec) => acc.map((val, i) => val + vec[i]), Array(vectors[0].length).fill(0));
+  return sum.map(val => val / vectors.length);
+}
 
-    await logToServer("의도인식 그룹객체에 업데이트 완료");
-    return Object.values(KEYWORDS).flat().join(" ");
-  } catch (error) {
-    await logToServer(`MongoDB API 호출 실패: ${error.message}`);
-    console.error("MongoDB 데이터 가져오기 실패:", error);
-    return "";
+function softmaxArray(arr) {
+  const maxVal = Math.max(...arr);
+  const exps = arr.map(val => Math.exp(val - maxVal));
+  const sumExps = exps.reduce((a, b) => a + b, 0);
+  return exps.map(e => e / sumExps);
+}
+
+/***** Jaccard Similarity 함수 *****/
+function jaccardSimilarity(str1, str2) {
+  const set1 = new Set(str1);
+  const set2 = new Set(str2);
+  const intersection = new Set([...set1].filter(x => set2.has(x)));
+  const union = new Set([...set1, ...set2]);
+  return intersection.size / union.size;
+}
+
+/***** 다층 신경망 (MLP) 구현 *****/
+function buildMLP(inputVector, layers = [128, 64, 32, Object.keys(intentWeightMatrix).length]) {
+  let x = inputVector;
+  for (let i = 0; i < layers.length - 1; i++) {
+    const weights = Array(layers[i]).fill().map(() => Array(x.length).fill(0.01));
+    x = fullyConnected(x, weights);
+    x = relu(x);
   }
+  const outputWeights = Array(layers[layers.length - 1]).fill().map(() => Array(x.length).fill(0.01));
+  x = fullyConnected(x, outputWeights);
+  return softmax(x);
 }
 
 /***** Self-Attention 구현 *****/
 function selfAttention(embeddings) {
-  const query = embeddings.map(v => Math.round(v));
-  const key = embeddings.map(v => Math.round(v));
+  const query = embeddings;
+  const key = embeddings;
   const value = embeddings;
-  const scores = query.reduce((sum, q, i) => sum + q * key[i], 0) / Math.sqrt(embeddings.length);
-  const attentionWeights = [Math.exp(scores) / (Math.exp(scores) + 1)];
-  return value.map((v, i) => v * attentionWeights[0]);
+  const scores = dotProduct(query, key) / Math.sqrt(embeddings.length);
+  const attentionWeights = softmaxArray([scores]);
+  return weightedSum(value, attentionWeights);
+}
+
+/***** Sequence Memory 구현 *****/
+function getSequenceEmbedding(historyEmbeddings, currentEmbedding) {
+  const all = historyEmbeddings.concat([currentEmbedding]);
+  return averageVectors(all);
 }
 
 /***** 다중 모달 입력 - 위치 정보 감지 *****/
@@ -138,25 +150,229 @@ function adjustLearningRate(feedbackQuality) {
   }
 }
 
+/***** 전역 변수 및 초기 설정 *****/
+document.addEventListener("contextmenu", event => event.preventDefault());
+
+async function logToServer(message) {
+  try {
+    await fetch(`${API_BASE_URL}/api/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message })
+    });
+  } catch (error) {
+    console.error("서버 로깅 실패:", error.message);
+  }
+}
+
+async function fetchAndUpdateKeywords() {
+  try {
+    await logToServer("MongoDB 데이터 가져오기 시작");
+    const response = await fetch(`${API_BASE_URL}/api/processed-data?limit=1000`);
+    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
+    const data = await response.json();
+    if (!Array.isArray(data)) throw new Error("응답 데이터가 배열이 아님");
+
+    data.forEach(item => {
+      const intent = item.intent;
+      const keywords = item.keywords.map(kw => kw.trim().toLowerCase()).slice(0, 50);
+      if (KEYWORDS[intent]) {
+        KEYWORDS[intent] = [...new Set([...KEYWORDS[intent], ...keywords])];
+      } else {
+        KEYWORDS[intent] = [...new Set(keywords)];
+        intentWeightMatrix[intent] = Array(300).fill(0.01);
+      }
+    });
+
+    await logToServer("의도인식 그룹객체에 업데이트 완료");
+    return Object.values(KEYWORDS).flat().join(" ");
+  } catch (error) {
+    await logToServer(`MongoDB API 호출 실패: ${error.message}`);
+    console.error("MongoDB 데이터 가져오기 실패:", error);
+    return "";
+  }
+}
+
+async function processText(text) {
+  if (!text || typeof text !== 'string') return "";
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/morph`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    const { analyzed } = await response.json();
+    return analyzed ? analyzed.join(' ') : text;
+  } catch (error) {
+    console.error("형태소 분석 실패:", error);
+    return text;
+  }
+}
+
+async function getEmbedding(text) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/embed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    const { embedding } = await response.json();
+    return embedding || Array(300).fill(0);
+  } catch (error) {
+    console.error("임베딩 API 호출 실패:", error);
+    return Array(300).fill(0);
+  }
+}
+
+function vectorAdd(a, b) {
+  return a.map((val, i) => val + b[i]);
+}
+
+function vectorSubtract(a, b) {
+  return a.map((val, i) => val - b[i]);
+}
+
+function vectorMultiply(a, scalar) {
+  return a.map(val => val * scalar);
+}
+
+function sigmoid(x) {
+  return 1 / (1 + Math.exp(-x));
+}
+
+/***** 미니 GRU 기억 구조 *****/
+function updateGRUState(inputEmbedding, prevHidden) {
+  const Wz = Array(300).fill(0.01);
+  const Wr = Array(300).fill(0.01);
+  const Wh = Array(300).fill(0.01);
+
+  const z = sigmoid(dotProduct(Wz, inputEmbedding) + dotProduct(Wz, prevHidden));
+  const r = sigmoid(dotProduct(Wr, inputEmbedding) + dotProduct(Wr, prevHidden));
+  const hTilde = vectorMultiply(prevHidden, r);
+  const newHidden = vectorAdd(vectorMultiply(prevHidden, 1 - z), vectorMultiply(hTilde, z));
+  
+  return newHidden;
+}
+
+/***** Softmax 의도 분류기 (Jaccard + TensorFlow.js) *****/
+let intentModel;
+
+async function loadIntentModel() {
+  try {
+    intentModel = await tf.loadLayersModel('https://emotionail2-0.onrender.com/model.json');
+    console.log("사전 학습된 의도 모델이 성공적으로 로드되었습니다.");
+  } catch (error) {
+    console.error("의도 모델 로드 실패:", error);
+  }
+}
+
+async function softmaxIntentClassifier(inputText, historyEmbeddings) {
+  let maxJaccard = 0;
+  let bestIntent = null;
+
+  for (const intent in KEYWORDS) {
+    const keywords = KEYWORDS[intent];
+    let intentMaxJaccard = 0;
+    for (const keyword of keywords) {
+      const sim = jaccardSimilarity(inputText, keyword);
+      if (sim > intentMaxJaccard) intentMaxJaccard = sim;
+    }
+    if (intentMaxJaccard > maxJaccard) {
+      maxJaccard = intentMaxJaccard;
+      bestIntent = intent;
+    }
+  }
+
+  if (maxJaccard >= 0.3) {
+    const probabilities = {};
+    for (const intent in KEYWORDS) {
+      probabilities[intent] = intent === bestIntent ? 1 : 0;
+    }
+    const embedding = await getEmbedding(inputText);
+    return { intent: bestIntent, probabilities, embedding };
+  } else {
+    const inputEmbedding = await getEmbedding(inputText);
+    if (intentModel) {
+      const inputTensor = tf.tensor([inputEmbedding]);
+      const prediction = intentModel.predict(inputTensor);
+      const probabilitiesArray = prediction.dataSync();
+      const intents = Object.keys(KEYWORDS);
+      const probabilities = {};
+      let maxProb = 0;
+      let detectedIntent = null;
+
+      probabilitiesArray.forEach((prob, index) => {
+        probabilities[intents[index]] = prob;
+        if (prob > maxProb) {
+          maxProb = prob;
+          detectedIntent = intents[index];
+        }
+      });
+
+      if (maxProb >= 0.5) {
+        return { intent: detectedIntent, probabilities, embedding: inputEmbedding };
+      } else {
+        return { intent: 'unknown', probabilities, embedding: inputEmbedding };
+      }
+    } else {
+      console.warn("의도 모델이 로드되지 않았습니다. 대체 로직을 사용합니다.");
+      const sequenceEmbedding = getSequenceEmbedding(historyEmbeddings, inputEmbedding);
+      const attendedEmbedding = selfAttention(sequenceEmbedding);
+      
+      let logits = {};
+      let expSum = 0;
+
+      for (let intent in intentWeightMatrix) {
+        logits[intent] = dotProduct(attendedEmbedding, intentWeightMatrix[intent]);
+        expSum += Math.exp(logits[intent]);
+      }
+
+      let probabilities = {};
+      for (let intent in logits) {
+        probabilities[intent] = Math.exp(logits[intent]) / expSum;
+      }
+
+      let maxProb = 0;
+      let detectedIntent = null;
+      for (let intent in probabilities) {
+        if (probabilities[intent] > maxProb) {
+          maxProb = probabilities[intent];
+          detectedIntent = intent;
+        }
+      }
+
+      if (maxProb >= 0.5) {
+        return { intent: detectedIntent, probabilities, embedding: attendedEmbedding };
+      } else {
+        return { intent: 'unknown', probabilities, embedding: attendedEmbedding };
+      }
+    }
+  }
+}
+
 /***** Self-Training 강화학습 *****/
 function updateIntentWeights(inputEmbedding, predictedIntent, userFeedback) {
   const reward = userFeedback === "positive" ? 1 : userFeedback === "negative" ? -1 : 0;
 
   for (let intent in intentWeightMatrix) {
     const grad = intent === predictedIntent ? reward : -reward / (Object.keys(intentWeightMatrix).length - 1);
-    intentWeightMatrix[intent] = intentWeightMatrix[intent].map(
-      (w, i) => w + inputEmbedding[i] * adaptiveLearningRate * grad
+    intentWeightMatrix[intent] = vectorAdd(
+      intentWeightMatrix[intent],
+      vectorMultiply(inputEmbedding, adaptiveLearningRate * grad)
     );
-    intentWeightMatrix[intent] = intentWeightMatrix[intent].map(v => Math.round(v));
   }
 }
 
 /***** Embedding + Intent Vector 업데이트 *****/
 async function updateEmbeddingsAndIntents() {
+  const processedData = await fetchAndUpdateKeywords();
   for (let intent in KEYWORDS) {
-    const keywordEmbeddings = await Promise.all(KEYWORDS[intent].map(keyword => getEmbedding(keyword)));
-    const avgEmbedding = keywordEmbeddings.reduce((acc, vec) => acc.map((v, i) => v + vec[i])).map(v => v / keywordEmbeddings.length);
-    intentWeightMatrix[intent] = avgEmbedding.map(v => v / Math.sqrt(avgEmbedding.reduce((sum, v) => sum + v * v, 0)));
+    const keywordsText = KEYWORDS[intent].join(" ");
+    const newEmbedding = await getEmbedding(keywordsText);
+    intentWeightMatrix[intent] = vectorAdd(
+      intentWeightMatrix[intent],
+      vectorMultiply(newEmbedding, 0.1)
+    );
   }
 }
 
@@ -176,36 +392,20 @@ const memoryStorage = {
   }
 };
 
-async function updateConversationHistory(input, response, embedding) {
+function updateConversationHistory(input, response, embedding) {
   try {
     let history = memoryStorage.load("conversationHistory") || [];
-    const binaryResponse = processText(response); // utils.js에서 가져온 함수 사용
-    history.push({ timestamp: Date.now(), input, response, embedding: embedding.map(v => Math.round(v)), binaryResponse });
+    history.push({ timestamp: Date.now(), input, response, embedding });
     historyEmbeddings = [embedding];
     memoryStorage.save("conversationHistory", history.slice(-50));
-    await saveToMongoDB({ input, response, embedding: binaryResponse });
   } catch (e) {
     console.error("대화 이력 저장 오류:", e);
   }
 }
 
-async function saveToMongoDB(data) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/save-to-db`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'conversation', query: data.input, results: data })
-    });
-    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
-    await logToServer("대화 데이터가 MongoDB에 저장되었습니다.");
-  } catch (error) {
-    await logToServer(`MongoDB 저장 오류: ${error.message}`);
-  }
-}
-
 /***** 의도 인식 및 처리 *****/
 async function detectIntent(input, processedData) {
-  const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
+  const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings);
   gruHiddenState = updateGRUState(embedding, gruHiddenState);
 
   for (let concept in knowledgeGraph) {
@@ -228,7 +428,24 @@ async function detectIntent(input, processedData) {
     }
   }
 
-  return probabilities[detectedIntent] > 0.5 || detectedIntent !== 'unknown' ? detectedIntent : null;
+  if (probabilities[detectedIntent] > 0.5 || detectedIntent !== 'unknown') {
+    return detectedIntent;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/intent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: input, processedData })
+    });
+    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
+    const data = await response.json();
+    await logToServer("의도 인식 API 호출 성공");
+    return data.intent || null;
+  } catch (error) {
+    await logToServer(`의도 인식 API 호출 실패: ${error.message}`);
+    return null;
+  }
 }
 
 function isNewsQuery(input) {
@@ -255,6 +472,54 @@ function speakText(text) {
     window.speechSynthesis.speak(utterance);
   } catch (error) {
     console.error("음성 출력 오류:", error);
+  }
+}
+
+/***** 캘린더 관련 함수 *****/
+let currentYear, currentMonth;
+function deleteCalendarEvent(day) {
+  if (typeof currentYear === 'undefined' || typeof currentMonth === 'undefined') {
+    const now = new Date();
+    currentYear = now.getFullYear();
+    currentMonth = now.getMonth();
+  }
+  const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth + 1}-${day}`);
+  if (eventDiv) {
+    eventDiv.textContent = "";
+    let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+    delete calendarData[`${currentYear}-${currentMonth + 1}-${day}`];
+    localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+    return `${currentYear}-${currentMonth + 1}-${day} 일정이 삭제되었습니다.`;
+  } else {
+    return "해당 날짜에 일정이 없습니다.";
+  }
+}
+
+function getCalendarEvents(dateStr = null) {
+  const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+  if (!Object.keys(calendarData).length) {
+    return "저장된 일정이 없습니다. 먼저 날짜 셀을 클릭하여 일정을 입력해주세요.";
+  }
+  if (dateStr) {
+    if (calendarData[dateStr]) {
+      return `${dateStr}의 일정: ${calendarData[dateStr]}`;
+    } else {
+      return `${dateStr}에는 일정이 없습니다.`;
+    }
+  } else {
+    if (typeof currentYear === 'undefined' || typeof currentMonth === 'undefined') {
+      const now = new Date();
+      currentYear = now.getFullYear();
+      currentMonth = now.getMonth();
+    }
+    const currentMonthStr = `${currentYear}-${currentMonth + 1}`;
+    let events = [];
+    for (let key in calendarData) {
+      if (key.startsWith(currentMonthStr)) {
+        events.push(`${key}: ${calendarData[key]}`);
+      }
+    }
+    return events.length ? `현재 월(${currentMonthStr})의 일정:\n${events.join("\n")}` : `현재 월(${currentMonthStr})에는 일정이 없습니다.`;
   }
 }
 
@@ -379,7 +644,7 @@ async function updateWeatherAndEffects(currentCity, sendMessage = true) {
   if (sendMessage) {
     showSpeechBubbleInChunks(weatherData.message);
   }
-  updateWeatherEffects(weatherData.currentWeather); // three.js에서 정의된 함수 호출
+  updateWeatherEffects(weatherData.currentWeather); // three.js 파일에서 정의된 함수 호출
   return weatherData.currentWeather;
 }
 
@@ -418,7 +683,7 @@ function startSpeechRecognition() {
       const chatInput = document.getElementById("chat-input");
       if (chatInput) {
         chatInput.value = transcript;
-        sendMessage(); // 음성 입력 후 전송
+        sendChat();
       } else {
         console.error("채팅 입력 요소를 찾을 수 없습니다.");
       }
@@ -440,7 +705,7 @@ function updateContext(intent) {
 let lastChatTime = 0;
 const chatCooldown = 1000;
 
-async function sendMessage() {
+async function sendChat() {
   const now = Date.now();
   if (now - lastChatTime < chatCooldown) {
     console.log("채팅이 쿨다운 상태입니다.");
@@ -472,7 +737,7 @@ async function sendMessage() {
     "포항": "Pohang", "여수": "Yeosu", "김해": "Gimhae"
   };
   const regionList = Object.keys(regionMap);
-  await fetchAndUpdateKeywords();
+  const processedData = await fetchAndUpdateKeywords();
 
   if (lowerInput.includes("일정 알려") || lowerInput.includes("일정 뭐") || lowerInput.includes("일정 보여")) {
     const dateMatch = input.match(/\d{4}-\d{1,2}-\d{1,2}/);
@@ -510,7 +775,7 @@ async function sendMessage() {
     }
 
     if (!response) {
-      const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
+      const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings);
       if (intent && (probabilities[intent] > 0.5 || intent !== 'unknown')) {
         if (intent === "greetings") {
           response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
@@ -565,14 +830,14 @@ async function sendMessage() {
         updateMap(currentCity);
         await updateWeatherAndEffects(currentCity);
       } else {
-        response = "잘 이해하지 못했어요.";
+        response = `잘 이해하지 못했어요. 의도 확률: ${JSON.stringify(probabilities)}`;
       }
     }
   }
 
   showSpeechBubbleInChunks(response, isHTML);
   const embedding = await getEmbedding(input);
-  await updateConversationHistory(input, response, embedding);
+  updateConversationHistory(input, response, embedding);
 
   if (shouldNavigate) {
     setTimeout(() => { window.location.href = navigateUrl; }, 2000);
@@ -584,7 +849,7 @@ async function sendMessage() {
 }
 
 /***** 말풍선 출력 *****/
-function showSpeechBubbleInChunks(text, isHTML = false, chunkSize = 15) {
+function showSpeechBubbleInChunks(text, isHTML = false, chunkSize = 15, delay = 500) {
   const bubble = document.getElementById("speech-bubble");
   if (!bubble) {
     console.error("말풍선 요소를 찾을 수 없습니다.");
@@ -626,7 +891,7 @@ window.addEventListener("DOMContentLoaded", async function() {
   if (chatInput) {
     chatInput.setAttribute("list", "Charge");
     chatInput.addEventListener("keydown", function(e) {
-      if (e.key === "Enter") sendMessage(); // Enter 키로 전송
+      if (e.key === "Enter") sendChat();
     });
   } else {
     console.error("DOMContentLoaded에서 채팅 입력 요소를 찾을 수 없습니다.");
@@ -670,11 +935,133 @@ window.addEventListener("DOMContentLoaded", async function() {
   }
 });
 
-// 5. 페이지 로드 시 로깅 및 초기화
 window.addEventListener("load", async () => {
-  await logToServer('👍 페이지 로드 완료, 앱 시작');
-  startThreeJS(); // three.js에서 초기화
-  initCalendar(); // calendar.js에서 초기화
-  updateMap("서울");
-  await updateWeatherAndEffects("서울");
+  await loadIntentModel();
+  try {
+    initCalendar();
+    updateMap("서울");
+    await updateWeatherAndEffects("서울");
+  } catch (err) {
+    console.error("로드 이벤트 오류:", err);
+  }
 });
+
+/***** 캘린더 렌더링 *****/
+function initCalendar() {
+  const now = new Date();
+  currentYear = now.getFullYear();
+  currentMonth = now.getMonth();
+  populateYearSelect();
+  renderCalendar(currentYear, currentMonth);
+
+  const prevMonth = document.getElementById("prev-month");
+  const nextMonth = document.getElementById("next-month");
+  const yearSelect = document.getElementById("year-select");
+  const deleteDayEvent = document.getElementById("delete-day-event");
+
+  if (prevMonth) {
+    prevMonth.addEventListener("click", () => {
+      currentMonth--;
+      if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+      renderCalendar(currentYear, currentMonth);
+    });
+  }
+  if (nextMonth) {
+    nextMonth.addEventListener("click", () => {
+      currentMonth++;
+      if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+      renderCalendar(currentYear, currentMonth);
+    });
+  }
+  if (yearSelect) {
+    yearSelect.addEventListener("change", (e) => {
+      currentYear = parseInt(e.target.value);
+      renderCalendar(currentYear, currentMonth);
+    });
+  }
+  if (deleteDayEvent) {
+    deleteDayEvent.addEventListener("click", () => {
+      const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
+      if (dayStr) {
+        const dayNum = parseInt(dayStr);
+        const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth + 1}-${dayNum}`);
+        if (eventDiv) {
+          eventDiv.textContent = "";
+          const message = `${currentYear}-${currentMonth + 1}-${dayNum} 일정이 삭제되었습니다.`;
+          showSpeechBubbleInChunks(message);
+          let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+          delete calendarData[`${currentYear}-${currentMonth + 1}-${dayNum}`];
+          localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+        }
+      }
+    });
+  }
+}
+
+function populateYearSelect() {
+  const yearSelect = document.getElementById("year-select");
+  if (!yearSelect) return;
+  yearSelect.innerHTML = "";
+  for (let y = 2020; y <= 2070; y++) {
+    const option = document.createElement("option");
+    option.value = y;
+    option.textContent = y;
+    if (y === currentYear) option.selected = true;
+    yearSelect.appendChild(option);
+  }
+}
+
+function renderCalendar(year, month) {
+  const monthNames = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
+  const monthYearLabel = document.getElementById("month-year-label");
+  if (monthYearLabel) monthYearLabel.textContent = `${year}년 ${monthNames[month]}`;
+
+  const grid = document.getElementById("calendar-grid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  const daysOfWeek = ["일", "월", "화", "수", "목", "금", "토"];
+  daysOfWeek.forEach(day => {
+    const th = document.createElement("div");
+    th.style.fontWeight = "bold";
+    th.style.textAlign = "center";
+    th.textContent = day;
+    th.style.color = "#00ffcc";
+    th.style.textShadow = "0 0 3px #00ffcc";
+    grid.appendChild(th);
+  });
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let i = 0; i < firstDay; i++) {
+    grid.appendChild(document.createElement("div"));
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const cell = document.createElement("div");
+    cell.innerHTML = `
+      <div class="day-number">${d}</div>
+      <div class="event" id="event-${year}-${month + 1}-${d}"></div>
+    `;
+    cell.addEventListener("click", () => {
+      const eventText = prompt(`${year}-${month + 1}-${d} 일정 입력:`);
+      if (eventText) {
+        const eventDiv = document.getElementById(`event-${year}-${month + 1}-${d}`);
+        if (eventDiv) {
+          if (eventDiv.textContent) {
+            eventDiv.textContent += "; " + eventText;
+          } else {
+            eventDiv.textContent = eventText;
+          }
+          showSpeechBubbleInChunks(`${year}-${month + 1}-${d}에 ${eventText} 일정이 추가되었습니다.`);
+          let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+          calendarData[`${year}-${month + 1}-${d}`] = eventDiv.textContent;
+          localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+        }
+      }
+    });
+    let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+    const dateKey = `${year}-${month + 1}-${d}`;
+    if (calendarData[dateKey]) {
+      cell.querySelector(`#event-${year}-${month + 1}-${d}`).textContent = calendarData[dateKey];
+    }
+    grid.appendChild(cell);
+  }
+}
