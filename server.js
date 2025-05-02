@@ -1,34 +1,60 @@
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
-const {
-  connectDB,
-  saveSearchData,
-  getAllSearchData
-} = require('./db.js'); // MongoDB 연결 및 함수 가져오기
+const mongoose = require('mongoose');
 
-// 라우트 가져오기
-
+// 외부 라우트 가져오기 (별도 파일로 존재한다고 가정)
 const weatherRoute = require('./weather');
 
+// MongoDB 스키마 정의
+const SearchLogSchema = new mongoose.Schema({
+  source: {
+    type: String,
+    enum: ['naver', 'youtube', 'training', 'client-log'], // 가능한 소스 값
+    required: true
+  },
+  query: String, // 검색어 또는 로그 식별자
+  results: mongoose.Schema.Types.Mixed // 다양한 형식의 결과 저장
+});
+
+// MongoDB 모델 생성
+const SearchLog = mongoose.model('SearchLog', SearchLogSchema);
+
+// MongoDB 연결 및 데이터 처리 함수 정의
+const connectDB = async () => {
+  await mongoose.connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+  });
+};
+
+const saveSearchData = async (source, query, results) => {
+  const log = new SearchLog({ source, query, results });
+  await log.save();
+};
+
+const getAllSearchData = async (limit = 100) => {
+  return await SearchLog.find().limit(limit);
+};
+
+// Express 앱 설정
 const app = express();
 const port = process.env.PORT || 3000;
 
-// CORS 및 JSON 파싱 설정
+// 미들웨어 설정
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN || '*'
+  origin: process.env.CLIENT_ORIGIN || '*' // 클라이언트 출처 설정
 }));
-app.use(express.json());
+app.use(express.json()); // JSON 요청 파싱
 
-// MongoDB 연결 후 라우팅 및 서버 시작
+// MongoDB 연결 후 서버 설정
 connectDB()
   .then(() => {
     console.log('✅ MongoDB 연결 완료');
 
-    // 1) 네이버 검색 API
+    // **1. 네이버 검색 API**
     app.get('/api/naver-search', async (req, res) => {
       const query = req.query.q;
       if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
@@ -54,7 +80,7 @@ connectDB()
       }
     });
 
-    // 2) YouTube 검색 API
+    // **2. YouTube 검색 API**
     app.get('/api/youtube-search', async (req, res) => {
       const query = req.query.q;
       if (!query) return res.status(400).json({ error: '검색어가 필요합니다.' });
@@ -87,7 +113,7 @@ connectDB()
       }
     });
 
-    // 3) MongoDB에 저장된 검색 기록 불러오기
+    // **3. MongoDB에 저장된 검색 기록 불러오기**
     app.get('/api/getData', async (req, res) => {
       try {
         console.log('[Render] MongoDB 데이터 불러오기 호출 전');
@@ -101,13 +127,13 @@ connectDB()
       }
     });
 
-    // 4) 클라이언트 로그 저장
+    // **4. 클라이언트 로그 저장**
     app.post('/api/log', async (req, res) => {
       const logData = req.body;
       if (!logData) return res.status(400).json({ error: '로그 데이터가 필요합니다.' });
       try {
         console.log('[Render] 클라이언트 로그 저장 호출 전');
-        await saveSearchData('log', 'client-log', logData);
+        await saveSearchData('client-log', 'client-log', logData); // 'log' 대신 'client-log' 사용
         console.log('[Render] 클라이언트 로그 저장 호출 후');
         res.json({ message: '로그 데이터 저장 완료' });
       } catch (err) {
@@ -116,7 +142,7 @@ connectDB()
       }
     });
 
-    // 5) 학습용 데이터 저장
+    // **5. 학습용 데이터 저장**
     app.post('/api/save-to-db', async (req, res) => {
       const trainingData = req.body;
       if (!trainingData) return res.status(400).json({ error: '학습 데이터가 필요합니다.' });
@@ -131,16 +157,16 @@ connectDB()
       }
     });
 
-    // 6) 가공된 학습 데이터 반환
+    // **6. 가공된 학습 데이터 반환**
     app.get('/api/processed-data', async (req, res) => {
       const limit = parseInt(req.query.limit) || 100;
       try {
         console.log('[Render] 가공 데이터 불러오기 호출 전');
         const allData = await getAllSearchData(limit);
         console.log('[Render] 가공 데이터 불러오기 호출 후');
-        const trainingData = allData.filter(item => item.type === 'training');
+        const trainingData = allData.filter(item => item.source === 'training'); // 'type' 대신 'source' 사용
         const processedData = trainingData.map(item => ({
-          intent: item.intent || 'unknown',
+          intent: item.results.intent || 'unknown', // results에서 intent 추출 (스키마 수정 필요 시 주의)
           keywords: item.query ? item.query.split(' ') : []
         }));
         res.json({ message: `가공된 학습 데이터 ${processedData.length}개 반환`, data: processedData });
@@ -150,19 +176,19 @@ connectDB()
       }
     });
 
-    // 7) 기존 모듈 라우트 설정
+    // **7. 기존 모듈 라우트 설정**
     
     app.use('/api', weatherRoute);
 
-    // 8) 정적 파일 서빙
+    // **8. 정적 파일 서빙**
     app.use(express.static(path.join(__dirname, 'public')));
 
-    // 9) 서버 시작
+    // **9. 서버 시작**
     app.listen(port, () => {
       console.log(`🚀 서버 실행 중: http://localhost:${port}`);
     });
   })
   .catch(err => {
     console.error('❌ MongoDB 연결 오류:', err.stack);
-    process.exit(1); // 수정: '1 multi' 대신 '1'만 전달
+    process.exit(1); // 오류 발생 시 프로세스 종료
   });
