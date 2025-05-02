@@ -150,11 +150,13 @@ document.addEventListener("contextmenu", event => event.preventDefault());
 
 async function logToServer(message) {
   try {
-    await fetch(`${API_BASE_URL}/api/log`, {
+    const response = await fetch(`${API_BASE_URL}/api/log`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message })
     });
+    if (!response.ok) throw new Error(`HTTP 오류! 상태: ${response.status}`);
+    console.log("서버에 로그 전송 성공:", message); // 디버깅용 콘솔 로그
   } catch (error) {
     console.error("서버 로깅 실패:", error.message);
   }
@@ -824,8 +826,15 @@ window.addEventListener("DOMContentLoaded", async function() {
   const chatInput = document.getElementById("chat-input");
   if (chatInput) {
     chatInput.setAttribute("list", "Charge");
-    chatInput.addEventListener("keydown", function(e) {
-      if (e.key === "Enter") sendChat();
+    chatInput.addEventListener("keydown", async function(e) {
+      if (e.key === "Enter") {
+        try {
+          await logToServer("엔터 연결성공💯"); // 엔터 키 성공 로그
+          sendChat();
+        } catch (error) {
+          await logToServer("엔터 연결실패❌"); // 엔터 키 실패 로그
+        }
+      }
     });
   } else {
     console.error("DOMContentLoaded에서 채팅 입력 요소를 찾을 수 없습니다.");
