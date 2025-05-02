@@ -16,9 +16,10 @@
   <meta property="og:image" content="https://raw.githubusercontent.com/rnjsjergus179/EmotionAIL2.0/main/AI3D비서.jpg">
   <meta property="og:url" content="https://emotionailpremiumservice.site/2.0">
   
-  <!-- 스타일시트와 외부 스크립트 -->
+  <!-- 스타일시트와 스크립트 -->
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 </head>
 <body>
   <div id="right-hud">
@@ -56,8 +57,7 @@
   <div id="speech-bubble" style="position: absolute; display: none; background: white; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>
   <div id="hud-7">버전 2.0</div>
   <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: -1;"></canvas>
-  
-  <!-- JavaScript 스크립트 연결 (모듈로 로드) -->
-  <script type="module" src="./main.js"></script>
+  <script src="main.js"></script>
+  <script src="three.js"></script>
 </body>
 </html>
