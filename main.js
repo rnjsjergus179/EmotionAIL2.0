@@ -1,5 +1,7 @@
 // main.js
 
+import * as intentProcessor from './intentProcessor.js';
+
 // Note: 백엔드는 MongoDB URI를 사용하여 데이터베이스 연결을 처리합니다.
 // 모든 데이터베이스 작업은 백엔드 API 호출을 통해 수행됩니다.
 
