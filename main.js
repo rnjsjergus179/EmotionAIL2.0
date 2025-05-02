@@ -407,7 +407,7 @@ function startSpeechRecognition() {
       const chatInput = document.getElementById("chat-input");
       if (chatInput) {
         chatInput.value = transcript;
-        sendChat();
+        sendMessage(); // 음성 입력 후 전송
       } else {
         console.error("채팅 입력 요소를 찾을 수 없습니다.");
       }
@@ -429,7 +429,7 @@ function updateContext(intent) {
 let lastChatTime = 0;
 const chatCooldown = 1000;
 
-async function sendChat() {
+async function sendMessage() {
   const now = Date.now();
   if (now - lastChatTime < chatCooldown) {
     console.log("채팅이 쿨다운 상태입니다.");
@@ -615,7 +615,7 @@ window.addEventListener("DOMContentLoaded", async function() {
   if (chatInput) {
     chatInput.setAttribute("list", "Charge");
     chatInput.addEventListener("keydown", function(e) {
-      if (e.key === "Enter") sendChat();
+      if (e.key === "Enter") sendMessage(); // Enter 키로 전송
     });
   } else {
     console.error("DOMContentLoaded에서 채팅 입력 요소를 찾을 수 없습니다.");
