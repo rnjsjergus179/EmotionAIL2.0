@@ -89,7 +89,9 @@ function initCalendar() {
         if (eventDiv) {
           eventDiv.textContent = "";
           const message = `${currentYear}-${currentMonth + 1}-${dayNum} 일정이 삭제되었습니다.`;
-          showSpeechBubbleInChunks(message);
+          if (typeof showSpeechBubbleInChunks === "function") {
+            showSpeechBubbleInChunks(message);
+          }
           let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
           delete calendarData[`${currentYear}-${currentMonth + 1}-${dayNum}`];
           localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
@@ -151,7 +153,10 @@ function renderCalendar(year, month) {
           } else {
             eventDiv.textContent = eventText;
           }
-          showSpeechBubbleInChunks(`${year}-${month + 1}-${d}에 ${eventText} 일정이 추가되었습니다.`);
+          const message = `${year}-${month + 1}-${d}에 ${eventText} 일정이 추가되었습니다.`;
+          if (typeof showSpeechBubbleInChunks === "function") {
+            showSpeechBubbleInChunks(message);
+          }
           let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
           calendarData[`${year}-${month + 1}-${d}`] = eventDiv.textContent;
           localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
@@ -167,6 +172,9 @@ function renderCalendar(year, month) {
   }
 }
 
-// 캘린더 초기화
-initCalendar();
-
+// 모듈로 내보내기
+export {
+  deleteCalendarEvent,
+  getCalendarEvents,
+  initCalendar
+};
