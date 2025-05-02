@@ -1,10 +1,16 @@
 // main.js
 
+// Render 터미널 로그: 모듈 import 전 😴
+console.log('😴');
+
 // 모듈 import (intentProcessor.js, utils.js, three.js, calendar.js에서 필요한 함수 가져오기)
 import { processText } from './utils.js';
 import { getEmbedding, softmaxIntentClassifier, updateGRUState } from './intentProcessor.js';
 import { initCalendar, getCalendarEvents, deleteCalendarEvent } from './calendar.js';
 import { startThreeJS, updateWeatherEffects } from './three.js';
+
+// Render 터미널 로그: 모듈 import 후 👍 성공💯
+console.log('👍 성공💯');
 
 // Note: 백엔드는 MongoDB URI를 사용하여 데이터베이스 연결을 처리합니다.
 // 모든 데이터베이스 작업은 백엔드 API 호출을 통해 수행됩니다.
