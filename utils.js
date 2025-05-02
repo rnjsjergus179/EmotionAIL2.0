@@ -92,6 +92,7 @@ function jaccardSimilarity(str1, str2) {
   return intersection.size / union.size;
 }
 
+// 모든 함수를 모듈로 내보내기
 export {
   dotProduct,
   vectorAdd,
