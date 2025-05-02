@@ -1,5 +1,8 @@
 // main.js
 
+import * as utils from './utils.js';
+import * as intentProcessor from './intentProcessor.js';
+
 // Note: 백엔드는 MongoDB URI를 사용하여 데이터베이스 연결을 처리합니다.
 // 모든 데이터베이스 작업은 백엔드 API 호출을 통해 수행됩니다.
 
@@ -75,12 +78,12 @@ async function fetchAndUpdateKeywords() {
     data.forEach(item => {
       const intent = item.intent;
       const keywords = item.keywords.map(kw => kw.trim().toLowerCase()).slice(0, 50);
-      const binaryKeywords = keywords.map(kw => textToBinaryVector(kw));
+      const binaryKeywords = keywords.map(kw => utils.textToBinaryVector(kw));
       if (KEYWORDS[intent]) {
         KEYWORDS[intent] = [...new Set([...KEYWORDS[intent], ...keywords])];
       } else {
         KEYWORDS[intent] = [...new Set(keywords)];
-        intentWeightMatrix[intent] = averageVectors(binaryKeywords);
+        intentWeightMatrix[intent] = utils.averageVectors(binaryKeywords);
       }
     });
 
@@ -95,12 +98,12 @@ async function fetchAndUpdateKeywords() {
 
 /***** Self-Attention 구현 *****/
 function selfAttention(embeddings) {
-  const query = quantizeVector(embeddings);
-  const key = quantizeVector(embeddings);
+  const query = utils.quantizeVector(embeddings);
+  const key = utils.quantizeVector(embeddings);
   const value = embeddings;
-  const scores = dotProduct(query, key) / Math.sqrt(embeddings.length);
-  const attentionWeights = softmaxArray([scores]);
-  return weightedSum(value, attentionWeights);
+  const scores = utils.dotProduct(query, key) / Math.sqrt(embeddings.length);
+  const attentionWeights = utils.softmaxArray([scores]);
+  return utils.weightedSum(value, attentionWeights);
 }
 
 /***** 다중 모달 입력 - 위치 정보 감지 *****/
@@ -132,20 +135,20 @@ function updateIntentWeights(inputEmbedding, predictedIntent, userFeedback) {
 
   for (let intent in intentWeightMatrix) {
     const grad = intent === predictedIntent ? reward : -reward / (Object.keys(intentWeightMatrix).length - 1);
-    intentWeightMatrix[intent] = vectorAdd(
+    intentWeightMatrix[intent] = utils.vectorAdd(
       intentWeightMatrix[intent],
-      vectorMultiply(inputEmbedding, adaptiveLearningRate * grad)
+      utils.vectorMultiply(inputEmbedding, adaptiveLearningRate * grad)
     );
-    intentWeightMatrix[intent] = quantizeVector(intentWeightMatrix[intent]);
+    intentWeightMatrix[intent] = utils.quantizeVector(intentWeightMatrix[intent]);
   }
 }
 
 /***** Embedding + Intent Vector 업데이트 *****/
 async function updateEmbeddingsAndIntents() {
   for (let intent in KEYWORDS) {
-    const keywordEmbeddings = await Promise.all(KEYWORDS[intent].map(keyword => getEmbedding(keyword)));
-    const avgEmbedding = averageVectors(keywordEmbeddings);
-    intentWeightMatrix[intent] = quantizeVector(normalizeVector(avgEmbedding));
+    const keywordEmbeddings = await Promise.all(KEYWORDS[intent].map(keyword => intentProcessor.getEmbedding(keyword)));
+    const avgEmbedding = utils.averageVectors(keywordEmbeddings);
+    intentWeightMatrix[intent] = utils.quantizeVector(utils.normalizeVector(avgEmbedding));
   }
 }
 
@@ -168,8 +171,8 @@ const memoryStorage = {
 async function updateConversationHistory(input, response, embedding) {
   try {
     let history = memoryStorage.load("conversationHistory") || [];
-    const binaryResponse = textToBinaryVector(response);
-    history.push({ timestamp: Date.now(), input, response, embedding: quantizeVector(embedding), binaryResponse });
+    const binaryResponse = utils.textToBinaryVector(response);
+    history.push({ timestamp: Date.now(), input, response, embedding: utils.quantizeVector(embedding), binaryResponse });
     historyEmbeddings = [embedding];
     memoryStorage.save("conversationHistory", history.slice(-50));
     await saveToMongoDB({ input, response, embedding: binaryResponse });
@@ -194,8 +197,8 @@ async function saveToMongoDB(data) {
 
 /***** 의도 인식 및 처리 *****/
 async function detectIntent(input, processedData) {
-  const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
-  gruHiddenState = updateGRUState(embedding, gruHiddenState);
+  const { intent, probabilities, embedding } = await intentProcessor.softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
+  gruHiddenState = intentProcessor.updateGRUState(embedding, gruHiddenState);
 
   for (let concept in knowledgeGraph) {
     if (input.includes(concept)) {
@@ -244,6 +247,54 @@ function speakText(text) {
     window.speechSynthesis.speak(utterance);
   } catch (error) {
     console.error("음성 출력 오류:", error);
+  }
+}
+
+/***** 캘린더 관련 함수 *****/
+let currentYear, currentMonth;
+function deleteCalendarEvent(day) {
+  if (typeof currentYear === 'undefined' || typeof currentMonth === 'undefined') {
+    const now = new Date();
+    currentYear = now.getFullYear();
+    currentMonth = now.getMonth();
+  }
+  const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth + 1}-${day}`);
+  if (eventDiv) {
+    eventDiv.textContent = "";
+    let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+    delete calendarData[`${currentYear}-${currentMonth + 1}-${day}`];
+    localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+    return `${currentYear}-${currentMonth + 1}-${day} 일정이 삭제되었습니다.`;
+  } else {
+    return "해당 날짜에 일정이 없습니다.";
+  }
+}
+
+function getCalendarEvents(dateStr = null) {
+  const calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+  if (!Object.keys(calendarData).length) {
+    return "저장된 일정이 없습니다. 먼저 날짜 셀을 클릭하여 일정을 입력해주세요.";
+  }
+  if (dateStr) {
+    if (calendarData[dateStr]) {
+      return `${dateStr}의 일정: ${calendarData[dateStr]}`;
+    } else {
+      return `${dateStr}에는 일정이 없습니다.`;
+    }
+  } else {
+    if (typeof currentYear === 'undefined' || typeof currentMonth === 'undefined') {
+      const now = new Date();
+      currentYear = now.getFullYear();
+      currentMonth = now.getMonth();
+    }
+    const currentMonthStr = `${currentYear}-${currentMonth + 1}`;
+    let events = [];
+    for (let key in calendarData) {
+      if (key.startsWith(currentMonthStr)) {
+        events.push(`${key}: ${calendarData[key]}`);
+      }
+    }
+    return events.length ? `현재 월(${currentMonthStr})의 일정:\n${events.join("\n")}` : `현재 월(${currentMonthStr})에는 일정이 없습니다.`;
   }
 }
 
@@ -449,7 +500,7 @@ async function sendChat() {
   let isHTML = false;
   let shouldNavigate = false;
   let navigateUrl = "";
-  const processedInput = await processText(input);
+  const processedInput = await intentProcessor.processText(input);
   const lowerInput = processedInput.toLowerCase();
   let currentCity = "서울";
   let lastTopic = memoryStorage.load("lastTopic") || "";
@@ -499,7 +550,7 @@ async function sendChat() {
     }
 
     if (!response) {
-      const { intent, probabilities, embedding } = await softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
+      const { intent, probabilities, embedding } = await intentProcessor.softmaxIntentClassifier(input, historyEmbeddings, intentWeightMatrix);
       if (intent && (probabilities[intent] > 0.5 || intent !== 'unknown')) {
         if (intent === "greetings") {
           response = "안녕하세요! 만나서 반갑습니다. 오늘 하루 어떠셨나요?";
@@ -560,7 +611,7 @@ async function sendChat() {
   }
 
   showSpeechBubbleInChunks(response, isHTML);
-  const embedding = await getEmbedding(input);
+  const embedding = await intentProcessor.getEmbedding(input);
   await updateConversationHistory(input, response, embedding);
 
   if (shouldNavigate) {
@@ -668,3 +719,123 @@ window.addEventListener("load", async () => {
     console.error("로드 이벤트 오류:", err);
   }
 });
+
+/***** 캘린더 렌더링 *****/
+function initCalendar() {
+  const now = new Date();
+  currentYear = now.getFullYear();
+  currentMonth = now.getMonth();
+  populateYearSelect();
+  renderCalendar(currentYear, currentMonth);
+
+  const prevMonth = document.getElementById("prev-month");
+  const nextMonth = document.getElementById("next-month");
+  const yearSelect = document.getElementById("year-select");
+  const deleteDayEvent = document.getElementById("delete-day-event");
+
+  if (prevMonth) {
+    prevMonth.addEventListener("click", () => {
+      currentMonth--;
+      if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+      renderCalendar(currentYear, currentMonth);
+    });
+  }
+  if (nextMonth) {
+    nextMonth.addEventListener("click", () => {
+      currentMonth++;
+      if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+      renderCalendar(currentYear, currentMonth);
+    });
+  }
+  if (yearSelect) {
+    yearSelect.addEventListener("change", (e) => {
+      currentYear = parseInt(e.target.value);
+      renderCalendar(currentYear, currentMonth);
+    });
+  }
+  if (deleteDayEvent) {
+    deleteDayEvent.addEventListener("click", () => {
+      const dayStr = prompt("삭제할 하루일정의 날짜(일)를 입력하세요 (예: 15):");
+      if (dayStr) {
+        const dayNum = parseInt(dayStr);
+        const eventDiv = document.getElementById(`event-${currentYear}-${currentMonth + 1}-${dayNum}`);
+        if (eventDiv) {
+          eventDiv.textContent = "";
+          const message = `${currentYear}-${currentMonth + 1}-${dayNum} 일정이 삭제되었습니다.`;
+          showSpeechBubbleInChunks(message);
+          let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+          delete calendarData[`${currentYear}-${currentMonth + 1}-${dayNum}`];
+          localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+        }
+      }
+    });
+  }
+}
+
+function populateYearSelect() {
+  const yearSelect = document.getElementById("year-select");
+  if (!yearSelect) return;
+  yearSelect.innerHTML = "";
+  for (let y = 2020; y <= 2070; y++) {
+    const option = document.createElement("option");
+    option.value = y;
+    option.textContent = y;
+    if (y === currentYear) option.selected = true;
+    yearSelect.appendChild(option);
+  }
+}
+
+function renderCalendar(year, month) {
+  const monthNames = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
+  const monthYearLabel = document.getElementById("month-year-label");
+  if (monthYearLabel) monthYearLabel.textContent = `${year}년 ${monthNames[month]}`;
+
+  const grid = document.getElementById("calendar-grid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  const daysOfWeek = ["일", "월", "화", "수", "목", "금", "토"];
+  daysOfWeek.forEach(day => {
+    const th = document.createElement("div");
+    th.style.fontWeight = "bold";
+    th.style.textAlign = "center";
+    th.textContent = day;
+    th.style.color = "#00ffcc";
+    th.style.textShadow = "0 0 3px #00ffcc";
+    grid.appendChild(th);
+  });
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let i = 0; i < firstDay; i++) {
+    grid.appendChild(document.createElement("div"));
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const cell = document.createElement("div");
+    cell.innerHTML = `
+      <div class="day-number">${d}</div>
+      <div class="event" id="event-${year}-${month + 1}-${d}"></div>
+    `;
+    cell.addEventListener("click", () => {
+      const eventText = prompt(`${year}-${month + 1}-${d} 일정 입력:`);
+      if (eventText) {
+        const eventDiv = document.getElementById(`event-${year}-${month + 1}-${d}`);
+        if (eventDiv) {
+          if (eventDiv.textContent) {
+            eventDiv.textContent += "; " + eventText;
+          } else {
+            eventDiv.textContent = eventText;
+          }
+          showSpeechBubbleInChunks(`${year}-${month + 1}-${d}에 ${eventText} 일정이 추가되었습니다.`);
+          let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+          calendarData[`${year}-${month + 1}-${d}`] = eventDiv.textContent;
+          localStorage.setItem("calendarEvents", JSON.stringify(calendarData));
+        }
+      }
+    });
+    let calendarData = JSON.parse(localStorage.getItem("calendarEvents") || "{}");
+    const dateKey = `${year}-${month + 1}-${d}`;
+    if (calendarData[dateKey]) {
+      cell.querySelector(`#event-${year}-${month + 1}-${d}`).textContent = calendarData[dateKey];
+    }
+    grid.appendChild(cell);
+  }
+}
