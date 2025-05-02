@@ -1,34 +1,13 @@
 // main.js
 
-// logToServer 함수 정의 (파일 상단에 위치)
-async function logToServer(message) {
-  try {
-    await fetch(`${API_BASE_URL}/api/log`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message })
-    });
-  } catch (error) {
-    console.error("서버 로깅 실패:", error.message);
-  }
-}
-
-// Render 터미널 로그: 모듈 import 전 😴
-logToServer('😴');
-
-// 모듈 import (intentProcessor.js, utils.js, three.js, calendar.js에서 필요한 함수 가져오기)
+// 1. 모든 import 문을 파일 최상단에 위치
 import { processText } from './utils.js';
 import { getEmbedding, softmaxIntentClassifier, updateGRUState } from './intentProcessor.js';
 import { initCalendar, getCalendarEvents, deleteCalendarEvent } from './calendar.js';
 import { startThreeJS, updateWeatherEffects } from './three.js';
 
-// Render 터미널 로그: 모듈 import 후 👍 성공💯
-await logToServer('👍 성공💯');
-
-// Note: 백엔드는 MongoDB URI를 사용하여 데이터베이스 연결을 처리합니다.
-// 모든 데이터베이스 작업은 백엔드 API 호출을 통해 수행됩니다.
-
-/***** 사이트 링크 및 키워드 설정 *****/
+// 2. 글로벌 상수 선언
+const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 const SITE_LINKS = {
   "빙": "https://www.bing.com",
   "네이버": "https://www.naver.com",
@@ -60,7 +39,6 @@ Object.keys(KEYWORDS).forEach(intent => {
   intentWeightMatrix[intent] = Array(300).fill(0.01); // 임베딩 차원 300
 });
 
-const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 let gruHiddenState = Array(300).fill(0);
 let historyEmbeddings = [];
 let adaptiveLearningRate = 0.01;
@@ -73,6 +51,27 @@ const knowledgeGraph = {
 };
 
 const apiCache = {};
+
+// 3. logToServer 함수 정의
+async function logToServer(message) {
+  try {
+    await fetch(`${API_BASE_URL}/api/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message })
+    });
+  } catch (error) {
+    console.error("서버 로깅 실패:", error.message);
+  }
+}
+
+// 4. 모듈 로드 완료 시 로깅 (IIFE 사용)
+(async () => {
+  await logToServer('😴 모듈 로드 완료');
+})();
+
+// Note: 백엔드는 MongoDB URI를 사용하여 데이터베이스 연결을 처리합니다.
+// 모든 데이터베이스 작업은 백엔드 API 호출을 통해 수행됩니다.
 
 /***** 전역 변수 및 초기 설정 *****/
 document.addEventListener("contextmenu", event => event.preventDefault());
@@ -671,13 +670,11 @@ window.addEventListener("DOMContentLoaded", async function() {
   }
 });
 
+// 5. 페이지 로드 시 로깅 및 초기화
 window.addEventListener("load", async () => {
-  try {
-    startThreeJS(); // three.js에서 초기화
-    initCalendar(); // calendar.js에서 초기화
-    updateMap("서울");
-    await updateWeatherAndEffects("서울");
-  } catch (err) {
-    console.error("로드 이벤트 오류:", err);
-  }
+  await logToServer('👍 페이지 로드 완료, 앱 시작');
+  startThreeJS(); // three.js에서 초기화
+  initCalendar(); // calendar.js에서 초기화
+  updateMap("서울");
+  await updateWeatherAndEffects("서울");
 });
