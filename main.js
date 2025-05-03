@@ -1,5 +1,5 @@
 // File system operations require Node.js environment; here we simulate file I/O for browser compatibility
-const fs = require('fs'); // Note: This will work only in a Node.js environment. For browsers, use alternatives like localStorage or fetch.
+// const fs = require('fs'); // Removed since this is for browser environment; use localStorage or fetch instead.
 
 // API keys are retrieved from localStorage (for demonstration; use a secure method in production)
 const API_KEY = localStorage.getItem('API_KEY');
@@ -135,27 +135,18 @@ function recombineBuffer(buffer) {
   return word;
 }
 
-/***** File 여기에 학습용.txt 파일 읽기/쓰기 함수 추가 *****/
+/***** File I/O Simulation for Browser *****/
 function readLearningFile() {
-  try {
-    return fs.readFileSync('학습용.txt', 'utf8');
-  } catch (error) {
-    console.error("학습용.txt 읽기 실패:", error);
-    return '';
-  }
+  return localStorage.getItem('learningData') || '';
 }
 
 function writeLearningFile(data) {
-  try {
-    fs.writeFileSync('학습용.txt', data, 'utf8');
-  } catch (error) {
-    console.error("학습용.txt 쓰기 실패:", error);
-  }
+  localStorage.setItem('learningData', data);
 }
 
 function appendToLearningFile(input) {
   const timestamp = Date.now();
-  const encoded = `${timestamp}:${btoa(unescape(encodeURIComponent(input)))}\n`; // Complex storage with base64 encoding
+  const encoded = `${timestamp}:${btoa(unescape(encodeURIComponent(input)))}\n`;
   const currentData = readLearningFile();
   writeLearningFile(currentData + encoded);
 }
@@ -245,7 +236,7 @@ async function sendChat() {
   const input = inputEl.value.trim();
   if (!input) return;
 
-  appendToLearningFile(input); // Store chat input in 학습용.txt
+  appendToLearningFile(input); // Store chat input in localStorage
   updateIntentRecognitionGroup(input); // Vectorize and store in intent group
 
   const tokens = tokenizeKorean(input);
@@ -255,43 +246,54 @@ async function sendChat() {
   let shouldNavigate = false;
   let navigateUrl = "";
 
-  for (let site in SITE_LINKS) {
-    if (input.includes(site)) {
-      if (site === "유튜브") {
-        const query = input.replace(/유튜브|youtube|동영상|비디오|영상/gi, "").trim();
-        if (query) {
-          response = await getYouTubeSearchResults(query);
-          isHTML = true;
+  // Check for region keywords first
+  const regionKeywords = KEYWORDS.region;
+  const matchedRegion = regionKeywords.find(region => input.includes(region));
+  if (matchedRegion) {
+    // Trigger region change and navigation
+    changeRegion(matchedRegion);
+    response = `지역을 ${matchedRegion}으로 변경했습니다.`;
+  } else {
+    // Check for site links
+    for (let site in SITE_LINKS) {
+      if (input.includes(site)) {
+        if (site === "유튜브") {
+          const query = input.replace(/유튜브|youtube|동영상|비디오|영상/gi, "").trim();
+          if (query) {
+            response = await getYouTubeSearchResults(query);
+            isHTML = true;
+          } else {
+            response = "유튜브 검색어를 입력해주세요.";
+          }
+        } else if (site === "네이버") {
+          const query = input.replace(/네이버|naver|검색|찾기/gi, "").trim();
+          if (query) {
+            response = await getNaverSearchResults(query);
+          } else {
+            response = "검색어를 입력해주세요.";
+          }
         } else {
-          response = "유튜브 검색어를 입력해주세요.";
+          response = `${site} 사이트로 이동합니다!`;
+          shouldNavigate = true;
+          navigateUrl = SITE_LINKS[site];
         }
-      } else if (site === "네이버") {
-        const query = input.replace(/네이버|naver|검색|찾기/gi, "").trim();
-        if (query) {
-          response = await getNaverSearchResults(query);
-        } else {
-          response = "검색어를 입력해주세요.";
-        }
-      } else {
-        response = `${site} 사이트로 이동합니다!`;
-        shouldNavigate = true;
-        navigateUrl = SITE_LINKS[site];
+        break;
       }
-      break;
     }
-  }
 
-  if (!response) {
-    const intent = detectIntentFromText(input);
-    if (intent === "greetings") {
-      response = "안녕하세요!";
-    } else if (intent === "sleep") {
-      response = "좋은 꿈 꾸세요!";
-    } else if (intent === "time") {
-      const now = new Date();
-      response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
-    } else {
-      response = recombined; // Show recombined text if no specific intent
+    // If no site link or region matched, process intents
+    if (!response) {
+      const intent = detectIntentFromText(input);
+      if (intent === "greetings") {
+        response = "안녕하세요!";
+      } else if (intent === "sleep") {
+        response = "좋은 꿈 꾸세요!";
+      } else if (intent === "time") {
+        const now = new Date();
+        response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
+      } else {
+        response = recombined; // Show recombined text if no specific intent
+      }
     }
   }
 
@@ -300,6 +302,18 @@ async function sendChat() {
     setTimeout(() => { window.location.href = navigateUrl; }, 2000);
   }
   inputEl.value = "";
+}
+
+/***** Region Change Function *****/
+function changeRegion(region) {
+  const regionSelect = document.getElementById("region-select");
+  if (regionSelect) {
+    regionSelect.value = region;
+    // Placeholder for region change handling (implement as needed)
+    console.log(`Region changed to: ${region}`);
+    // updateMap(region);
+    // updateWeatherAndEffects(region);
+  }
 }
 
 /***** Speech Bubble *****/
@@ -329,8 +343,26 @@ function showSpeechBubbleInChunks(text, isHTML = false, chunkSize = 15) {
   requestAnimationFrame(showNextPart);
 }
 
+/***** Populate Region Dropdown *****/
+function populateRegionDropdown() {
+  const regionSelect = document.getElementById("region-select");
+  if (!regionSelect) {
+    console.error("Element with ID 'region-select' not found.");
+    return;
+  }
+  regionSelect.innerHTML = ""; // Clear existing options
+  const regions = KEYWORDS.region;
+  regions.forEach(region => {
+    const option = document.createElement("option");
+    option.value = region;
+    option.textContent = region;
+    regionSelect.appendChild(option);
+  });
+}
+
 /***** DOM Event Handling *****/
 window.addEventListener("DOMContentLoaded", function() {
+  populateRegionDropdown(); // Populate the region dropdown on page load
   const chatInput = document.getElementById("chat-input");
   if (chatInput) {
     chatInput.addEventListener("keydown", function(e) {
