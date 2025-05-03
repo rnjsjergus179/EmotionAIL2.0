@@ -70,7 +70,6 @@ function generateTrainingData() {
       });
     }
   });
-  // 데이터가 부족할 경우 더미 데이터 추가
   if (trainingData.length === 0) {
     console.log("학습 데이터가 부족하여 더미 데이터를 생성합니다.");
     trainingData.push(
@@ -107,7 +106,6 @@ function train(input, target, lr = 0.01) {
   const { a1, a2 } = forward(input);
   const error = a2.map((o, i) => o - target[i]); // softmax + cross-entropy
 
-  // 출력층 가중치와 편향 업데이트
   for (let i = 0; i < outputSize; i++) {
     for (let j = 0; j < hiddenSize; j++) {
       weights2[i][j] -= lr * error[i] * a1[j];
@@ -115,7 +113,6 @@ function train(input, target, lr = 0.01) {
     bias2[i] -= lr * error[i];
   }
 
-  // 은닉층 오류 계산
   let hiddenError = Array(hiddenSize).fill(0);
   for (let j = 0; j < hiddenSize; j++) {
     for (let i = 0; i < outputSize; i++) {
@@ -124,7 +121,6 @@ function train(input, target, lr = 0.01) {
     hiddenError[j] *= (a1[j] > 0 ? 1 : 0); // ReLU 미분
   }
 
-  // 입력층 가중치와 편향 업데이트
   for (let j = 0; j < hiddenSize; j++) {
     for (let k = 0; k < inputSize; k++) {
       weights1[j][k] -= lr * hiddenError[j] * input[k];
@@ -145,12 +141,7 @@ function trainEpochs(data, epochs = 10) {
 
 // 모델 저장
 function saveModel() {
-  const model = {
-    weights1: weights1,
-    bias1: bias1,
-    weights2: weights2,
-    bias2: bias2
-  };
+  const model = { weights1, bias1, weights2, bias2 };
   localStorage.setItem('mlpModel', JSON.stringify(model));
   console.log("모델이 저장되었습니다.");
 }
@@ -183,6 +174,8 @@ function averageVectors(vectors) {
 
 /***** 한국어 토큰화 및 필터링 *****/
 function tokenizeAndFilter(text) {
+  // 특수 기호와 특수 문자 제거 (한글, 영어, 공백만 남김)
+  const cleanedText = text.replace(/[^가-힣a-zA-Z\s]/g, '');
   const hangulRange = /[\uAC00-\uD7AF]/g;
   const consonantsVowels = {
     initial: ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'],
@@ -190,8 +183,8 @@ function tokenizeAndFilter(text) {
     final: ['', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ', 'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ']
   };
   let tokens = [];
-  text.split(' ').forEach(word => {
-    if (/[a-zA-Z]/.test(word)) {
+  cleanedText.split(' ').forEach(word => {
+    if (/^[a-zA-Z]+$/.test(word)) {
       tokens.push({ type: 'english', value: word });
     } else if (hangulRange.test(word)) {
       for (let char of word) {
@@ -280,8 +273,7 @@ async function readLearningFile() {
       headers: { 'API_KEY': API_KEY }
     });
     if (!response.ok) throw new Error('학습용.txt 파일을 불러오지 못했습니다.');
-    const data = await response.text();
-    return data;
+    return await response.text();
   } catch (error) {
     console.error('학습용.txt 파일 불러오기 중 오류:', error);
     return localStorage.getItem('learningData') || '';
@@ -372,39 +364,42 @@ async function sendChat() {
   // 입력을 학습용.txt에 저장
   await appendToLearningFile(input);
 
+  // 입력 텍스트를 정제하고 토큰화
+  const tokens = tokenizeAndFilter(input);
+  const cleanedInput = recombineKorean(tokens);
+  updateIntentRecognitionGroup(cleanedInput);
+
   // 학습용.txt 파일에서 데이터 가져오기
   const learningData = await readLearningFile();
   const lines = learningData.trim().split('\n');
   const decodedLines = lines.map(line => {
     const parts = line.split(':');
-    if (parts.length === 2) {
-      return decodeURIComponent(escape(atob(parts[1]))); // base64 디코딩하여 한글로 변환
+    if (parts.length >= 2) {
+      return decodeURIComponent(escape(atob(parts[1])));
     }
     return line;
-  });
-  const cleanedText = recombineKorean(tokenizeAndFilter(decodedLines.join(' ')));
-  updateIntentRecognitionGroup(cleanedText);
-
+  }).filter(line => line.trim());
+  
   let response = "";
   let isHTML = false;
   let shouldNavigate = false;
   let navigateUrl = "";
 
   // 지역 키워드 확인
-  const matchedRegion = KEYWORDS.region.find(region => input.includes(region));
+  const matchedRegion = KEYWORDS.region.find(region => cleanedInput.includes(region));
   if (matchedRegion) {
     changeRegion(matchedRegion);
     response = `지역을 ${matchedRegion}으로 변경했습니다.`;
   } else {
     // 사이트 링크 확인
     for (let site in SITE_LINKS) {
-      if (input.includes(site)) {
+      if (cleanedInput.includes(site)) {
         if (site === "유튜브") {
-          const query = input.replace(/유튜브|youtube|동영상|비디오|영상/gi, "").trim();
+          const query = cleanedInput.replace(/유튜브|youtube|동영상|비디오|영상/gi, "").trim();
           response = query ? await getYouTubeSearchResults(query) : "유튜브 검색어를 입력해주세요.";
           isHTML = !!query;
         } else if (site === "네이버") {
-          const query = input.replace(/네이버|naver|검색|찾기/gi, "").trim();
+          const query = cleanedInput.replace(/네이버|naver|검색|찾기/gi, "").trim();
           response = query ? await getNaverSearchResults(query) : "검색어를 입력해주세요.";
         } else {
           response = `${site} 사이트로 이동합니다!`;
@@ -417,14 +412,18 @@ async function sendChat() {
 
     // 의도 처리
     if (!response) {
-      const intent = detectIntentFromText(input);
+      const intent = detectIntentFromText(cleanedInput);
       if (intent === "greetings") response = "안녕하세요!";
       else if (intent === "sleep") response = "좋은 꿈 꾸세요!";
       else if (intent === "time") {
         const now = new Date();
         response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
+      } else if (intent === 'unknown' && decodedLines.length > 0) {
+        // 학습 데이터에서 매핑된 응답 찾기
+        const matchedLine = decodedLines.find(line => line.includes(cleanedInput));
+        response = matchedLine || "알 수 없는 입력입니다.";
       } else {
-        response = cleanedText; // 디코딩된 텍스트 표시
+        response = "알 수 없는 입력입니다.";
       }
     }
   }
@@ -496,16 +495,14 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 모델 로드 시도
   loadModel();
 
-  // 학습 버튼 추가 (선택적)
   const trainButton = document.getElementById("train-button");
   if (trainButton) {
     trainButton.addEventListener("click", () => {
       const trainingData = generateTrainingData();
       trainEpochs(trainingData, 10);
-      saveModel(); // 학습 후 모델 저장
+      saveModel();
     });
   }
 });
