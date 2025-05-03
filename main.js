@@ -1,9 +1,9 @@
 // API 키와 서버 URL 설정
-const API_KEY = localStorage.getItem('API_KEY');
-const SERVER_API_URL = 'https://emotionail2-0.onrender.com/api'; // 실제 서버 URL로 교체 필요
+const API_키 = localStorage.getItem('API_키');
+const 서버_API_URL = 'https://emotionail2-0.onrender.com/api'; // 실제 서버 URL로 교체 필요
 
 /***** 사이트 링크와 키워드 정의 *****/
-const SITE_LINKS = {
+const 사이트_링크 = {
   "빙": "https://www.bing.com",
   "네이버": "https://www.naver.com",
   "다음": "https://www.daum.net",
@@ -20,152 +20,146 @@ const SITE_LINKS = {
   "레딧": "https://www.reddit.com"
 };
 
-let KEYWORDS = {
-  greetings: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
-  sleep: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
-  weather: ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"],
-  time: ["시간 알려줘"],
-  calendar: ["일정 알려줘", "오늘 일정", "이번 주 일정", "일정 확인", "일정 보여줘"],
-  region: ["서울", "인천", "수원", "고양", "성남", "용인", "부천", "안양", "의정부", "광명", "안산", "파주", "부산", "대구", "광주", "대전", "울산", "제주", "전주", "청주", "포항", "여수", "김해"]
+let 키워드 = {
+  인사: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
+  취침: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
+  날씨: ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"],
+  시간: ["시간 알려줘"],
+  일정: ["일정 알려줘", "오늘 일정", "이번 주 일정", "일정 확인", "일정 보여줘"],
+  지역: ["서울", "인천", "수원", "고양", "성남", "용인", "부천", "안양", "의정부", "광명", "안산", "파주", "부산", "대구", "광주", "대전", "울산", "제주", "전주", "청주", "포항", "여수", "김해"]
 };
 
-const API_BASE_URL = 'https://emotionail2-0.onrender.com';
-let historyEmbeddings = [];
-let adaptiveLearningRate = 0.01;
+let 의도_인식_그룹 = {};
+const API_기본_URL = 'https://emotionail2-0.onrender.com';
+let 역사_임베딩 = [];
+let 적응형_학습률 = 0.01;
 
-const knowledgeGraph = {
+const 지식_그래프 = {
   "넷플릭스": ["드라마", "영화"],
   "유튜브": ["영상", "비디오"],
-  "날씨": ["weather"],
-  "일정": ["calendar"],
-  "지역": ["region", "location", "city"]
+  "날씨": ["날씨"],
+  "일정": ["일정"],
+  "지역": ["지역", "위치", "도시"]
 };
 
-const apiCache = {};
+const api_캐시 = {};
 
 /***** 학습용 데이터와 모델 정의 *****/
-const inputSize = 300; // 입력 벡터 크기 (자모 단위 벡터)
-const hiddenSize = 64; // 은닉층 뉴런 수
-const intents = Object.keys(KEYWORDS); // 의도 목록
-const outputSize = intents.length; // 출력 크기 (의도 수)
+
+// 모델 파라미터
+const 입력_크기 = 300; // 입력 벡터 크기 (자모 단위 벡터)
+const 은닉_크기 = 64; // 은닉층 뉴런 수
+const 의도 = Object.keys(키워드); // 의도 목록
+const 출력_크기 = 의도.length; // 출력 크기 (의도 수)
 
 // 가중치와 편향 초기화
-let weights1 = Array.from({ length: hiddenSize }, () => Array(inputSize).fill(0).map(() => Math.random() * 0.01));
-let bias1 = Array(hiddenSize).fill(0);
-let weights2 = Array.from({ length: outputSize }, () => Array(hiddenSize).fill(0).map(() => Math.random() * 0.01));
-let bias2 = Array(outputSize).fill(0);
+let 가중치1 = Array.from({ length: 은닉_크기 }, () => Array(입력_크기).fill(0).map(() => Math.random() * 0.01));
+let 편향1 = Array(은닉_크기).fill(0);
+let 가중치2 = Array.from({ length: 출력_크기 }, () => Array(은닉_크기).fill(0).map(() => Math.random() * 0.01));
+let 편향2 = Array(출력_크기).fill(0);
+
+// 학습용 데이터 생성 함수
+function 학습_데이터_생성() {
+  const 학습_데이터 = [];
+  의도.forEach((intent, index) => {
+    if (의도_인식_그룹[intent] && 의도_인식_그룹[intent].length > 0) {
+      의도_인식_그룹[intent].forEach(vector => {
+        const 라벨 = Array(출력_크기).fill(0);
+        라벨[index] = 1; // 원-핫 인코딩
+        학습_데이터.push({ 입력: vector, 라벨 });
+      });
+    }
+  });
+  if (학습_데이터.length === 0) {
+    console.log("학습 데이터가 부족하여 더미 데이터를 생성합니다.");
+    학습_데이터.push(
+      { 입력: new Float32Array(Array(입력_크기).fill(0).map(() => Math.random())), 라벨: [1, 0, 0, 0, 0, 0] },
+      { 입력: new Float32Array(Array(입력_크기).fill(0).map(() => Math.random())), 라벨: [0, 1, 0, 0, 0, 0] },
+      { 입력: new Float32Array(Array(입력_크기).fill(0).map(() => Math.random())), 라벨: [0, 0, 1, 0, 0, 0] }
+    );
+  }
+  return 학습_데이터;
+}
 
 // 활성화 함수
-function relu(x) {
+function 렐루(x) {
   return x.map(v => Math.max(0, v));
 }
 
-function softmax(logits) {
-  const exps = logits.map(Math.exp);
-  const sum = exps.reduce((a, b) => a + b);
-  return exps.map(e => e / sum);
+function 소프트맥스(로짓) {
+  const exp = 로짓.map(Math.exp);
+  const 합 = exp.reduce((a, b) => a + b);
+  return exp.map(e => e / 합);
 }
 
 // 순전파 함수
-function forward(input) {
-  const z1 = weights1.map((w, i) => w.reduce((sum, wi, j) => sum + wi * input[j], bias1[i]));
-  const a1 = relu(z1);
-  const z2 = weights2.map((w, i) => w.reduce((sum, wi, j) => sum + wi * a1[j], bias2[i]));
-  const a2 = softmax(z2);
+function 순전파(입력) {
+  const z1 = 가중치1.map((w, i) => w.reduce((sum, wi, j) => sum + wi * 입력[j], 편향1[i]));
+  const a1 = 렐루(z1);
+  const z2 = 가중치2.map((w, i) => w.reduce((sum, wi, j) => sum + wi * a1[j], 편향2[i]));
+  const a2 = 소프트맥스(z2);
   return { a1, a2 };
 }
 
-// 예측 함수
-function predict(input) {
-  const { a2 } = forward(input);
-  const maxIndex = a2.indexOf(Math.max(...a2));
-  return intents[maxIndex];
-}
-
 // 학습 함수 (역전파)
-function train(input, target, lr = 0.01) {
-  const { a1, a2 } = forward(input);
-  const error = a2.map((o, i) => o - target[i]); // softmax + cross-entropy
+function 학습(입력, 목표, 학습률 = 0.01) {
+  const { a1, a2 } = 순전파(입력);
+  const 오류 = a2.map((o, i) => o - 목표[i]);
 
-  for (let i = 0; i < outputSize; i++) {
-    for (let j = 0; j < hiddenSize; j++) {
-      weights2[i][j] -= lr * error[i] * a1[j];
+  for (let i = 0; i < 출력_크기; i++) {
+    for (let j = 0; j < 은닉_크기; j++) {
+      가중치2[i][j] -= 학습률 * 오류[i] * a1[j];
     }
-    bias2[i] -= lr * error[i];
+    편향2[i] -= 학습률 * 오류[i];
   }
 
-  let hiddenError = Array(hiddenSize).fill(0);
-  for (let j = 0; j < hiddenSize; j++) {
-    for (let i = 0; i < outputSize; i++) {
-      hiddenError[j] += error[i] * weights2[i][j];
+  let 은닉_오류 = Array(은닉_크기).fill(0);
+  for (let j = 0; j < 은닉_크기; j++) {
+    for (let i = 0; i < 출력_크기; i++) {
+      은닉_오류[j] += 오류[i] * 가중치2[i][j];
     }
-    hiddenError[j] *= (a1[j] > 0 ? 1 : 0); // ReLU 미분
+    은닉_오류[j] *= (a1[j] > 0 ? 1 : 0);
   }
 
-  for (let j = 0; j < hiddenSize; j++) {
-    for (let k = 0; k < inputSize; k++) {
-      weights1[j][k] -= lr * hiddenError[j] * input[k];
+  for (let j = 0; j < 은닉_크기; j++) {
+    for (let k = 0; k < 입력_크기; k++) {
+      가중치1[j][k] -= 학습률 * 은닉_오류[j] * 입력[k];
     }
-    bias1[j] -= lr * hiddenError[j];
+    편향1[j] -= 학습률 * 은닉_오류[j];
   }
-}
-
-// 학습 데이터 생성 함수 (학습용.txt 기반)
-async function generateTrainingDataFromLearningFile() {
-  const learningData = await readLearningFile();
-  const lines = learningData.trim().split('\n');
-  const trainingData = [];
-
-  lines.forEach(line => {
-    const parts = line.split(':');
-    if (parts.length >= 3) {
-      const inputText = decodeURIComponent(escape(atob(parts[1])));
-      const responseText = decodeURIComponent(escape(atob(parts[2])));
-      const inputVector = vectorizeText(inputText);
-      const target = Array(outputSize).fill(0);
-      
-      // 간단한 키워드 매핑으로 타겟 설정
-      intents.forEach((intent, idx) => {
-        if (KEYWORDS[intent].some(keyword => inputText.includes(keyword))) {
-          target[idx] = 1;
-        }
-      });
-      trainingData.push({ input: inputVector, label: target });
-    }
-  });
-
-  return trainingData.length > 0 ? trainingData : [
-    { input: Array(inputSize).fill(0).map(() => Math.random()), label: Array(outputSize).fill(0).map(() => Math.random()) }
-  ];
 }
 
 // 학습 루프
-async function trainEpochs(epochs = 10) {
-  const data = await generateTrainingDataFromLearningFile();
-  for (let epoch = 0; epoch < epochs; epoch++) {
-    data.forEach(sample => {
-      train(sample.input, sample.label, 0.01);
+function 에포크_학습(데이터, 에포크 = 10) {
+  for (let epoch = 0; epoch < 에포크; epoch++) {
+    데이터.forEach(샘플 => {
+      학습(샘플.입력, 샘플.라벨, 0.01);
     });
-    console.log(`에포크 ${epoch + 1}/${epochs} 완료`);
+    console.log(`에포크 ${epoch + 1}/${에포크} 완료`);
   }
 }
 
 // 모델 저장
-function saveModel() {
-  const model = { weights1, bias1, weights2, bias2 };
-  localStorage.setItem('mlpModel', JSON.stringify(model));
+function 모델_저장() {
+  const 모델 = {
+    가중치1: 가중치1,
+    편향1: 편향1,
+    가중치2: 가중치2,
+    편향2: 편향2
+  };
+  localStorage.setItem('mlp모델', JSON.stringify(모델));
   console.log("모델이 저장되었습니다.");
 }
 
 // 모델 로드
-function loadModel() {
-  const savedModel = localStorage.getItem('mlpModel');
-  if (savedModel) {
-    const model = JSON.parse(savedModel);
-    weights1 = model.weights1;
-    bias1 = model.bias1;
-    weights2 = model.weights2;
-    bias2 = model.bias2;
+function 모델_로드() {
+  const 저장된_모델 = localStorage.getItem('mlp모델');
+  if (저장된_모델) {
+    const 모델 = JSON.parse(저장된_모델);
+    가중치1 = 모델.가중치1;
+    편향1 = 모델.편향1;
+    가중치2 = 모델.가중치2;
+    편향2 = 모델.편향2;
     console.log("모델이 로드되었습니다.");
   } else {
     console.log("저장된 모델이 없습니다.");
@@ -173,154 +167,163 @@ function loadModel() {
 }
 
 /***** 유틸리티 함수 *****/
-function dotProduct(a, b) {
+function 내적(a, b) {
   return a.reduce((sum, val, i) => sum + val * b[i], 0);
 }
 
-function averageVectors(vectors) {
-  if (vectors.length === 0) return Array(300).fill(0);
-  const sum = vectors.reduce((acc, vec) => acc.map((val, i) => val + vec[i]), Array(vectors[0].length).fill(0));
-  return sum.map(val => val / vectors.length);
+function 벡터_평균(벡터들) {
+  if (벡터들.length === 0) return Array(300).fill(0);
+  const 합 = 벡터들.reduce((acc, vec) => acc.map((val, i) => val + vec[i]), Array(벡터들[0].length).fill(0));
+  return 합.map(val => val / 벡터들.length);
 }
 
 /***** 한국어 토큰화 및 필터링 *****/
-function tokenizeAndFilter(text) {
-  const cleanedText = text.replace(/[^가-힣a-zA-Z\s]/g, '');
-  const hangulRange = /[\uAC00-\uD7AF]/g;
-  const consonantsVowels = {
-    initial: ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'],
-    medial: ['ㅏ', 'ㅐ', 'ㅑ', 'ㅒ', 'ㅓ', 'ㅔ', 'ㅕ', 'ㅖ', 'ㅗ', 'ㅘ', 'ㅙ', 'ㅚ', 'ㅛ', 'ㅜ', 'ㅝ', 'ㅞ', 'ㅟ', 'ㅠ', 'ㅡ', 'ㅢ', 'ㅣ'],
-    final: ['', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ', 'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ']
+function 토큰화_및_필터링(텍스트) {
+  const 한글_범위 = /[\uAC00-\uD7AF]/g;
+  const 자모 = {
+    초성: ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'],
+    중성: ['ㅏ', 'ㅐ', 'ㅑ', 'ㅒ', 'ㅓ', 'ㅔ', 'ㅕ', 'ㅖ', 'ㅗ', 'ㅘ', 'ㅙ', 'ㅚ', 'ㅛ', 'ㅜ', 'ㅝ', 'ㅞ', 'ㅟ', 'ㅠ', 'ㅡ', 'ㅢ', 'ㅣ'],
+    종성: ['', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ', 'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ']
   };
-  let tokens = [];
-  cleanedText.split(' ').forEach(word => {
-    if (/^[a-zA-Z]+$/.test(word)) {
-      tokens.push({ type: 'english', value: word });
-    } else if (hangulRange.test(word)) {
-      for (let char of word) {
-        const code = char.charCodeAt(0) - 0xAC00;
-        if (code >= 0 && code <= 11171) {
-          const initial = Math.floor(code / (21 * 28));
-          const medial = Math.floor((code % (21 * 28)) / 28);
-          const final = code % 28;
-          tokens.push({ type: 'initial', value: consonantsVowels.initial[initial] });
-          tokens.push({ type: 'medial', value: consonantsVowels.medial[medial] });
-          if (final > 0) tokens.push({ type: 'final', value: consonantsVowels.final[final] });
+  let 토큰 = [];
+  텍스트.split(' ').forEach(단어 => {
+    if (/[a-zA-Z]/.test(단어)) {
+      // 영어 단어는 필터링
+    } else if (한글_범위.test(단어)) {
+      for (let char of 단어) {
+        const 코드 = char.charCodeAt(0) - 0xAC00;
+        if (코드 >= 0 && 코드 <= 11171) {
+          const 초성 = Math.floor(코드 / (21 * 28));
+          const 중성 = Math.floor((코드 % (21 * 28)) / 28);
+          const 종성 = 코드 % 28;
+          토큰.push({ 유형: '초성', 값: 자모.초성[초성] });
+          토큰.push({ 유형: '중성', 값: 자모.중성[중성] });
+          if (종성 > 0) 토큰.push({ 유형: '종성', 값: 자모.종성[종성] });
         }
       }
     }
   });
-  return tokens;
+  return 토큰;
 }
 
-function recombineKorean(tokens) {
-  let result = '';
-  let buffer = [];
-  for (let token of tokens) {
-    if (token.type === 'english') {
-      if (buffer.length) {
-        result += recombineBuffer(buffer);
-        buffer = [];
-      }
-      result += ' ' + token.value;
-    } else {
-      buffer.push(token);
-    }
+function 한국어_재결합(토큰) {
+  let 결과 = '';
+  let 버퍼 = [];
+  for (let token of 토큰) {
+    버퍼.push(token);
   }
-  if (buffer.length) result += recombineBuffer(buffer);
-  return result.trim();
+  if (버퍼.length) 결과 += 버퍼_재결합(버퍼);
+  return 결과.trim();
 }
 
-function recombineBuffer(buffer) {
-  let word = '';
+function 버퍼_재결합(버퍼) {
+  let 단어 = '';
   let i = 0;
-  while (i < buffer.length) {
-    if (buffer[i].type === 'initial' && i + 1 < buffer.length && buffer[i + 1].type === 'medial') {
-      const initialIdx = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'.indexOf(buffer[i].value) / 2;
-      const medialIdx = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ'.indexOf(buffer[i + 1].value) / 2;
-      let finalIdx = 0;
-      if (i + 2 < buffer.length && buffer[i + 2].type === 'final') {
-        finalIdx = 'ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ'.indexOf(buffer[i + 2].value) / 2 + 1;
+  while (i < 버퍼.length) {
+    if (버퍼[i].유형 === '초성' && i + 1 < 버퍼.length && 버퍼[i + 1].유형 === '중성') {
+      const 초성_인덱스 = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'.indexOf(버퍼[i].값) / 2;
+      const 중성_인덱스 = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ'.indexOf(버퍼[i + 1].값) / 2;
+      let 종성_인덱스 = 0;
+      if (i + 2 < 버퍼.length && 버퍼[i + 2].유형 === '종성') {
+        종성_인덱스 = 'ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ'.indexOf(버퍼[i + 2].값) / 2 + 1;
         i += 3;
       } else {
         i += 2;
       }
-      const charCode = 0xAC00 + (initialIdx * 21 * 28) + (medialIdx * 28) + finalIdx;
-      word += String.fromCharCode(charCode);
+      const 문자_코드 = 0xAC00 + (초성_인덱스 * 21 * 28) + (중성_인덱스 * 28) + 종성_인덱스;
+      단어 += String.fromCharCode(문자_코드);
     } else {
       i++;
     }
   }
-  return word;
+  return 단어;
 }
 
 /***** 서버와의 통신을 통한 학습용.txt 관리 *****/
-async function appendToLearningFile(input, response) {
-  const timestamp = Date.now();
-  const encoded = `${timestamp}:${btoa(unescape(encodeURIComponent(input)))}:${btoa(unescape(encodeURIComponent(response)))}\n`;
+async function 학습_파일에_추가(입력) {
+  const 타임스탬프 = Date.now();
+  const 인코딩 = `${타임스탬프}:${btoa(unescape(encodeURIComponent(입력)))}\n`;
   try {
-    const res = await fetch(`${SERVER_API_URL}/append-to-learning-file`, {
+    const 응답 = await fetch(`${서버_API_URL}/append-to-learning-file`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'API_KEY': API_KEY
+        'API_키': API_키
       },
-      body: JSON.stringify({ data: encoded })
+      body: JSON.stringify({ data: 인코딩 })
     });
-    if (!res.ok) throw new Error('학습용.txt 파일에 추가 실패');
+    if (!응답.ok) throw new Error('학습용.txt 파일에 추가 실패');
     console.log('데이터가 학습용.txt에 추가되었습니다.');
   } catch (error) {
     console.error('학습용.txt 파일 추가 중 오류:', error);
-    const currentData = await readLearningFile();
-    localStorage.setItem('learningData', currentData + encoded);
+    const 현재_데이터 = await 학습_파일_읽기();
+    localStorage.setItem('학습_데이터', 현재_데이터 + 인코딩);
   }
 }
 
-async function readLearningFile() {
+async function 학습_파일_읽기() {
   try {
-    const response = await fetch(`${SERVER_API_URL}/read-learning-file`, {
+    const 응답 = await fetch(`${서버_API_URL}/read-learning-file`, {
       method: 'GET',
-      headers: { 'API_KEY': API_KEY }
+      headers: { 'API_키': API_키 }
     });
-    if (!response.ok) throw new Error('학습용.txt 파일을 불러오지 못했습니다.');
-    return await response.text();
+    if (!응답.ok) throw new Error('학습용.txt 파일을 불러오지 못했습니다.');
+    const 데이터 = await 응답.text();
+    return 데이터;
   } catch (error) {
     console.error('학습용.txt 파일 불러오기 중 오류:', error);
-    return localStorage.getItem('learningData') || '';
+    return localStorage.getItem('학습_데이터') || '';
   }
 }
 
 /***** 텍스트 벡터화 및 양자화 *****/
-function vectorizeText(text) {
-  const tokens = tokenizeAndFilter(text);
-  let vector = Array(300).fill(0);
-  tokens.forEach((token, idx) => {
-    const charCodeSum = token.value.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-    vector[idx % 300] += charCodeSum / 1000;
+function 텍스트_벡터화(텍스트) {
+  const 토큰 = 토큰화_및_필터링(텍스트);
+  let 벡터 = Array(300).fill(0);
+  토큰.forEach((token, idx) => {
+    const 문자_코드_합 = token.값.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    벡터[idx % 300] += 문자_코드_합 / 1000;
   });
-  return vector;
+  return 벡터;
 }
 
-function quantizeVector(vector) {
-  return vector.map(val => Math.round(val * 100) / 100);
+function 벡터_양자화(벡터) {
+  return 벡터.map(val => Math.round(val * 100) / 100);
+}
+
+function 의도_인식_그룹_업데이트(텍스트) {
+  const 벡터 = 벡터_양자화(텍스트_벡터화(텍스트));
+  const intent = 텍스트에서_의도_감지(텍스트);
+  if (!의도_인식_그룹[intent]) 의도_인식_그룹[intent] = [];
+  const 이진_벡터 = new Float32Array(벡터);
+  의도_인식_그룹[intent].push(이진_벡터);
+}
+
+/***** 의도 감지 *****/
+function 텍스트에서_의도_감지(입력) {
+  for (const intent in 키워드) {
+    if (키워드[intent].some(키워드 => 입력.includes(키워드))) return intent;
+  }
+  return '알수없음';
 }
 
 /***** API 호출 함수 *****/
-async function fetchWithKeys(url, options = {}) {
-  const headers = { 'Content-Type': 'application/json', 'API_KEY': API_KEY, ...options.headers };
-  return fetch(url, { ...options, headers });
+async function 키와_함께_가져오기(url, 옵션 = {}) {
+  const 헤더 = { 'Content-Type': 'application/json', 'API_키': API_키, ...옵션.headers };
+  return fetch(url, { ...옵션, headers: 헤더 });
 }
 
-async function getNaverSearchResults(query) {
-  const cacheKey = `naver_${query}`;
-  if (apiCache[cacheKey]) return apiCache[cacheKey];
+async function 네이버_검색_결과_가져오기(쿼리) {
+  const 캐시_키 = `네이버_${쿼리}`;
+  if (api_캐시[캐시_키]) return api_캐시[캐시_키];
   try {
-    const response = await fetchWithKeys(`${API_BASE_URL}/api/naver-search?q=${encodeURIComponent(query)}`);
-    const data = await response.json();
-    if (data.items && data.items.length > 0) {
-      const results = data.items.map(item => item.title.replace(/<[^>]+>/g, '')).join('\n- ');
-      apiCache[cacheKey] = results;
-      return results;
+    const 응답 = await 키와_함께_가져오기(`${API_기본_URL}/api/naver-search?q=${encodeURIComponent(쿼리)}`);
+    const 데이터 = await 응답.json();
+    if (데이터.items && 데이터.items.length > 0) {
+      const 결과 = 데이터.items.map(item => item.title.replace(/<[^>]+>/g, '')).join('\n- ');
+      api_캐시[캐시_키] = 결과;
+      await 학습_파일에_추가(`네이버:${쿼리}:${결과}`);
+      return 결과;
     }
     return "검색 결과가 없습니다.";
   } catch (error) {
@@ -329,16 +332,17 @@ async function getNaverSearchResults(query) {
   }
 }
 
-async function getYouTubeSearchResults(query) {
-  const cacheKey = `youtube_${query}`;
-  if (apiCache[cacheKey]) return apiCache[cacheKey];
+async function 유튜브_검색_결과_가져오기(쿼리) {
+  const 캐시_키 = `유튜브_${쿼리}`;
+  if (api_캐시[캐시_키]) return api_캐시[캐시_키];
   try {
-    const response = await fetchWithKeys(`${API_BASE_URL}/api/youtube-search?q=${encodeURIComponent(query)}`);
-    const data = await response.json();
-    if (data.items && data.items.length > 0) {
-      const results = data.items.map(item => `<a href="${item.url}" target="_blank">${item.title}</a>`).join('<br>');
-      apiCache[cacheKey] = results;
-      return results;
+    const 응답 = await 키와_함께_가져오기(`${API_기본_URL}/api/youtube-search?q=${encodeURIComponent(쿼리)}`);
+    const 데이터 = await 응답.json();
+    if (데이터.items && 데이터.items.length > 0) {
+      const 결과 = 데이터.items.map(item => `유튜브 링크: ${item.title} (새 탭에서 열림)`).join('<br>');
+      api_캐시[캐시_키] = 결과;
+      await 학습_파일에_추가(`유튜브:${쿼리}:${결과}`);
+      return 결과;
     }
     return "검색 결과가 없습니다.";
   } catch (error) {
@@ -348,116 +352,141 @@ async function getYouTubeSearchResults(query) {
 }
 
 /***** 채팅 처리 *****/
-async function sendChat() {
-  const inputEl = document.getElementById("chat-input");
-  if (!inputEl || !inputEl.value.trim()) return;
-  const input = inputEl.value.trim();
+async function 채팅_전송() {
+  const 입력_요소 = document.getElementById("chat-input");
+  if (!입력_요소 || !입력_요소.value.trim()) return;
+  const 입력 = 입력_요소.value.trim();
 
-  // 학습용.txt에서 검색
-  const learningData = await readLearningFile();
-  const lines = learningData.trim().split('\n');
-  const matchedLine = lines.find(line => {
-    const parts = line.split(':');
-    if (parts.length >= 3) {
-      const decodedInput = decodeURIComponent(escape(atob(parts[1])));
-      return decodedInput === input;
+  await 학습_파일에_추가(입력);
+
+  const 학습_데이터 = await 학습_파일_읽기();
+  const 줄 = 학습_데이터.trim().split('\n');
+  const 디코딩된_줄 = 줄.map(line => {
+    const 부분 = line.split(':');
+    if (부분.length === 2) {
+      return decodeURIComponent(escape(atob(부분[1])));
     }
-    return false;
+    return line;
   });
+  const 정리된_텍스트 = 한국어_재결합(토큰화_및_필터링(디코딩된_줄.join(' ')));
+  의도_인식_그룹_업데이트(정리된_텍스트);
 
-  let response = "";
-  let isHTML = false;
+  let 응답 = "";
+  let HTML_여부 = false;
+  let 이동_여부 = false;
+  let 이동_URL = "";
 
-  if (matchedLine) {
-    const parts = matchedLine.split(':');
-    response = decodeURIComponent(escape(atob(parts[2])));
+  const 일치_지역 = 키워드.지역.find(지역 => 입력.includes(지역));
+  if (일치_지역) {
+    지역_변경(일치_지역);
+    응답 = `지역을 ${일치_지역}으로 변경했습니다.`;
   } else {
-    // 검색 키워드 확인
-    if (input.includes("유튜브")) {
-      const query = input.replace(/유튜브|youtube|동영상|비디오|영상/gi, "").trim();
-      response = query ? await getYouTubeSearchResults(query) : "유튜브 검색어를 입력해주세요.";
-      isHTML = !!query;
-    } else if (input.includes("네이버")) {
-      const query = input.replace(/네이버|naver|검색|찾기/gi, "").trim();
-      response = query ? await getNaverSearchResults(query) : "검색어를 입력해주세요.";
-    } else {
-      // 기본 응답
-      response = "검색 결과가 없습니다.";
+    for (let 사이트 in 사이트_링크) {
+      if (입력.includes(사이트)) {
+        if (사이트 === "유튜브") {
+          const 쿼리 = 입력.replace(/유튜브|youtube|동영상|비디오|영상/gi, "").trim();
+          응답 = 쿼리 ? await 유튜브_검색_결과_가져오기(쿼리) : "유튜브 검색어를 입력해주세요.";
+          HTML_여부 = !!쿼리;
+        } else if (사이트 === "네이버") {
+          const 쿼리 = 입력.replace(/네이버|naver|검색|찾기/gi, "").trim();
+          응답 = 쿼리 ? await 네이버_검색_결과_가져오기(쿼리) : "검색어를 입력해주세요.";
+        } else {
+          응답 = `${사이트} 사이트로 이동합니다!`;
+          이동_여부 = true;
+          이동_URL = 사이트_링크[사이트];
+        }
+        break;
+      }
     }
-    // 검색 결과를 학습용.txt에 저장
-    await appendToLearningFile(input, response);
+
+    if (!응답) {
+      const intent = 텍스트에서_의도_감지(입력);
+      if (intent === "인사") 응답 = "안녕하세요!";
+      else if (intent === "취침") 응답 = "좋은 꿈 꾸세요!";
+      else if (intent === "시간") {
+        const 현재 = new Date();
+        응답 = `현재 시간은 ${현재.getHours()}시 ${현재.getMinutes()}분입니다.`;
+      } else {
+        응답 = 정리된_텍스트;
+      }
+    }
   }
 
-  // 학습 데이터로 모델 업데이트
-  const inputVector = vectorizeText(input);
-  const predictedIntent = predict(inputVector);
-  console.log(`예측된 의도: ${predictedIntent}`);
+  말풍선_표시(응답, HTML_여부);
+  if (이동_여부) setTimeout(() => { window.location.href = 이동_URL; }, 2000);
+  입력_요소.value = "";
+}
 
-  showSpeechBubbleInChunks(response, isHTML);
-  inputEl.value = "";
+/***** 지역 변경 함수 *****/
+function 지역_변경(지역) {
+  const 지역_선택 = document.getElementById("region-select");
+  if (지역_선택) {
+    지역_선택.value = 지역;
+    console.log(`지역이 ${지역}으로 변경되었습니다.`);
+  }
 }
 
 /***** 말풍선 표시 *****/
-function showSpeechBubbleInChunks(text, isHTML = false, chunkSize = 15) {
-  const bubble = document.getElementById("speech-bubble");
-  if (!bubble) return;
-  bubble.style.opacity = 0;
-  bubble.style.display = "block";
-  let parts = isHTML ? text.split("<br>") : [];
-  if (!isHTML) {
-    for (let i = 0; i < text.length; i += chunkSize) parts.push(text.slice(i, i + chunkSize));
+function 말풍선_표시(텍스트, HTML_여부 = false, 청크_크기 = 15) {
+  const 풍선 = document.getElementById("speech-bubble");
+  if (!풍선) return;
+  풍선.style.opacity = 0;
+  풍선.style.display = "block";
+  let 부분 = HTML_여부 ? 텍스트.split("<br>") : [];
+  if (!HTML_여부) {
+    for (let i = 0; i < 텍스트.length; i += 청크_크기) 부분.push(텍스트.slice(i, i + 청크_크기));
   }
-  let index = 0;
-  bubble.innerHTML = "";
+  let 인덱스 = 0;
+  풍선.innerHTML = "";
 
-  function showNextPart() {
-    if (index === 0) bubble.style.opacity = 1;
-    if (index < parts.length) {
-      if (isHTML) bubble.innerHTML += parts[index] + "<br>";
-      else bubble.textContent += parts[index];
-      index++;
-      requestAnimationFrame(showNextPart);
+  function 다음_부분_표시() {
+    if (인덱스 === 0) 풍선.style.opacity = 1;
+    if (인덱스 < 부분.length) {
+      if (HTML_여부) 풍선.innerHTML += 부분[인덱스] + "<br>";
+      else 풍선.textContent += 부분[인덱스];
+      인덱스++;
+      requestAnimationFrame(다음_부분_표시);
     } else {
-      setTimeout(() => { bubble.style.opacity = 0; bubble.style.display = "none"; }, 2000);
+      setTimeout(() => { 풍선.style.opacity = 0; 풍선.style.display = "none"; }, 2000);
     }
   }
-  requestAnimationFrame(showNextPart);
+  requestAnimationFrame(다음_부분_표시);
 }
 
 /***** 지역 드롭다운 채우기 *****/
-function populateRegionDropdown() {
-  const regionSelect = document.getElementById("region-select");
-  if (!regionSelect) {
+function 지역_드롭다운_채우기() {
+  const 지역_선택 = document.getElementById("region-select");
+  if (!지역_선택) {
     console.error("ID가 'region-select'인 요소를 찾을 수 없습니다.");
     return;
   }
-  regionSelect.innerHTML = "";
-  KEYWORDS.region.forEach(region => {
-    const option = document.createElement("option");
-    option.value = region;
-    option.textContent = region;
-    regionSelect.appendChild(option);
+  지역_선택.innerHTML = "";
+  키워드.지역.forEach(지역 => {
+    const 옵션 = document.createElement("option");
+    옵션.value = 지역;
+    옵션.textContent = 지역;
+    지역_선택.appendChild(옵션);
   });
 }
 
 /***** DOM 이벤트 처리 및 모델 초기화 *****/
 window.addEventListener("DOMContentLoaded", () => {
-  populateRegionDropdown();
-  const chatInput = document.getElementById("chat-input");
-  if (chatInput) {
-    chatInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") sendChat();
+  지역_드롭다운_채우기();
+  const 채팅_입력 = document.getElementById("chat-input");
+  if (채팅_입력) {
+    채팅_입력.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") 채팅_전송();
     });
   }
 
-  loadModel();
+  모델_로드();
 
-  // 학습 버튼 이벤트 추가 (필요 시 HTML에 <button id="train-button"> 추가)
-  const trainButton = document.getElementById("train-button");
-  if (trainButton) {
-    trainButton.addEventListener("click", async () => {
-      await trainEpochs(10);
-      saveModel();
+  const 학습_버튼 = document.getElementById("train-button");
+  if (학습_버튼) {
+    학습_버튼.addEventListener("click", () => {
+      const 학습_데이터 = 학습_데이터_생성();
+      에포크_학습(학습_데이터, 10);
+      모델_저장();
     });
   }
 });
