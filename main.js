@@ -1,6 +1,7 @@
-// API 키는 localStorage에서 가져옴 (데모용; 실제 환경에서는 보안 방법 사용 권장)
+// File system operations require Node.js environment; here we use server communication for browser compatibility
+// API keys are retrieved from localStorage (for demonstration; use a secure method in production)
 const API_KEY = localStorage.getItem('API_KEY');
-const SERVER_API_URL = 'https://your-server.com/api'; // 실제 서버 API URL로 교체 필요
+const SERVER_API_URL = 'https://emotionail2-0.onrender.com/api'; // 실제 서버 API URL로 교체 필요
 
 /***** 사이트 링크와 키워드 정의 *****/
 const SITE_LINKS = {
@@ -133,7 +134,7 @@ function recombineBuffer(buffer) {
   return word;
 }
 
-/***** 서버를 통한 학습용.txt 파일 관리 *****/
+/***** 서버와의 통신을 통한 학습용.txt 관리 *****/
 async function appendToLearningFile(input) {
   const timestamp = Date.now();
   const encoded = `${timestamp}:${btoa(unescape(encodeURIComponent(input)))}\n`;
@@ -152,6 +153,29 @@ async function appendToLearningFile(input) {
     console.log('데이터가 학습용.txt에 추가되었습니다.');
   } catch (error) {
     console.error('학습용.txt 파일 추가 중 오류:', error);
+    // 서버 오류 시 localStorage에 백업
+    const currentData = readLearningFile();
+    localStorage.setItem('learningData', currentData + encoded);
+  }
+}
+
+async function readLearningFile() {
+  try {
+    const response = await fetch(`${SERVER_API_URL}/read-learning-file`, {
+      method: 'GET',
+      headers: {
+        'API_KEY': API_KEY
+      }
+    });
+    if (!response.ok) {
+      throw new Error('학습용.txt 파일을 불러오지 못했습니다.');
+    }
+    const data = await response.text();
+    return data;
+  } catch (error) {
+    console.error('학습용.txt 파일 불러오기 중 오류:', error);
+    // 서버 오류 시 localStorage에서 데이터 반환
+    return localStorage.getItem('learningData') || '';
   }
 }
 
@@ -249,7 +273,7 @@ async function sendChat() {
   const tokens = tokenizeKorean(input);
   const recombined = recombineKorean(tokens);
 
-  // 반복 학습: 재조합된 텍스트를 벡터화하여 intentRecognitionGroup에 저장
+  // 의도 인식 그룹에 저장
   updateIntentRecognitionGroup(recombined);
 
   let response = "";
@@ -257,7 +281,7 @@ async function sendChat() {
   let shouldNavigate = false;
   let navigateUrl = "";
 
-  // 지역 키워드 먼저 확인
+  // 먼저 지역 키워드 확인
   const regionKeywords = KEYWORDS.region;
   const matchedRegion = regionKeywords.find(region => input.includes(region));
   if (matchedRegion) {
@@ -320,7 +344,6 @@ function changeRegion(region) {
   if (regionSelect) {
     regionSelect.value = region;
     console.log(`지역이 ${region}으로 변경되었습니다.`);
-    // 추가적인 지역 변경 로직 필요 시 구현 (예: 지도 업데이트, 날씨 정보)
   }
 }
 
@@ -358,7 +381,7 @@ function populateRegionDropdown() {
     console.error("ID가 'region-select'인 요소를 찾을 수 없습니다.");
     return;
   }
-  regionSelect.innerHTML = ""; // 기존 옵션 초기화
+  regionSelect.innerHTML = "";
   const regions = KEYWORDS.region;
   regions.forEach(region => {
     const option = document.createElement("option");
