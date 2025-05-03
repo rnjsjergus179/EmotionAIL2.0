@@ -63,6 +63,22 @@ let 편향1 = Array(은닉_크기).fill(0);
 let 가중치2 = Array.from({ length: 출력_크기 }, () => Array(은닉_크기).fill(0).map(() => Math.random() * 0.01));
 let 편향2 = Array(출력_크기).fill(0);
 
+// 모델 로드 함수 (제공된 함수로 대체)
+function loadModel() {
+  const raw = localStorage.getItem('mlp모델');
+  if (!raw) {
+    console.warn('저장된 모델이 없습니다.');
+    return false;
+  }
+  const { 가중치1: w1, 편향1: b1, 가중치2: w2, 편향2: b2 } = JSON.parse(raw);
+  가중치1 = w1;
+  편향1   = b1;
+  가중치2 = w2;
+  편향2   = b2;
+  console.log('MLP 모델이 로드되었습니다.');
+  return true;
+}
+
 // 학습용 데이터 생성 함수
 function 학습_데이터_생성() {
   const 학습_데이터 = [];
@@ -104,38 +120,7 @@ function 순전파(입력) {
   const a1 = 렐루(z1);
   const z2 = 가중치2.map((w, i) => w.reduce((sum, wi, j) => sum + wi * a1[j], 편향2[i]));
   const a2 = 소프트맥스(z2);
-  return { a1, a2 }; // 학습용 전체 출력
-}
-
-// 예측용 순전파 함수 (의도 예측에 사용)
-function 예측_순전파(입력) {
-  const z1 = 가중치1.map((w, i) => w.reduce((sum, wi, j) => sum + wi * 입력[j], 편향1[i]));
-  const a1 = 렐루(z1);
-  const z2 = 가중치2.map((w, i) => w.reduce((sum, wi, j) => sum + wi * a1[j], 편향2[i]));
-  return 소프트맥스(z2); // 예측용 소프트맥스 출력만 반환
-}
-
-// 모델 로드 함수
-function loadModel() {
-  const raw = localStorage.getItem('mlp모델');
-  if (!raw) {
-    console.warn('저장된 모델이 없습니다.');
-    return false;
-  }
-  const { 가중치1: w1, 편향1: b1, 가중치2: w2, 편향2: b2 } = JSON.parse(raw);
-  가중치1 = w1;
-  편향1 = b1;
-  가중치2 = w2;
-  편향2 = b2;
-  console.log('MLP 모델이 로드되었습니다.');
-  return true;
-}
-
-// 의도 예측 함수
-function predictIntent(inputVector) {
-  const output = 예측_순전파(inputVector);
-  const maxIndex = output.indexOf(Math.max(...output));
-  return 의도[maxIndex];
+  return { a1, a2 };
 }
 
 // 학습 함수 (역전파)
@@ -349,7 +334,7 @@ async function 학습_파일_읽기() {
     const 데이터 = await 응답.text();
     return 데이터;
   } catch (error) {
-查找    console.error('학습용.txt 파일 불러오기 중 오류:', error);
+    console.error('학습용.txt 파일 불러오기 중 오류:', error);
     return localStorage.getItem('학습_데이터') || '';
   }
 }
@@ -431,7 +416,7 @@ async function 채팅_전송() {
   // 학습용.txt에 입력 추가
   await 학습_파일에_추가(입력);
 
-  // 텍스트를 토큰화하고 벡터화
+  // 텍스트를 토큰화하고 벡터화하여 의도 인식 그룹에 저장
   const 토큰 = 토큰화_및_필터링(입력);
   const binaryString = generateBinaryString(토큰);
   const vector = binaryStringToVector(binaryString);
@@ -442,14 +427,11 @@ async function 채팅_전송() {
   let 이동_여부 = false;
   let 이동_URL = "";
 
-  // 모델 로드 시도
-  const isModelLoaded = loadModel();
-
   // 지역 키워드 확인
   const 일치_지역 = 키워드.지역.find(지역 => 입력.includes(지역));
   if (일치_지역) {
     지역_변경(일치_지역);
-    응답 = `지역을 ${일치_지역}으로 변경했습니다.`;
+    응답 = `지역을 ${일치_지역}으로 변경했습니다.`; // 이진 문자열과 벡터 제외
   } else {
     // 사이트 링크 확인
     for (let 사이트 in 사이트_링크) {
@@ -474,40 +456,20 @@ async function 채팅_전송() {
 
     // 의도 인식 및 응답 생성
     if (!응답) {
-      if (isModelLoaded) {
-        // MLP 모델로 의도 예측
-        const predictedIntent = predictIntent(vector);
-        if (predictedIntent === "인사") {
-          응답 = "안녕하세요!";
-        } else if (predictedIntent === "취침") {
-          응답 = "좋은 꿈 꾸세요!";
-        } else if (predictedIntent === "시간") {
-          const 현재 = new Date();
-          응답 = `현재 시간은 ${현재.getHours()}시 ${현재.getMinutes()}분입니다.`;
-        } else if (predictedIntent === "날씨") {
-          응답 = "날씨 정보를 확인하려면 더 구체적인 요청을 해주세요!";
-        } else if (predictedIntent === "일정") {
-          응답 = "오늘 일정을 확인하려면 '오늘 일정'이라고 입력해주세요!";
-        } else {
-          응답 = "의도를 인식했으나 처리할 수 없습니다.";
-        }
+      const intent = 텍스트에서_의도_감지(입력);
+      if (intent === "인사") {
+        응답 = "안녕하세요!";
+      } else if (intent === "취침") {
+        응답 = "좋은 꿈 꾸세요!";
+      } else if (intent === "시간") {
+        const 현재 = new Date();
+        응답 = `현재 시간은 ${현재.getHours()}시 ${현재.getMinutes()}분입니다.`;
+      } else if (intent === "날씨") {
+        응답 = "날씨 정보를 확인하려면 더 구체적인 요청을 해주세요!";
+      } else if (intent === "일정") {
+        응답 = "오늘 일정을 확인하려면 '오늘 일정'이라고 입력해주세요!";
       } else {
-        // 모델이 로드되지 않은 경우 기본 키워드 기반 의도 감지
-        const intent = 텍스트에서_의도_감지(입력);
-        if (intent === "인사") {
-          응답 = "안녕하세요!";
-        } else if (intent === "취침") {
-          응답 = "좋은 꿈 꾸세요!";
-        } else if (intent === "시간") {
-          const 현재 = new Date();
-          응답 = `현재 시간은 ${현재.getHours()}시 ${현재.getMinutes()}분입니다.`;
-        } else if (intent === "날씨") {
-          응답 = "날씨 정보를 확인하려면 더 구체적인 요청을 해주세요!";
-        } else if (intent === "일정") {
-          응답 = "오늘 일정을 확인하려면 '오늘 일정'이라고 입력해주세요!";
-        } else {
-          응답 = 입력; // 기본적으로 입력 텍스트를 표시
-        }
+        응답 = 입력; // 기본적으로 입력 텍스트를 표시
       }
     }
   }
@@ -584,8 +546,7 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 페이지 로드 시 모델 로드 시도
-  loadModel();
+  loadModel(); // 모델_로드() 대신 loadModel() 호출
 
   const 학습_버튼 = document.getElementById("train-button");
   if (학습_버튼) {
