@@ -1,6 +1,6 @@
 // API 키와 서버 URL 설정
 const API_KEY = localStorage.getItem('API_KEY');
-const SERVER_API_URL = 'https://emotionail2-0.onrender.com/api'; // 올바른 서버 URL
+const SERVER_API_URL = 'https://emotionail2-0.onrender.com/api'; // 실제 서버 URL
 
 /***** 사이트 링크와 키워드 정의 *****/
 const SITE_LINKS = {
@@ -46,7 +46,7 @@ const apiCache = {};
 
 /***** 학습용 데이터와 확장된 모델 정의 *****/
 
-// 모델 파라미터 (다층 구조로 확장)
+// 모델 파라미터 (다층 구조)
 const inputSize = 300; // 입력 벡터 크기 (자모 단위 벡터)
 const hidden1Size = 128; // 첫 번째 은닉층 뉴런 수
 const hidden2Size = 64;  // 두 번째 은닉층 뉴런 수
@@ -86,15 +86,21 @@ let t = 0; // 타임스텝
 const beta1 = 0.9, beta2 = 0.999, eps = 1e-8, lr = 0.001;
 
 // 학습용 데이터 생성 함수
-function generateTrainingData() {
+function generateDeepTrainingData(rawText) {
   const trainingData = [];
-  intents.forEach((intent, index) => {
-    if (intentRecognitionGroup[intent] && intentRecognitionGroup[intent].length > 0) {
-      intentRecognitionGroup[intent].forEach(vector => {
-        const label = Array(outputSize).fill(0);
-        label[index] = 1; // one-hot 인코딩
-        trainingData.push({ input: vector, label });
-      });
+  const lines = rawText.split('\n').filter(line => line.trim());
+  lines.forEach(line => {
+    const [_, encodedText] = line.split(':');
+    if (encodedText) {
+      const decodedText = decodeLearningLines(encodedText);
+      const vector = quantizeVector(vectorizeText(decodedText));
+      const intent = detectIntentFromText(decodedText);
+      const intentIndex = intents.indexOf(intent);
+      const label = Array(outputSize).fill(0);
+      if (intentIndex !== -1) label[intentIndex] = 1; // one-hot 인코딩
+      trainingData.push({ input: new Float32Array(vector), label });
+      if (!intentRecognitionGroup[intent]) intentRecognitionGroup[intent] = [];
+      intentRecognitionGroup[intent].push(new Float32Array(vector));
     }
   });
   if (trainingData.length === 0) {
@@ -108,7 +114,7 @@ function generateTrainingData() {
   return trainingData;
 }
 
-// 활성화 함수 (다양화: LeakyReLU 사용)
+// 활성화 함수 (LeakyReLU 사용)
 function leakyRelu(x) {
   return x.map(v => v < 0 ? 0.01 * v : v);
 }
@@ -119,7 +125,7 @@ function softmax(logits) {
   return exps.map(e => e / sum);
 }
 
-// 배치 정규화 함수 (간단한 구현)
+// 배치 정규화 함수
 function batchNorm(z, train = true, gamma = 1, beta = 0, movingMean = 0, movingVar = 1, momentum = 0.9) {
   if (train) {
     const mean = z.reduce((sum, v) => sum + v, 0) / z.length;
@@ -134,7 +140,7 @@ function batchNorm(z, train = true, gamma = 1, beta = 0, movingMean = 0, movingV
 }
 
 // 드롭아웃 함수
-function dropout(x, rate = 0.5) {
+function dropout(x, rate = 0.2) {
   return x.map(v => Math.random() < rate ? 0 : v / (1 - rate));
 }
 
@@ -148,21 +154,21 @@ function addBias(z, b) {
 }
 
 // 순전파 함수 (다층 구조)
-function forward(x, train = true) {
+function forwardDeep(x, train = true) {
   const z1 = addBias(dot(x, W1), b1);
   const bn1 = batchNorm(z1, train);
   const a1 = leakyRelu(bn1);
-  const d1 = train ? dropout(a1, 0.5) : a1;
+  const d1 = train ? dropout(a1, 0.2) : a1;
 
   const z2 = addBias(dot(d1, W2), b2);
   const bn2 = batchNorm(z2, train);
   const a2 = leakyRelu(bn2);
-  const d2 = train ? dropout(a2, 0.5) : a2;
+  const d2 = train ? dropout(a2, 0.2) : a2;
 
   const z3 = addBias(dot(d2, W3), b3);
   const bn3 = batchNorm(z3, train);
   const a3 = leakyRelu(bn3);
-  const d3 = train ? dropout(a3, 0.5) : a3;
+  const d3 = train ? dropout(a3, 0.2) : a3;
 
   const z4 = addBias(dot(d3, W4), b4);
   const out = softmax(z4);
@@ -171,14 +177,13 @@ function forward(x, train = true) {
 }
 
 // 역전파 및 Adam 업데이트 함수
-function trainStep(x, y, miniBatchSize = 32) {
+function backwardDeep(x, y, miniBatchSize = 32) {
   t++;
-  const { a1, a2, a3, out, bn1, bn2, bn3, d1, d2, d3 } = forward(x, true);
+  const { a1, a2, a3, out, bn1, bn2, bn3, d1, d2, d3 } = forwardDeep(x, true);
   const grad4 = out.map((o, i) => o - y[i]); // 출력층 기울기
   const gradW4 = d3.map((d, i) => grad4.map(g => g * d)); // W4에 대한 기울기
   const gradB4 = grad4;
 
-  // 역전파 (간단히 계산, 실제로는 배치 단위로 평균 필요)
   const grad3 = W4.map(row => row.reduce((sum, w, j) => sum + w * grad4[j], 0)).map((v, i) => v * (a3[i] > 0 ? 1 : 0.01));
   const gradW3 = d2.map((d, i) => grad3.map(g => g * d));
   const gradB3 = grad3;
@@ -191,14 +196,12 @@ function trainStep(x, y, miniBatchSize = 32) {
   const gradW1 = x.map((xi, i) => grad1.map(g => g * xi));
   const gradB1 = grad1;
 
-  // Adam 업데이트 (W4 예시)
   mW4 = mW4.map((m, i) => beta1 * m + (1 - beta1) * gradW4[Math.floor(i / hidden3Size)][i % hidden3Size]);
   vW4 = vW4.map((v, i) => beta2 * v + (1 - beta2) * (gradW4[Math.floor(i / hidden3Size)][i % hidden3Size] ** 2));
   const mHatW4 = mW4.map(m => m / (1 - beta1 ** t));
   const vHatW4 = vW4.map(v => v / (1 - beta2 ** t));
   W4 = W4.map((row, i) => row.map((w, j) => w - lr * mHatW4[i * hidden3Size + j] / (Math.sqrt(vHatW4[i * hidden3Size + j]) + eps)));
 
-  // 동일한 패턴으로 나머지 가중치와 편향 업데이트 (W3, W2, W1, b4, b3, b2, b1)
   mW3 = mW3.map((m, i) => beta1 * m + (1 - beta1) * gradW3[Math.floor(i / hidden2Size)][i % hidden2Size]);
   vW3 = vW3.map((v, i) => beta2 * v + (1 - beta2) * (gradW3[Math.floor(i / hidden2Size)][i % hidden2Size] ** 2));
   const mHatW3 = mW3.map(m => m / (1 - beta1 ** t));
@@ -241,13 +244,12 @@ function trainStep(x, y, miniBatchSize = 32) {
   const vHatb1 = vb1.map(v => v / (1 - beta2 ** t));
   b1 = b1.map((b, i) => b - lr * mHatb1[i] / (Math.sqrt(vHatb1[i]) + eps));
 
-  // 손실 계산
   const loss = grad4.reduce((sum, e) => sum + e * e, 0) / outputSize;
   return loss;
 }
 
-// 학습 루프 (미니배치 및 학습률 스케줄링 적용)
-function trainEpochs(data, epochs = 10, batchSize = 32) {
+// 학습 루프
+function trainModel(data, epochs = 20, batchSize = 32) {
   let currentLr = lr;
   const decay = 0.95; // 학습률 감쇠율
   const losses = [];
@@ -258,7 +260,7 @@ function trainEpochs(data, epochs = 10, batchSize = 32) {
     for (let i = 0; i < data.length; i += batchSize) {
       const batch = data.slice(i, i + batchSize);
       batch.forEach(sample => {
-        const loss = trainStep(sample.input, sample.label);
+        const loss = backwardDeep(sample.input, sample.label);
         totalLoss += loss;
       });
     }
@@ -279,14 +281,14 @@ function shuffle(array) {
 }
 
 // 모델 저장
-function saveModel() {
+function saveDeepModel() {
   const model = { W1, b1, W2, b2, W3, b3, W4, b4, mW1, vW1, mW2, vW2, mW3, vW3, mW4, vW4, mb1, vb1, mb2, vb2, mb3, vb3, mb4, vb4 };
   localStorage.setItem('mlpModel', JSON.stringify(model));
   console.log("모델이 저장되었습니다.");
 }
 
 // 모델 로드
-function loadModel() {
+function loadDeepModel() {
   const savedModel = localStorage.getItem('mlpModel');
   if (savedModel) {
     const model = JSON.parse(savedModel);
@@ -426,7 +428,7 @@ async function readLearningFile() {
   }
 }
 
-/***** 텍스트 벡터화 및 양자화 *****/
+/***** 텍스트 전처리 함수 *****/
 function vectorizeText(text) {
   const tokens = tokenizeAndFilter(text);
   let vector = Array(300).fill(0);
@@ -439,6 +441,10 @@ function vectorizeText(text) {
 
 function quantizeVector(vector) {
   return vector.map(val => Math.round(val * 100) / 100);
+}
+
+function decodeLearningLines(encodedText) {
+  return decodeURIComponent(escape(atob(encodedText)));
 }
 
 function updateIntentRecognitionGroup(text) {
@@ -502,7 +508,7 @@ async function getYouTubeSearchResults(query) {
   }
 }
 
-/***** 채팅 처리 *****/
+/***** 채팅 처리 및 서버 통합 *****/
 async function sendChat() {
   const inputEl = document.getElementById("chat-input");
   if (!inputEl || !inputEl.value.trim()) return;
@@ -514,16 +520,14 @@ async function sendChat() {
   for (const sentence of sentences) {
     const trimmedSentence = sentence.trim();
     await appendToLearningFile(trimmedSentence);
-    updateIntentRecognitionGroup(trimmedSentence); // 키워드 기반 의도 저장
+    updateIntentRecognitionGroup(trimmedSentence);
   }
 
   // 실시간 재학습
-  const trainingData = generateTrainingData();
-  const losses = trainEpochs(trainingData, 5, 32); // 미니배치 크기 32
-  saveModel();
-
-  // 손실 시각화 (콘솔 출력)
-  console.log("학습 손실:", losses);
+  const rawData = await readLearningFile();
+  const trainingData = generateDeepTrainingData(rawData);
+  const losses = trainModel(trainingData, 5, 32);
+  saveDeepModel();
 
   let response = "";
   let isHTML = false;
@@ -563,16 +567,11 @@ async function sendChat() {
           const now = new Date();
           response += `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.\n`;
         } else {
-          // 모델을 사용한 예측
           const vector = quantizeVector(vectorizeText(trimmedSentence));
-          const { out } = forward(vector, false);
+          const { out } = forwardDeep(vector, false);
           const predictedIntentIndex = out.indexOf(Math.max(...out));
           const predictedIntent = intents[predictedIntentIndex];
-          if (predictedIntent === 'unknown') {
-            response += "의도를 이해하지 못했습니다. 다시 시도해주세요.\n";
-          } else {
-            response += `예측된 의도: ${predictedIntent}\n`;
-          }
+          response += `예측된 의도: ${predictedIntent} (확률: ${(out[predictedIntentIndex] * 100).toFixed(2)}%)\n`;
         }
       }
     }
@@ -645,14 +644,15 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  loadModel();
+  loadDeepModel();
 
   const trainButton = document.getElementById("train-button");
   if (trainButton) {
-    trainButton.addEventListener("click", () => {
-      const trainingData = generateTrainingData();
-      const losses = trainEpochs(trainingData, 10, 32);
-      saveModel();
+    trainButton.addEventListener("click", async () => {
+      const rawData = await readLearningFile();
+      const trainingData = generateDeepTrainingData(rawData);
+      const losses = trainModel(trainingData, 20, 32);
+      saveDeepModel();
       console.log("학습 손실:", losses);
     });
   }
