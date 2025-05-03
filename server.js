@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
+const fs = require('fs'); // 파일 시스템 모듈 추가
 
 // 외부 라우트 가져오기 (별도 파일로 존재한다고 가정)
 const weatherRoute = require('./weather');
@@ -74,13 +75,38 @@ app.get('/api/youtube-search', async (req, res) => {
   }
 });
 
-// **3. 기존 모듈 라우트 설정**
+// **3. 학습용.txt 파일에 데이터 추가**
+app.post('/append-to-learning-file', (req, res) => {
+  const apiKey = req.headers['api_key'];
+  const data = req.body.data;
+
+  if (!apiKey || apiKey !== process.env.API_KEY) {
+    return res.status(403).json({ error: '인증 실패: 유효한 API 키가 필요합니다.' });
+  }
+
+  if (!data) {
+    return res.status(400).json({ error: '데이터가 필요합니다.' });
+  }
+
+  const filePath = path.join(__dirname, '학습용.txt'); // 파일 경로 설정 (서버의 파일 시스템)
+
+  try {
+    fs.appendFileSync(filePath, data + '\n'); // 줄바꿈 추가
+    console.log('데이터가 학습용.txt에 추가되었습니다.');
+    res.json({ message: '데이터가 성공적으로 추가되었습니다.' });
+  } catch (err) {
+    console.error('파일에 데이터 추가 중 오류:', err);
+    res.status(500).json({ error: '파일에 데이터 추가 실패' });
+  }
+});
+
+// **4. 기존 모듈 라우트 설정**
 app.use('/api', weatherRoute);
 
-// **4. 정적 파일 서빙**
+// **5. 정적 파일 서빙**
 app.use(express.static(path.join(__dirname, 'public')));
 
-// **5. 서버 시작**
+// **6. 서버 시작**
 app.listen(port, () => {
   console.log(`🚀 서버 실행 중: http://localhost:${port}`);
 });
