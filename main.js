@@ -1,10 +1,8 @@
-// File system operations require Node.js environment; here we simulate file I/O for browser compatibility
-// const fs = require('fs'); // Removed since this is for browser environment; use localStorage or fetch instead.
-
-// API keys are retrieved from localStorage (for demonstration; use a secure method in production)
+// API 키는 localStorage에서 가져옴 (데모용; 실제 환경에서는 보안 방법 사용 권장)
 const API_KEY = localStorage.getItem('API_KEY');
+const SERVER_API_URL = 'https://your-server.com/api'; // 실제 서버 API URL로 교체 필요
 
-/***** Site Links and Keywords *****/
+/***** 사이트 링크와 키워드 정의 *****/
 const SITE_LINKS = {
   "빙": "https://www.bing.com",
   "네이버": "https://www.naver.com",
@@ -31,7 +29,7 @@ let KEYWORDS = {
   region: ["서울", "인천", "수원", "고양", "성남", "용인", "부천", "안양", "의정부", "광명", "안산", "파주", "부산", "대구", "광주", "대전", "울산", "제주", "전주", "청주", "포항", "여수", "김해"]
 };
 
-let intentRecognitionGroup = {}; // Intent recognition group object for vectorized data
+let intentRecognitionGroup = {}; // 의도 인식 그룹 객체 (벡터화된 데이터를 바이너리 형식으로 저장)
 const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 let historyEmbeddings = [];
 let adaptiveLearningRate = 0.01;
@@ -46,7 +44,7 @@ const knowledgeGraph = {
 
 const apiCache = {};
 
-/***** Utility Functions *****/
+/***** 유틸리티 함수 *****/
 function dotProduct(a, b) {
   return a.reduce((sum, val, i) => sum + val * b[i], 0);
 }
@@ -64,7 +62,7 @@ function averageVectors(vectors) {
   return sum.map(val => val / vectors.length);
 }
 
-/***** Korean Tokenization and Recombination *****/
+/***** 한국어 토큰화 및 재조합 *****/
 function tokenizeKorean(text) {
   const hangulRange = /[\uAC00-\uD7AF]/g;
   const consonantsVowels = {
@@ -135,35 +133,41 @@ function recombineBuffer(buffer) {
   return word;
 }
 
-/***** File I/O Simulation for Browser *****/
-function readLearningFile() {
-  return localStorage.getItem('learningData') || '';
-}
-
-function writeLearningFile(data) {
-  localStorage.setItem('learningData', data);
-}
-
-function appendToLearningFile(input) {
+/***** 서버를 통한 학습용.txt 파일 관리 *****/
+async function appendToLearningFile(input) {
   const timestamp = Date.now();
   const encoded = `${timestamp}:${btoa(unescape(encodeURIComponent(input)))}\n`;
-  const currentData = readLearningFile();
-  writeLearningFile(currentData + encoded);
+  try {
+    const response = await fetch(`${SERVER_API_URL}/append-to-learning-file`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'API_KEY': API_KEY
+      },
+      body: JSON.stringify({ data: encoded })
+    });
+    if (!response.ok) {
+      throw new Error('학습용.txt 파일에 추가 실패');
+    }
+    console.log('데이터가 학습용.txt에 추가되었습니다.');
+  } catch (error) {
+    console.error('학습용.txt 파일 추가 중 오류:', error);
+  }
 }
 
-/***** Vectorization and Quantization *****/
+/***** 텍스트 벡터화 및 양자화 *****/
 function vectorizeText(text) {
   const tokens = tokenizeKorean(text);
   let vector = Array(300).fill(0);
   tokens.forEach((token, idx) => {
     const charCodeSum = token.value.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-    vector[idx % 300] += charCodeSum / 1000; // Normalize
+    vector[idx % 300] += charCodeSum / 1000; // 정규화
   });
   return vector;
 }
 
 function quantizeVector(vector) {
-  return vector.map(val => Math.round(val * 100) / 100); // Reduce precision to 2 decimal places
+  return vector.map(val => Math.round(val * 100) / 100); // 소수점 2자리로 정밀도 조정
 }
 
 function updateIntentRecognitionGroup(text) {
@@ -172,10 +176,12 @@ function updateIntentRecognitionGroup(text) {
   if (!intentRecognitionGroup[intent]) {
     intentRecognitionGroup[intent] = [];
   }
-  intentRecognitionGroup[intent].push(vector);
+  // 벡터를 바이너리 형식(Float32Array)으로 변환하여 저장
+  const binaryVector = new Float32Array(vector);
+  intentRecognitionGroup[intent].push(binaryVector);
 }
 
-/***** Intent Detection *****/
+/***** 의도 감지 *****/
 function detectIntentFromText(input) {
   for (const intent in KEYWORDS) {
     if (KEYWORDS[intent].some(keyword => input.includes(keyword))) {
@@ -185,7 +191,7 @@ function detectIntentFromText(input) {
   return 'unknown';
 }
 
-/***** API Calls *****/
+/***** API 호출 함수 *****/
 async function fetchWithKeys(url, options = {}) {
   const headers = { 'Content-Type': 'application/json', 'API_KEY': API_KEY, ...options.headers };
   return fetch(url, { ...options, headers });
@@ -200,7 +206,7 @@ async function getNaverSearchResults(query) {
     if (data.items && data.items.length > 0) {
       const results = data.items.map(item => item.title.replace(/<[^>]+>/g, '')).join('\n- ');
       apiCache[cacheKey] = results;
-      appendToLearningFile(`Naver:${query}:${results}`);
+      await appendToLearningFile(`Naver:${query}:${results}`);
       return results;
     }
     return "검색 결과가 없습니다.";
@@ -219,7 +225,7 @@ async function getYouTubeSearchResults(query) {
     if (data.items && data.items.length > 0) {
       const results = data.items.map(item => `<a href="${item.url}" target="_blank">${item.title}</a>`).join('<br>');
       apiCache[cacheKey] = results;
-      appendToLearningFile(`YouTube:${query}:${results}`);
+      await appendToLearningFile(`YouTube:${query}:${results}`);
       return results;
     }
     return "검색 결과가 없습니다.";
@@ -229,32 +235,36 @@ async function getYouTubeSearchResults(query) {
   }
 }
 
-/***** Chat Processing *****/
+/***** 채팅 처리 *****/
 async function sendChat() {
   const inputEl = document.getElementById("chat-input");
   if (!inputEl) return;
   const input = inputEl.value.trim();
   if (!input) return;
 
-  appendToLearningFile(input); // Store chat input in localStorage
-  updateIntentRecognitionGroup(input); // Vectorize and store in intent group
+  // 입력을 서버를 통해 학습용.txt에 저장
+  await appendToLearningFile(input);
 
+  // 입력 텍스트를 토큰화하고 재조합
   const tokens = tokenizeKorean(input);
   const recombined = recombineKorean(tokens);
+
+  // 반복 학습: 재조합된 텍스트를 벡터화하여 intentRecognitionGroup에 저장
+  updateIntentRecognitionGroup(recombined);
+
   let response = "";
   let isHTML = false;
   let shouldNavigate = false;
   let navigateUrl = "";
 
-  // Check for region keywords first
+  // 지역 키워드 먼저 확인
   const regionKeywords = KEYWORDS.region;
   const matchedRegion = regionKeywords.find(region => input.includes(region));
   if (matchedRegion) {
-    // Trigger region change and navigation
     changeRegion(matchedRegion);
     response = `지역을 ${matchedRegion}으로 변경했습니다.`;
   } else {
-    // Check for site links
+    // 사이트 링크 확인
     for (let site in SITE_LINKS) {
       if (input.includes(site)) {
         if (site === "유튜브") {
@@ -281,7 +291,7 @@ async function sendChat() {
       }
     }
 
-    // If no site link or region matched, process intents
+    // 사이트 링크나 지역이 매칭되지 않으면 의도 처리
     if (!response) {
       const intent = detectIntentFromText(input);
       if (intent === "greetings") {
@@ -292,7 +302,7 @@ async function sendChat() {
         const now = new Date();
         response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
       } else {
-        response = recombined; // Show recombined text if no specific intent
+        response = recombined; // 특정 의도가 없으면 재조합된 텍스트 반환
       }
     }
   }
@@ -304,19 +314,17 @@ async function sendChat() {
   inputEl.value = "";
 }
 
-/***** Region Change Function *****/
+/***** 지역 변경 함수 *****/
 function changeRegion(region) {
   const regionSelect = document.getElementById("region-select");
   if (regionSelect) {
     regionSelect.value = region;
-    // Placeholder for region change handling (implement as needed)
-    console.log(`Region changed to: ${region}`);
-    // updateMap(region);
-    // updateWeatherAndEffects(region);
+    console.log(`지역이 ${region}으로 변경되었습니다.`);
+    // 추가적인 지역 변경 로직 필요 시 구현 (예: 지도 업데이트, 날씨 정보)
   }
 }
 
-/***** Speech Bubble *****/
+/***** 말풍선 표시 *****/
 function showSpeechBubbleInChunks(text, isHTML = false, chunkSize = 15) {
   const bubble = document.getElementById("speech-bubble");
   if (!bubble) return;
@@ -343,14 +351,14 @@ function showSpeechBubbleInChunks(text, isHTML = false, chunkSize = 15) {
   requestAnimationFrame(showNextPart);
 }
 
-/***** Populate Region Dropdown *****/
+/***** 지역 드롭다운 채우기 *****/
 function populateRegionDropdown() {
   const regionSelect = document.getElementById("region-select");
   if (!regionSelect) {
-    console.error("Element with ID 'region-select' not found.");
+    console.error("ID가 'region-select'인 요소를 찾을 수 없습니다.");
     return;
   }
-  regionSelect.innerHTML = ""; // Clear existing options
+  regionSelect.innerHTML = ""; // 기존 옵션 초기화
   const regions = KEYWORDS.region;
   regions.forEach(region => {
     const option = document.createElement("option");
@@ -360,9 +368,9 @@ function populateRegionDropdown() {
   });
 }
 
-/***** DOM Event Handling *****/
+/***** DOM 이벤트 처리 *****/
 window.addEventListener("DOMContentLoaded", function() {
-  populateRegionDropdown(); // Populate the region dropdown on page load
+  populateRegionDropdown(); // 페이지 로드 시 지역 드롭다운 채우기
   const chatInput = document.getElementById("chat-input");
   if (chatInput) {
     chatInput.addEventListener("keydown", function(e) {
