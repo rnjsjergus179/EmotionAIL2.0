@@ -81,21 +81,24 @@ app.post('/append-to-learning-file', (req, res) => {
   const data = req.body.data;
 
   if (!apiKey || apiKey !== process.env.API_KEY) {
+    console.log('[Render] 인증 실패: 유효한 API 키가 필요합니다.');
     return res.status(403).json({ error: '인증 실패: 유효한 API 키가 필요합니다.' });
   }
 
   if (!data) {
+    console.log('[Render] 데이터가 필요합니다.');
     return res.status(400).json({ error: '데이터가 필요합니다.' });
   }
 
   const filePath = path.join(__dirname, '학습용.txt'); // 파일 경로 설정 (서버의 파일 시스템)
 
   try {
+    console.log(`[Render] 데이터 저장 전: ${data}`); // 데이터 저장 전 로그 추가
     fs.appendFileSync(filePath, data + '\n'); // 줄바꿈 추가
-    console.log('데이터가 학습용.txt에 추가되었습니다.');
+    console.log(`[Render] 데이터 저장 후: ${data}`); // 데이터 저장 후 로그 추가
     res.json({ message: '데이터가 성공적으로 추가되었습니다.' });
   } catch (err) {
-    console.error('파일에 데이터 추가 중 오류:', err);
+    console.error('[Render] 파일에 데이터 추가 중 오류:', err);
     res.status(500).json({ error: '파일에 데이터 추가 실패' });
   }
 });
