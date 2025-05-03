@@ -1,7 +1,7 @@
 // File system operations require Node.js environment; here we use server communication for browser compatibility
 // API keys are retrieved from localStorage (for demonstration; use a secure method in production)
 const API_KEY = localStorage.getItem('API_KEY');
-const SERVER_API_URL = 'https://emotionail2-0.onrender.com/api'; // 실제 서버 API URL로 교체 필요
+const SERVER_API_URL = 'https://emotionail2-0.onrender.com//api'; // 실제 서버 API URL로 교체 필요
 
 /***** 사이트 링크와 키워드 정의 *****/
 const SITE_LINKS = {
@@ -63,8 +63,8 @@ function averageVectors(vectors) {
   return sum.map(val => val / vectors.length);
 }
 
-/***** 한국어 토큰화 및 재조합 *****/
-function tokenizeKorean(text) {
+/***** 한국어 토큰화 및 필터링 *****/
+function tokenizeAndFilter(text) {
   const hangulRange = /[\uAC00-\uD7AF]/g;
   const consonantsVowels = {
     initial: ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'],
@@ -73,6 +73,7 @@ function tokenizeKorean(text) {
   };
   let tokens = [];
   
+  // 자모음과 영단어만 추출, 불필요한 문자 제거
   text.split(' ').forEach(word => {
     if (/[a-zA-Z]/.test(word)) {
       tokens.push({ type: 'english', value: word });
@@ -89,6 +90,7 @@ function tokenizeKorean(text) {
         }
       }
     }
+    // 기타 문자는 무시 (필터링)
   });
   return tokens;
 }
@@ -154,7 +156,7 @@ async function appendToLearningFile(input) {
   } catch (error) {
     console.error('학습용.txt 파일 추가 중 오류:', error);
     // 서버 오류 시 localStorage에 백업
-    const currentData = readLearningFile();
+    const currentData = await readLearningFile();
     localStorage.setItem('learningData', currentData + encoded);
   }
 }
@@ -181,7 +183,7 @@ async function readLearningFile() {
 
 /***** 텍스트 벡터화 및 양자화 *****/
 function vectorizeText(text) {
-  const tokens = tokenizeKorean(text);
+  const tokens = tokenizeAndFilter(text); // 필터링된 토큰 사용
   let vector = Array(300).fill(0);
   tokens.forEach((token, idx) => {
     const charCodeSum = token.value.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
@@ -269,12 +271,13 @@ async function sendChat() {
   // 입력을 서버를 통해 학습용.txt에 저장
   await appendToLearningFile(input);
 
-  // 입력 텍스트를 토큰화하고 재조합
-  const tokens = tokenizeKorean(input);
-  const recombined = recombineKorean(tokens);
+  // 학습용.txt 파일을 불러와서 정제 및 필터링
+  const learningData = await readLearningFile();
+  const filteredTokens = tokenizeAndFilter(learningData);
+  const cleanedText = recombineKorean(filteredTokens);
 
-  // 의도 인식 그룹에 저장
-  updateIntentRecognitionGroup(recombined);
+  // 정제된 텍스트를 벡터화 및 양자화하여 의도 인식에 활용
+  updateIntentRecognitionGroup(cleanedText);
 
   let response = "";
   let isHTML = false;
@@ -326,7 +329,7 @@ async function sendChat() {
         const now = new Date();
         response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
       } else {
-        response = recombined; // 특정 의도가 없으면 재조합된 텍스트 반환
+        response = cleanedText; // 정제된 텍스트를 말풍선에 표시
       }
     }
   }
