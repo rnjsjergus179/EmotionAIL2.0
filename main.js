@@ -21,7 +21,7 @@ const 사이트_링크 = {
 };
 
 let 키워드 = {
-  인사: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네"],
+  인사: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네", "반가워"],
   취침: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
   날씨: ["날씨알려줘", "날씨알려주게", "날씨좀알려줘", "날씨 알려줘", "날씨 좀 알려줘", "날씨 어때", "날씨 맑아"],
   시간: ["시간 알려줘"],
@@ -63,7 +63,8 @@ function 학습_데이터_생성() {
   const 학습_데이터 = [];
   의도.forEach((intent, index) => {
     if (의도_인식_그룹[intent] && 의도_인식_그룹[intent].length > 0) {
-      의도_인식_그룹[intent].forEach(vector => {
+      의도_인식_그룹[intent].forEach(binaryString => {
+        const vector = binaryStringToVector(binaryString);
         const 라벨 = Array(출력_크기).fill(0);
         라벨[index] = 1; // 원-핫 인코딩
         학습_데이터.push({ 입력: vector, 라벨 });
@@ -177,7 +178,7 @@ function 벡터_평균(벡터들) {
   return 합.map(val => val / 벡터들.length);
 }
 
-/***** 한국어 토큰화 및 필터링 *****/
+/***** 한국어 토큰화 및 이진수 변환 *****/
 function 토큰화_및_필터링(텍스트) {
   const 한글_범위 = /[\uAC00-\uD7AF]/g;
   const 자모 = {
@@ -204,6 +205,35 @@ function 토큰화_및_필터링(텍스트) {
     }
   });
   return 토큰;
+}
+
+// 이진수 문자열 생성 함수
+function generateBinaryString(tokens) {
+  return tokens.map(token => {
+    let prefix;
+    switch (token.유형) {
+      case '초성':
+        prefix = 0; // 초성은 0
+        break;
+      case '중성':
+        prefix = 1; // 중성은 1
+        break;
+      case '종성':
+        prefix = 2; // 종성은 2
+        break;
+      default:
+        prefix = -1; // 오류 방지
+    }
+    return `${prefix}.${token.값}`;
+  }).join('');
+}
+
+// 이진수 문자열을 벡터로 변환 (학습용)
+function binaryStringToVector(binaryString) {
+  const vector = Array(입력_크기).fill(0);
+  const hash = binaryString.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  vector[hash % 입력_크기] = 1; // 간단한 해시 기반 벡터화
+  return new Float32Array(vector);
 }
 
 function 한국어_재결합(토큰) {
@@ -276,7 +306,7 @@ async function 학습_파일_읽기() {
   }
 }
 
-/***** 텍스트 벡터화 및 양자화 *****/
+/***** 텍스트 벡터화 및 의도 인식 그룹 업데이트 *****/
 function 텍스트_벡터화(텍스트) {
   const 토큰 = 토큰화_및_필터링(텍스트);
   let 벡터 = Array(300).fill(0);
@@ -292,11 +322,12 @@ function 벡터_양자화(벡터) {
 }
 
 function 의도_인식_그룹_업데이트(텍스트) {
-  const 벡터 = 벡터_양자화(텍스트_벡터화(텍스트));
+  const 토큰 = 토큰화_및_필터링(텍스트);
+  const binaryString = generateBinaryString(토큰); // 이진수 문자열 생성
   const intent = 텍스트에서_의도_감지(텍스트);
   if (!의도_인식_그룹[intent]) 의도_인식_그룹[intent] = [];
-  const 이진_벡터 = new Float32Array(벡터);
-  의도_인식_그룹[intent].push(이진_벡터);
+  의도_인식_그룹[intent].push(binaryString); // 이진수 문자열 저장
+  console.log(`의도: ${intent}, 이진수 표현: ${binaryString}`); // 콘솔에 출력
 }
 
 /***** 의도 감지 *****/
@@ -358,18 +389,7 @@ async function 채팅_전송() {
   const 입력 = 입력_요소.value.trim();
 
   await 학습_파일에_추가(입력);
-
-  const 학습_데이터 = await 학습_파일_읽기();
-  const 줄 = 학습_데이터.trim().split('\n');
-  const 디코딩된_줄 = 줄.map(line => {
-    const 부분 = line.split(':');
-    if (부분.length === 2) {
-      return decodeURIComponent(escape(atob(부분[1])));
-    }
-    return line;
-  });
-  const 정리된_텍스트 = 한국어_재결합(토큰화_및_필터링(디코딩된_줄.join(' ')));
-  의도_인식_그룹_업데이트(정리된_텍스트);
+  의도_인식_그룹_업데이트(입력); // 사용자의 입력으로 직접 업데이트
 
   let 응답 = "";
   let HTML_여부 = false;
@@ -407,7 +427,16 @@ async function 채팅_전송() {
         const 현재 = new Date();
         응답 = `현재 시간은 ${현재.getHours()}시 ${현재.getMinutes()}분입니다.`;
       } else {
-        응답 = 정리된_텍스트;
+        const 학습_데이터 = await 학습_파일_읽기();
+        const 줄 = 학습_데이터.trim().split('\n');
+        const 디코딩된_줄 = 줄.map(line => {
+          const 부분 = line.split(':');
+          if (부분.length === 2) {
+            return decodeURIComponent(escape(atob(부분[1])));
+          }
+          return line;
+        });
+        응답 = 한국어_재결합(토큰화_및_필터링(디코딩된_줄.join(' ')));
       }
     }
   }
