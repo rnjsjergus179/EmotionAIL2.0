@@ -135,17 +135,55 @@ function 학습(입력, 목표, 학습률 = 0.01) {
   }
 }
 
-// 학습 루프
-function 에포크_학습(데이터, 에포크 = 10) {
+// 학습 루프 및 서버 전송
+async function 에포크_학습(데이터, 에포크 = 10) {
+  // 학습 전 모델 상태 저장
+  const 모델_전 = {
+    가중치1: JSON.parse(JSON.stringify(가중치1)),
+    편향1: JSON.parse(JSON.stringify(편향1)),
+    가중치2: JSON.parse(JSON.stringify(가중치2)),
+    편향2: JSON.parse(JSON.stringify(편향2))
+  };
+
   for (let epoch = 0; epoch < 에포크; epoch++) {
     데이터.forEach(샘플 => {
       학습(샘플.입력, 샘플.라벨, 0.01);
     });
     console.log(`에포크 ${epoch + 1}/${에포크} 완료`);
   }
+
+  // 학습 후 모델 상태 저장
+  const 모델_후 = {
+    가중치1: 가중치1,
+    편향1: 편향1,
+    가중치2: 가중치2,
+    편향2: 편향2
+  };
+
+  // 서버로 전후 모델 전송
+  await 모델_서버에_전송(모델_전, 모델_후);
 }
 
-// 모델 저장
+// 모델을 서버로 전송하는 함수
+async function 모델_서버에_전송(모델_전, 모델_후) {
+  const 데이터 = { 모델_전, 모델_후 };
+  try {
+    const 응답 = await fetch(`${서버_API_URL}/save-model`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'API_키': API_키
+      },
+      body: JSON.stringify(데이터)
+    });
+    if (!응답.ok) throw new Error('모델 전송 실패');
+    console.log('모델이 서버에 전송되었습니다.');
+  } catch (error) {
+    console.error('모델 전송 중 오류:', error);
+  }
+}
+
+// 모델 저장 (로컬)
 function 모델_저장() {
   const 모델 = {
     가중치1: 가중치1,
@@ -157,7 +195,7 @@ function 모델_저장() {
   console.log("모델이 저장되었습니다.");
 }
 
-// 모델 로드
+// 모델 로드 (로컬)
 function 모델_로드() {
   const 저장된_모델 = localStorage.getItem('mlp모델');
   if (저장된_모델) {
@@ -441,6 +479,10 @@ async function 채팅_전송() {
     }
   }
 
+  // MLP 모델 학습
+  const 학습_데이터 = 학습_데이터_생성();
+  await 에포크_학습(학습_데이터, 10);
+
   말풍선_표시(응답, HTML_여부);
   if (이동_여부) setTimeout(() => { window.location.href = 이동_URL; }, 2000);
   입력_요소.value = "";
@@ -512,9 +554,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const 학습_버튼 = document.getElementById("train-button");
   if (학습_버튼) {
-    학습_버튼.addEventListener("click", () => {
+    학습_버튼.addEventListener("click", async () => {
       const 학습_데이터 = 학습_데이터_생성();
-      에포크_학습(학습_데이터, 10);
+      await 에포크_학습(학습_데이터, 10);
       모델_저장();
     });
   }
