@@ -1,5 +1,4 @@
-// File system operations require Node.js environment; here we use server communication for browser compatibility
-// API keys are retrieved from localStorage (for demonstration; use a secure method in production)
+// API 키는 localStorage에서 가져옴 (보안 강화를 위해 프로덕션에서는 다른 방법 사용 권장)
 const API_KEY = localStorage.getItem('API_KEY');
 const SERVER_API_URL = 'https://emotionail2-0.onrender.com//api'; // 실제 서버 API URL로 교체 필요
 
@@ -30,7 +29,7 @@ let KEYWORDS = {
   region: ["서울", "인천", "수원", "고양", "성남", "용인", "부천", "안양", "의정부", "광명", "안산", "파주", "부산", "대구", "광주", "대전", "울산", "제주", "전주", "청주", "포항", "여수", "김해"]
 };
 
-let intentRecognitionGroup = {}; // 의도 인식 그룹 객체 (벡터화된 데이터를 바이너리 형식으로 저장)
+let intentRecognitionGroup = {};
 const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 let historyEmbeddings = [];
 let adaptiveLearningRate = 0.01;
@@ -72,8 +71,6 @@ function tokenizeAndFilter(text) {
     final: ['', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ', 'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ']
   };
   let tokens = [];
-  
-  // 자모음과 영단어만 추출, 불필요한 문자 제거
   text.split(' ').forEach(word => {
     if (/[a-zA-Z]/.test(word)) {
       tokens.push({ type: 'english', value: word });
@@ -90,7 +87,6 @@ function tokenizeAndFilter(text) {
         }
       }
     }
-    // 기타 문자는 무시 (필터링)
   });
   return tokens;
 }
@@ -149,13 +145,10 @@ async function appendToLearningFile(input) {
       },
       body: JSON.stringify({ data: encoded })
     });
-    if (!response.ok) {
-      throw new Error('학습용.txt 파일에 추가 실패');
-    }
+    if (!response.ok) throw new Error('학습용.txt 파일에 추가 실패');
     console.log('데이터가 학습용.txt에 추가되었습니다.');
   } catch (error) {
     console.error('학습용.txt 파일 추가 중 오류:', error);
-    // 서버 오류 시 localStorage에 백업
     const currentData = await readLearningFile();
     localStorage.setItem('learningData', currentData + encoded);
   }
@@ -165,44 +158,36 @@ async function readLearningFile() {
   try {
     const response = await fetch(`${SERVER_API_URL}/read-learning-file`, {
       method: 'GET',
-      headers: {
-        'API_KEY': API_KEY
-      }
+      headers: { 'API_KEY': API_KEY }
     });
-    if (!response.ok) {
-      throw new Error('학습용.txt 파일을 불러오지 못했습니다.');
-    }
+    if (!response.ok) throw new Error('학습용.txt 파일을 불러오지 못했습니다.');
     const data = await response.text();
     return data;
   } catch (error) {
     console.error('학습용.txt 파일 불러오기 중 오류:', error);
-    // 서버 오류 시 localStorage에서 데이터 반환
     return localStorage.getItem('learningData') || '';
   }
 }
 
 /***** 텍스트 벡터화 및 양자화 *****/
 function vectorizeText(text) {
-  const tokens = tokenizeAndFilter(text); // 필터링된 토큰 사용
+  const tokens = tokenizeAndFilter(text);
   let vector = Array(300).fill(0);
   tokens.forEach((token, idx) => {
     const charCodeSum = token.value.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-    vector[idx % 300] += charCodeSum / 1000; // 정규화
+    vector[idx % 300] += charCodeSum / 1000;
   });
   return vector;
 }
 
 function quantizeVector(vector) {
-  return vector.map(val => Math.round(val * 100) / 100); // 소수점 2자리로 정밀도 조정
+  return vector.map(val => Math.round(val * 100) / 100);
 }
 
 function updateIntentRecognitionGroup(text) {
   const vector = quantizeVector(vectorizeText(text));
   const intent = detectIntentFromText(text);
-  if (!intentRecognitionGroup[intent]) {
-    intentRecognitionGroup[intent] = [];
-  }
-  // 벡터를 바이너리 형식(Float32Array)으로 변환하여 저장
+  if (!intentRecognitionGroup[intent]) intentRecognitionGroup[intent] = [];
   const binaryVector = new Float32Array(vector);
   intentRecognitionGroup[intent].push(binaryVector);
 }
@@ -210,9 +195,7 @@ function updateIntentRecognitionGroup(text) {
 /***** 의도 감지 *****/
 function detectIntentFromText(input) {
   for (const intent in KEYWORDS) {
-    if (KEYWORDS[intent].some(keyword => input.includes(keyword))) {
-      return intent;
-    }
+    if (KEYWORDS[intent].some(keyword => input.includes(keyword))) return intent;
   }
   return 'unknown';
 }
@@ -264,19 +247,23 @@ async function getYouTubeSearchResults(query) {
 /***** 채팅 처리 *****/
 async function sendChat() {
   const inputEl = document.getElementById("chat-input");
-  if (!inputEl) return;
+  if (!inputEl || !inputEl.value.trim()) return;
   const input = inputEl.value.trim();
-  if (!input) return;
 
-  // 입력을 서버를 통해 학습용.txt에 저장
+  // 입력을 학습용.txt에 저장
   await appendToLearningFile(input);
 
-  // 학습용.txt 파일을 불러와서 정제 및 필터링
+  // 학습용.txt 파일에서 데이터 가져오기
   const learningData = await readLearningFile();
-  const filteredTokens = tokenizeAndFilter(learningData);
-  const cleanedText = recombineKorean(filteredTokens);
-
-  // 정제된 텍스트를 벡터화 및 양자화하여 의도 인식에 활용
+  const lines = learningData.trim().split('\n');
+  const decodedLines = lines.map(line => {
+    const parts = line.split(':');
+    if (parts.length === 2) {
+      return decodeURIComponent(escape(atob(parts[1]))); // base64 디코딩하여 한글로 변환
+    }
+    return line;
+  });
+  const cleanedText = recombineKorean(tokenizeAndFilter(decodedLines.join(' ')));
   updateIntentRecognitionGroup(cleanedText);
 
   let response = "";
@@ -284,9 +271,8 @@ async function sendChat() {
   let shouldNavigate = false;
   let navigateUrl = "";
 
-  // 먼저 지역 키워드 확인
-  const regionKeywords = KEYWORDS.region;
-  const matchedRegion = regionKeywords.find(region => input.includes(region));
+  // 지역 키워드 확인
+  const matchedRegion = KEYWORDS.region.find(region => input.includes(region));
   if (matchedRegion) {
     changeRegion(matchedRegion);
     response = `지역을 ${matchedRegion}으로 변경했습니다.`;
@@ -296,19 +282,11 @@ async function sendChat() {
       if (input.includes(site)) {
         if (site === "유튜브") {
           const query = input.replace(/유튜브|youtube|동영상|비디오|영상/gi, "").trim();
-          if (query) {
-            response = await getYouTubeSearchResults(query);
-            isHTML = true;
-          } else {
-            response = "유튜브 검색어를 입력해주세요.";
-          }
+          response = query ? await getYouTubeSearchResults(query) : "유튜브 검색어를 입력해주세요.";
+          isHTML = !!query;
         } else if (site === "네이버") {
           const query = input.replace(/네이버|naver|검색|찾기/gi, "").trim();
-          if (query) {
-            response = await getNaverSearchResults(query);
-          } else {
-            response = "검색어를 입력해주세요.";
-          }
+          response = query ? await getNaverSearchResults(query) : "검색어를 입력해주세요.";
         } else {
           response = `${site} 사이트로 이동합니다!`;
           shouldNavigate = true;
@@ -318,26 +296,22 @@ async function sendChat() {
       }
     }
 
-    // 사이트 링크나 지역이 매칭되지 않으면 의도 처리
+    // 의도 처리
     if (!response) {
       const intent = detectIntentFromText(input);
-      if (intent === "greetings") {
-        response = "안녕하세요!";
-      } else if (intent === "sleep") {
-        response = "좋은 꿈 꾸세요!";
-      } else if (intent === "time") {
+      if (intent === "greetings") response = "안녕하세요!";
+      else if (intent === "sleep") response = "좋은 꿈 꾸세요!";
+      else if (intent === "time") {
         const now = new Date();
         response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
       } else {
-        response = cleanedText; // 정제된 텍스트를 말풍선에 표시
+        response = cleanedText; // 디코딩된 텍스트 표시
       }
     }
   }
 
   showSpeechBubbleInChunks(response, isHTML);
-  if (shouldNavigate) {
-    setTimeout(() => { window.location.href = navigateUrl; }, 2000);
-  }
+  if (shouldNavigate) setTimeout(() => { window.location.href = navigateUrl; }, 2000);
   inputEl.value = "";
 }
 
@@ -385,8 +359,7 @@ function populateRegionDropdown() {
     return;
   }
   regionSelect.innerHTML = "";
-  const regions = KEYWORDS.region;
-  regions.forEach(region => {
+  KEYWORDS.region.forEach(region => {
     const option = document.createElement("option");
     option.value = region;
     option.textContent = region;
@@ -395,11 +368,11 @@ function populateRegionDropdown() {
 }
 
 /***** DOM 이벤트 처리 *****/
-window.addEventListener("DOMContentLoaded", function() {
-  populateRegionDropdown(); // 페이지 로드 시 지역 드롭다운 채우기
+window.addEventListener("DOMContentLoaded", () => {
+  populateRegionDropdown();
   const chatInput = document.getElementById("chat-input");
   if (chatInput) {
-    chatInput.addEventListener("keydown", function(e) {
+    chatInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") sendChat();
     });
   }
