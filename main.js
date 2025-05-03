@@ -63,7 +63,7 @@ let 편향1 = Array(은닉_크기).fill(0);
 let 가중치2 = Array.from({ length: 출력_크기 }, () => Array(은닉_크기).fill(0).map(() => Math.random() * 0.01));
 let 편향2 = Array(출력_크기).fill(0);
 
-// 모델 로드 함수 (제공된 함수로 대체)
+// 모델 로드 함수
 function loadModel() {
   const raw = localStorage.getItem('mlp모델');
   if (!raw) {
@@ -72,9 +72,9 @@ function loadModel() {
   }
   const { 가중치1: w1, 편향1: b1, 가중치2: w2, 편향2: b2 } = JSON.parse(raw);
   가중치1 = w1;
-  편향1   = b1;
+  편향1 = b1;
   가중치2 = w2;
-  편향2   = b2;
+  편향2 = b2;
   console.log('MLP 모델이 로드되었습니다.');
   return true;
 }
@@ -239,12 +239,10 @@ function 토큰화_및_필터링(텍스트) {
         }
       }
     }
-    // 특수문자, 숫자 등은 무시됨
   });
   return 토큰;
 }
 
-// 이진 문자열 생성 함수
 function generateBinaryString(tokens) {
   return tokens.map(token => {
     let prefix;
@@ -258,13 +256,12 @@ function generateBinaryString(tokens) {
   }).join('');
 }
 
-// 이진 문자열을 300차원 벡터로 변환
 function binaryStringToVector(binaryString) {
   const vector = Array(300).fill(0);
   const parts = binaryString.split('.');
   for (let i = 0; i < parts.length; i += 2) {
     const index = parseInt(parts[i], 10) * 100 + (parts[i + 1] ? parts[i + 1].charCodeAt(0) % 100 : 0);
-    vector[index % 300] = 1; // 해시 기반 벡터화
+    vector[index % 300] = 1;
   }
   return new Float32Array(vector);
 }
@@ -416,11 +413,18 @@ async function 채팅_전송() {
   // 학습용.txt에 입력 추가
   await 학습_파일에_추가(입력);
 
-  // 텍스트를 토큰화하고 벡터화하여 의도 인식 그룹에 저장
+  // 텍스트를 토큰화하고 벡터화
   const 토큰 = 토큰화_및_필터링(입력);
   const binaryString = generateBinaryString(토큰);
   const vector = binaryStringToVector(binaryString);
+
+  // 의도 인식 그룹 업데이트
   의도_인식_그룹_업데이트(입력);
+
+  // MLP 모델을 통해 의도 예측
+  const { a2 } = 순전파(vector);
+  const 예측_인덱스 = a2.indexOf(Math.max(...a2));
+  const 예측_의도 = 의도[예측_인덱스];
 
   let 응답 = "";
   let HTML_여부 = false;
@@ -431,7 +435,7 @@ async function 채팅_전송() {
   const 일치_지역 = 키워드.지역.find(지역 => 입력.includes(지역));
   if (일치_지역) {
     지역_변경(일치_지역);
-    응답 = `지역을 ${일치_지역}으로 변경했습니다.`; // 이진 문자열과 벡터 제외
+    응답 = `지역을 ${일치_지역}으로 변경했습니다.`;
   } else {
     // 사이트 링크 확인
     for (let 사이트 in 사이트_링크) {
@@ -454,29 +458,24 @@ async function 채팅_전송() {
       }
     }
 
-    // 의도 인식 및 응답 생성
+    // MLP 예측 의도에 따른 응답 생성
     if (!응답) {
-      const intent = 텍스트에서_의도_감지(입력);
-      if (intent === "인사") {
+      if (예측_의도 === "인사") {
         응답 = "안녕하세요!";
-      } else if (intent === "취침") {
+      } else if (예측_의도 === "취침") {
         응답 = "좋은 꿈 꾸세요!";
-      } else if (intent === "시간") {
+      } else if (예측_의도 === "시간") {
         const 현재 = new Date();
         응답 = `현재 시간은 ${현재.getHours()}시 ${현재.getMinutes()}분입니다.`;
-      } else if (intent === "날씨") {
+      } else if (예측_의도 === "날씨") {
         응답 = "날씨 정보를 확인하려면 더 구체적인 요청을 해주세요!";
-      } else if (intent === "일정") {
+      } else if (예측_의도 === "일정") {
         응답 = "오늘 일정을 확인하려면 '오늘 일정'이라고 입력해주세요!";
       } else {
-        응답 = 입력; // 기본적으로 입력 텍스트를 표시
+        응답 = "죄송합니다, 이해하지 못했습니다.";
       }
     }
   }
-
-  // MLP 모델 학습
-  const 학습_데이터 = 학습_데이터_생성();
-  await 에포크_학습(학습_데이터, 10);
 
   // 말풍선에 응답 표시
   말풍선_표시(응답, HTML_여부);
@@ -537,7 +536,7 @@ function 지역_드롭다운_채우기() {
 }
 
 /***** DOM 이벤트 처리 및 모델 초기화 *****/
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
   지역_드롭다운_채우기();
   const 채팅_입력 = document.getElementById("chat-input");
   if (채팅_입력) {
@@ -546,8 +545,20 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  loadModel(); // 모델_로드() 대신 loadModel() 호출
+  loadModel(); // 저장된 MLP 모델 로드
 
+  // 학습용.txt 파일에서 데이터 로드 및 의도_인식_그룹 초기화
+  const 학습_데이터_텍스트 = await 학습_파일_읽기();
+  const 학습_데이터_라인 = 학습_데이터_텍스트.split('\n');
+  학습_데이터_라인.forEach(라인 => {
+    if (라인) {
+      const [타임스탬프, 인코딩] = 라인.split(':');
+      const 텍스트 = decodeURIComponent(escape(atob(인코딩)));
+      의도_인식_그룹_업데이트(텍스트);
+    }
+  });
+
+  // 학습 버튼 이벤트 추가
   const 학습_버튼 = document.getElementById("train-button");
   if (학습_버튼) {
     학습_버튼.addEventListener("click", async () => {
