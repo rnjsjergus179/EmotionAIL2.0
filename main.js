@@ -1,6 +1,6 @@
 // API 키와 서버 URL 설정
 const API_KEY = localStorage.getItem('API_KEY');
-const SERVER_API_URL = 'https://emotionail2-0.onrender.com/api'; // 실제 서버 URL로 교체 필요
+const SERVER_API_URL = 'https://emotionail2-0.onrender.com//api'; // 실제 서버 URL로 교체 필요
 
 /***** 사이트 링크와 키워드 정의 *****/
 const SITE_LINKS = {
@@ -52,11 +52,23 @@ const hiddenSize = 64; // 은닉층 뉴런 수
 const intents = Object.keys(KEYWORDS); // 의도 목록
 const outputSize = intents.length; // 출력 크기 (의도 수)
 
-// 가중치와 편향 초기화
-let weights1 = Array.from({ length: hiddenSize }, () => Array(inputSize).fill(0).map(() => Math.random() * 0.01));
+// He 초기화를 사용한 가중치 초기화
+function heInitialization(inputSize, outputSize) {
+  const stdDev = Math.sqrt(2 / inputSize);
+  return Array.from({ length: outputSize }, () => Array(inputSize).fill(0).map(() => Math.random() * stdDev * 2 - stdDev));
+}
+
+let weights1 = heInitialization(inputSize, hiddenSize);
 let bias1 = Array(hiddenSize).fill(0);
-let weights2 = Array.from({ length: outputSize }, () => Array(hiddenSize).fill(0).map(() => Math.random() * 0.01));
+let weights2 = heInitialization(hiddenSize, outputSize);
 let bias2 = Array(outputSize).fill(0);
+
+// 배치 정규화 파라미터
+let gamma1 = Array(hiddenSize).fill(1); // 스케일 파라미터
+let beta1 = Array(hiddenSize).fill(0);  // 이동 파라미터
+let runningMean1 = Array(hiddenSize).fill(0); // 이동 평균
+let runningVar1 = Array(hiddenSize).fill(1);  // 이동 분산
+const momentum = 0.9; // 이동 평균 및 분산 계산 시 모멘텀
 
 // 학습용 데이터 생성 함수
 function generateTrainingData() {
@@ -70,7 +82,6 @@ function generateTrainingData() {
       });
     }
   });
-  // 데이터가 부족할 경우 더미 데이터 추가
   if (trainingData.length === 0) {
     console.log("학습 데이터가 부족하여 더미 데이터를 생성합니다.");
     trainingData.push(
@@ -93,24 +104,50 @@ function softmax(logits) {
   return exps.map(e => e / sum);
 }
 
-// 순전파 함수
-function forward(input) {
-  const z1 = weights1.map((w, i) => w.reduce((sum, wi, j) => sum + wi * input[j], bias1[i]));
-  const a1 = relu(z1);
-  const z2 = weights2.map((w, i) => w.reduce((sum, wi, j) => sum + wi * a1[j], bias2[i]));
-  const a2 = softmax(z2);
-  return { a1, a2 };
+// 배치 정규화 함수
+function batchNormForward(x, gamma, beta, runningMean, runningVar, training = true) {
+  if (training) {
+    const mean = x.reduce((sum, val) => sum + val, 0) / x.length;
+    const variance = x.reduce((sum, val) => sum + (val - mean) ** 2, 0) / x.length;
+    const stdDev = Math.sqrt(variance + 1e-5); // epsilon 추가로 수치 안정성 확보
+    const xHat = x.map(val => (val - mean) / stdDev);
+    const out = xHat.map((val, i) => gamma[i] * val + beta[i]);
+    runningMean = runningMean.map((val, i) => momentum * val + (1 - momentum) * mean);
+    runningVar = runningVar.map((val, i) => momentum * val + (1 - momentum) * variance);
+    return { out, xHat, mean, variance };
+  } else {
+    const stdDev = runningVar.map(val => Math.sqrt(val + 1e-5));
+    const xHat = x.map((val, i) => (val - runningMean[i]) / stdDev[i]);
+    return xHat.map((val, i) => gamma[i] * val + beta[i]);
+  }
 }
 
-// 학습 함수 (역전파)
-function train(input, target, lr = 0.01) {
-  const { a1, a2 } = forward(input);
+// 순전파 함수 (배치 정규화 및 드롭아웃 포함)
+function forward(input, training = true, dropoutRate = 0.5) {
+  const z1 = weights1.map((w, i) => w.reduce((sum, wi, j) => sum + wi * input[j], bias1[i]));
+  const bn1 = batchNormForward(z1, gamma1, beta1, runningMean1, runningVar1, training);
+  const a1 = relu(bn1.out);
+  const a1Dropped = training ? dropout(a1, dropoutRate) : a1;
+  const z2 = weights2.map((w, i) => w.reduce((sum, wi, j) => sum + wi * a1Dropped[j], bias2[i]));
+  const a2 = softmax(z2);
+  return { a1, a1Dropped, z2, a2, bn1 };
+}
+
+// 드롭아웃 함수
+function dropout(x, rate) {
+  const mask = x.map(() => Math.random() > rate ? 1 : 0);
+  return x.map((val, i) => val * mask[i] / (1 - rate)); // 스케일 조정
+}
+
+// 학습 함수 (L2 정규화 포함)
+function train(input, target, lr = 0.01, l2Lambda = 0.01) {
+  const { a1, a1Dropped, z2, a2, bn1 } = forward(input, true);
   const error = a2.map((o, i) => o - target[i]); // softmax + cross-entropy
 
-  // 출력층 가중치와 편향 업데이트
+  // 출력층 가중치와 편향 업데이트 (L2 정규화 적용)
   for (let i = 0; i < outputSize; i++) {
     for (let j = 0; j < hiddenSize; j++) {
-      weights2[i][j] -= lr * error[i] * a1[j];
+      weights2[i][j] -= lr * (error[i] * a1Dropped[j] + l2Lambda * weights2[i][j]);
     }
     bias2[i] -= lr * error[i];
   }
@@ -124,20 +161,26 @@ function train(input, target, lr = 0.01) {
     hiddenError[j] *= (a1[j] > 0 ? 1 : 0); // ReLU 미분
   }
 
-  // 입력층 가중치와 편향 업데이트
+  // 배치 정규화 파라미터 업데이트
+  const dGamma1 = hiddenError.map((err, i) => err * bn1.xHat[i]);
+  const dBeta1 = hiddenError.slice();
+  gamma1 = gamma1.map((val, i) => val - lr * dGamma1[i]);
+  beta1 = beta1.map((val, i) => val - lr * dBeta1[i]);
+
+  // 입력층 가중치와 편향 업데이트 (L2 정규화 적용)
   for (let j = 0; j < hiddenSize; j++) {
     for (let k = 0; k < inputSize; k++) {
-      weights1[j][k] -= lr * hiddenError[j] * input[k];
+      weights1[j][k] -= lr * (hiddenError[j] * input[k] + l2Lambda * weights1[j][k]);
     }
     bias1[j] -= lr * hiddenError[j];
   }
 }
 
 // 학습 루프
-function trainEpochs(data, epochs = 10) {
+function trainEpochs(data, epochs = 10, lr = 0.01, l2Lambda = 0.01) {
   for (let epoch = 0; epoch < epochs; epoch++) {
     data.forEach(sample => {
-      train(sample.input, sample.label, 0.01);
+      train(sample.input, sample.label, lr, l2Lambda);
     });
     console.log(`에포크 ${epoch + 1}/${epochs} 완료`);
   }
@@ -149,7 +192,11 @@ function saveModel() {
     weights1: weights1,
     bias1: bias1,
     weights2: weights2,
-    bias2: bias2
+    bias2: bias2,
+    gamma1: gamma1,
+    beta1: beta1,
+    runningMean1: runningMean1,
+    runningVar1: runningVar1
   };
   localStorage.setItem('mlpModel', JSON.stringify(model));
   console.log("모델이 저장되었습니다.");
@@ -164,6 +211,10 @@ function loadModel() {
     bias1 = model.bias1;
     weights2 = model.weights2;
     bias2 = model.bias2;
+    gamma1 = model.gamma1 || Array(hiddenSize).fill(1);
+    beta1 = model.beta1 || Array(hiddenSize).fill(0);
+    runningMean1 = model.runningMean1 || Array(hiddenSize).fill(0);
+    runningVar1 = model.runningVar1 || Array(hiddenSize).fill(1);
     console.log("모델이 로드되었습니다.");
   } else {
     console.log("저장된 모델이 없습니다.");
@@ -369,16 +420,14 @@ async function sendChat() {
   if (!inputEl || !inputEl.value.trim()) return;
   const input = inputEl.value.trim();
 
-  // 입력을 학습용.txt에 저장
   await appendToLearningFile(input);
 
-  // 학습용.txt 파일에서 데이터 가져오기
   const learningData = await readLearningFile();
   const lines = learningData.trim().split('\n');
   const decodedLines = lines.map(line => {
     const parts = line.split(':');
     if (parts.length === 2) {
-      return decodeURIComponent(escape(atob(parts[1]))); // base64 디코딩하여 한글로 변환
+      return decodeURIComponent(escape(atob(parts[1])));
     }
     return line;
   });
@@ -390,13 +439,11 @@ async function sendChat() {
   let shouldNavigate = false;
   let navigateUrl = "";
 
-  // 지역 키워드 확인
   const matchedRegion = KEYWORDS.region.find(region => input.includes(region));
   if (matchedRegion) {
     changeRegion(matchedRegion);
     response = `지역을 ${matchedRegion}으로 변경했습니다.`;
   } else {
-    // 사이트 링크 확인
     for (let site in SITE_LINKS) {
       if (input.includes(site)) {
         if (site === "유튜브") {
@@ -415,7 +462,6 @@ async function sendChat() {
       }
     }
 
-    // 의도 처리
     if (!response) {
       const intent = detectIntentFromText(input);
       if (intent === "greetings") response = "안녕하세요!";
@@ -424,7 +470,7 @@ async function sendChat() {
         const now = new Date();
         response = `현재 시간은 ${now.getHours()}시 ${now.getMinutes()}분입니다.`;
       } else {
-        response = cleanedText; // 디코딩된 텍스트 표시
+        response = cleanedText;
       }
     }
   }
@@ -496,16 +542,14 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 모델 로드 시도
   loadModel();
 
-  // 학습 버튼 추가 (선택적)
   const trainButton = document.getElementById("train-button");
   if (trainButton) {
     trainButton.addEventListener("click", () => {
       const trainingData = generateTrainingData();
-      trainEpochs(trainingData, 10);
-      saveModel(); // 학습 후 모델 저장
+      trainEpochs(trainingData, 10, 0.01, 0.01);
+      saveModel();
     });
   }
 });
