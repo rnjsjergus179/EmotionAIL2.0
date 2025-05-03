@@ -103,13 +103,38 @@ app.post('/append-to-learning-file', (req, res) => {
   }
 });
 
-// **4. 기존 모듈 라우트 설정**
+// **4. 모델 저장 엔드포인트**
+app.post('/save-model', (req, res) => {
+  const apiKey = req.headers['api_key'];
+  const { 모델_전, 모델_후 } = req.body;
+
+  if (!apiKey || apiKey !== process.env.API_KEY) {
+    console.log('[Render] 인증 실패: 유효한 API 키가 필요합니다.');
+    return res.status(403).json({ error: '인증 실패: 유효한 API 키가 필요합니다.' });
+  }
+
+  if (!모델_전 || !모델_후) {
+    console.log('[Render] 모델 데이터가 필요합니다.');
+    return res.status(400).json({ error: '모델 데이터가 필요합니다.' });
+  }
+
+  try {
+    console.log('[Render] 학습 전 모델:', 모델_전);
+    console.log('[Render] 학습 후 모델:', 모델_후);
+    res.json({ message: '모델 데이터가 성공적으로 수신되었습니다.' });
+  } catch (err) {
+    console.error('[Render] 모델 데이터 처리 중 오류:', err);
+    res.status(500).json({ error: '모델 데이터 처리 실패' });
+  }
+});
+
+// **5. 기존 모듈 라우트 설정**
 app.use('/api', weatherRoute);
 
-// **5. 정적 파일 서빙**
+// **6. 정적 파일 서빙**
 app.use(express.static(path.join(__dirname, 'public')));
 
-// **6. 서버 시작**
+// **7. 서버 시작**
 app.listen(port, () => {
   console.log(`🚀 서버 실행 중: http://localhost:${port}`);
 });
