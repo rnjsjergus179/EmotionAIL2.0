@@ -41,11 +41,14 @@ const getAllSearchData = async (limit = 100) => {
 
 // Express 앱 설정
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5000; // 새로운 홈페이지 포트(5000)로 설정
 
 // 미들웨어 설정
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN || '*' // 클라이언트 출처 설정
+  origin: [
+    process.env.CLIENT_ORIGIN || '*',
+    'https://refactored-trout-97wq976vp9g5cpxjg-5000.app.github.dev' // 새로운 홈페이지 출처 추가
+  ]
 }));
 app.use(express.json()); // JSON 요청 파싱
 
