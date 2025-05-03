@@ -44,10 +44,15 @@ const 지식_그래프 = {
 
 const api_캐시 = {};
 
-/***** 학습용 데이터와 모델 정의 *****/
+/***** 자모 정의 *****/
+const 자모 = {
+  초성: ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'],
+  중성: ['ㅏ', 'ㅐ', 'ㅑ', 'ㅒ', 'ㅓ', 'ㅔ', 'ㅕ', 'ㅖ', 'ㅗ', 'ㅘ', 'ㅙ', 'ㅚ', 'ㅛ', 'ㅜ', 'ㅝ', 'ㅞ', 'ㅟ', 'ㅠ', 'ㅡ', 'ㅢ', 'ㅣ'],
+  종성: ['', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ', 'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ']
+};
 
-// 모델 파라미터
-const 입력_크기 = 300; // 입력 벡터 크기 (자모 단위 벡터)
+/***** 학습용 데이터와 모델 정의 *****/
+const 입력_크기 = 300; // 300차원 벡터로 설정
 const 은닉_크기 = 64; // 은닉층 뉴런 수
 const 의도 = Object.keys(키워드); // 의도 목록
 const 출력_크기 = 의도.length; // 출력 크기 (의도 수)
@@ -181,15 +186,10 @@ function 벡터_평균(벡터들) {
 /***** 한국어 토큰화 및 이진수 변환 *****/
 function 토큰화_및_필터링(텍스트) {
   const 한글_범위 = /[\uAC00-\uD7AF]/g;
-  const 자모 = {
-    초성: ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'],
-    중성: ['ㅏ', 'ㅐ', 'ㅑ', 'ㅒ', 'ㅓ', 'ㅔ', 'ㅕ', 'ㅖ', 'ㅗ', 'ㅘ', 'ㅙ', 'ㅚ', 'ㅛ', 'ㅜ', 'ㅝ', 'ㅞ', 'ㅟ', 'ㅠ', 'ㅡ', 'ㅢ', 'ㅣ'],
-    종성: ['', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ', 'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ']
-  };
   let 토큰 = [];
   텍스트.split(' ').forEach(단어 => {
     if (/[a-zA-Z]/.test(단어)) {
-      // 영어 단어는 필터링
+      // 영어 단어는 필터링 (무시)
     } else if (한글_범위.test(단어)) {
       for (let char of 단어) {
         const 코드 = char.charCodeAt(0) - 0xAC00;
@@ -207,7 +207,7 @@ function 토큰화_및_필터링(텍스트) {
   return 토큰;
 }
 
-// 이진수 문자열 생성 함수
+// 이진 문자열 생성 함수
 function generateBinaryString(tokens) {
   return tokens.map(token => {
     let prefix;
@@ -228,11 +228,14 @@ function generateBinaryString(tokens) {
   }).join('');
 }
 
-// 이진수 문자열을 벡터로 변환 (학습용)
+// 이진 문자열을 300차원 벡터로 변환
 function binaryStringToVector(binaryString) {
-  const vector = Array(입력_크기).fill(0);
-  const hash = binaryString.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  vector[hash % 입력_크기] = 1; // 간단한 해시 기반 벡터화
+  const vector = Array(300).fill(0);
+  const parts = binaryString.split('.');
+  for (let i = 0; i < parts.length; i += 2) {
+    const index = parseInt(parts[i], 10) * 100 + (parts[i + 1] ? parts[i + 1].charCodeAt(0) % 100 : 0);
+    vector[index % 300] = 1; // 해시 기반 벡터화
+  }
   return new Float32Array(vector);
 }
 
@@ -309,12 +312,8 @@ async function 학습_파일_읽기() {
 /***** 텍스트 벡터화 및 의도 인식 그룹 업데이트 *****/
 function 텍스트_벡터화(텍스트) {
   const 토큰 = 토큰화_및_필터링(텍스트);
-  let 벡터 = Array(300).fill(0);
-  토큰.forEach((token, idx) => {
-    const 문자_코드_합 = token.값.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-    벡터[idx % 300] += 문자_코드_합 / 1000;
-  });
-  return 벡터;
+  const binaryString = generateBinaryString(토큰);
+  return binaryStringToVector(binaryString);
 }
 
 function 벡터_양자화(벡터) {
@@ -323,11 +322,11 @@ function 벡터_양자화(벡터) {
 
 function 의도_인식_그룹_업데이트(텍스트) {
   const 토큰 = 토큰화_및_필터링(텍스트);
-  const binaryString = generateBinaryString(토큰); // 이진수 문자열 생성
+  const binaryString = generateBinaryString(토큰);
   const intent = 텍스트에서_의도_감지(텍스트);
   if (!의도_인식_그룹[intent]) 의도_인식_그룹[intent] = [];
-  의도_인식_그룹[intent].push(binaryString); // 이진수 문자열 저장
-  console.log(`의도: ${intent}, 이진수 표현: ${binaryString}`); // 콘솔에 출력
+  의도_인식_그룹[intent].push(binaryString);
+  console.log(`의도: ${intent}, 이진수 표현: ${binaryString}`);
 }
 
 /***** 의도 감지 *****/
@@ -389,7 +388,13 @@ async function 채팅_전송() {
   const 입력 = 입력_요소.value.trim();
 
   await 학습_파일에_추가(입력);
-  의도_인식_그룹_업데이트(입력); // 사용자의 입력으로 직접 업데이트
+  const 토큰 = 토큰화_및_필터링(입력);
+  const binaryString = generateBinaryString(토큰);
+  const vector = binaryStringToVector(binaryString);
+  의도_인식_그룹_업데이트(입력);
+
+  // 벡터를 문자열로 변환하여 표시 준비
+  const vectorString = vector.join(', ');
 
   let 응답 = "";
   let HTML_여부 = false;
@@ -399,19 +404,21 @@ async function 채팅_전송() {
   const 일치_지역 = 키워드.지역.find(지역 => 입력.includes(지역));
   if (일치_지역) {
     지역_변경(일치_지역);
-    응답 = `지역을 ${일치_지역}으로 변경했습니다.`;
+    응답 = `지역을 ${일치_지역}으로 변경했습니다.\n이진 문자열: ${binaryString}\n300차원 벡터: ${vectorString}`;
   } else {
     for (let 사이트 in 사이트_링크) {
       if (입력.includes(사이트)) {
         if (사이트 === "유튜브") {
           const 쿼리 = 입력.replace(/유튜브|youtube|동영상|비디오|영상/gi, "").trim();
-          응답 = 쿼리 ? await 유튜브_검색_결과_가져오기(쿼리) : "유튜브 검색어를 입력해주세요.";
+          const 검색_결과 = 쿼리 ? await 유튜브_검색_결과_가져오기(쿼리) : "유튜브 검색어를 입력해주세요.";
+          응답 = `${검색_결과}\n이진 문자열: ${binaryString}\n300차원 벡터: ${vectorString}`;
           HTML_여부 = !!쿼리;
         } else if (사이트 === "네이버") {
           const 쿼리 = 입력.replace(/네이버|naver|검색|찾기/gi, "").trim();
-          응답 = 쿼리 ? await 네이버_검색_결과_가져오기(쿼리) : "검색어를 입력해주세요.";
+          const 검색_결과 = 쿼리 ? await 네이버_검색_결과_가져오기(쿼리) : "검색어를 입력해주세요.";
+          응답 = `${검색_결과}\n이진 문자열: ${binaryString}\n300차원 벡터: ${vectorString}`;
         } else {
-          응답 = `${사이트} 사이트로 이동합니다!`;
+          응답 = `${사이트} 사이트로 이동합니다!\n이진 문자열: ${binaryString}\n300차원 벡터: ${vectorString}`;
           이동_여부 = true;
           이동_URL = 사이트_링크[사이트];
         }
@@ -421,22 +428,15 @@ async function 채팅_전송() {
 
     if (!응답) {
       const intent = 텍스트에서_의도_감지(입력);
-      if (intent === "인사") 응답 = "안녕하세요!";
-      else if (intent === "취침") 응답 = "좋은 꿈 꾸세요!";
-      else if (intent === "시간") {
+      if (intent === "인사") {
+        응답 = `안녕하세요!\n이진 문자열: ${binaryString}\n300차원 벡터: ${vectorString}`;
+      } else if (intent === "취침") {
+        응답 = `좋은 꿈 꾸세요!\n이진 문자열: ${binaryString}\n300차원 벡터: ${vectorString}`;
+      } else if (intent === "시간") {
         const 현재 = new Date();
-        응답 = `현재 시간은 ${현재.getHours()}시 ${현재.getMinutes()}분입니다.`;
+        응답 = `현재 시간은 ${현재.getHours()}시 ${현재.getMinutes()}분입니다.\n이진 문자열: ${binaryString}\n300차원 벡터: ${vectorString}`;
       } else {
-        const 학습_데이터 = await 학습_파일_읽기();
-        const 줄 = 학습_데이터.trim().split('\n');
-        const 디코딩된_줄 = 줄.map(line => {
-          const 부분 = line.split(':');
-          if (부분.length === 2) {
-            return decodeURIComponent(escape(atob(부분[1])));
-          }
-          return line;
-        });
-        응답 = 한국어_재결합(토큰화_및_필터링(디코딩된_줄.join(' ')));
+        응답 = `입력: ${입력}\n이진 문자열: ${binaryString}\n300차원 벡터: ${vectorString}`;
       }
     }
   }
