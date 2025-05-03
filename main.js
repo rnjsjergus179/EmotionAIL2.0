@@ -1,6 +1,6 @@
-// API 키는 localStorage에서 가져옴 (보안 강화를 위해 프로덕션에서는 다른 방법 사용 권장)
+// API 키와 서버 URL 설정
 const API_KEY = localStorage.getItem('API_KEY');
-const SERVER_API_URL = 'https://emotionail2-0.onrender.com//api'; // 실제 서버 API URL로 교체 필요
+const SERVER_API_URL = 'https://emotionail2-0.onrender.com/api'; // 실제 서버 URL로 교체 필요
 
 /***** 사이트 링크와 키워드 정의 *****/
 const SITE_LINKS = {
@@ -44,16 +44,135 @@ const knowledgeGraph = {
 
 const apiCache = {};
 
-/***** 유틸리티 함수 *****/
-function dotProduct(a, b) {
-  return a.reduce((sum, val, i) => sum + val * b[i], 0);
+/***** 학습용 데이터와 모델 정의 *****/
+
+// 모델 파라미터
+const inputSize = 300; // 입력 벡터 크기 (자모 단위 벡터)
+const hiddenSize = 64; // 은닉층 뉴런 수
+const intents = Object.keys(KEYWORDS); // 의도 목록
+const outputSize = intents.length; // 출력 크기 (의도 수)
+
+// 가중치와 편향 초기화
+let weights1 = Array.from({ length: hiddenSize }, () => Array(inputSize).fill(0).map(() => Math.random() * 0.01));
+let bias1 = Array(hiddenSize).fill(0);
+let weights2 = Array.from({ length: outputSize }, () => Array(hiddenSize).fill(0).map(() => Math.random() * 0.01));
+let bias2 = Array(outputSize).fill(0);
+
+// 학습용 데이터 생성 함수
+function generateTrainingData() {
+  const trainingData = [];
+  intents.forEach((intent, index) => {
+    if (intentRecognitionGroup[intent] && intentRecognitionGroup[intent].length > 0) {
+      intentRecognitionGroup[intent].forEach(vector => {
+        const label = Array(outputSize).fill(0);
+        label[index] = 1; // one-hot 인코딩
+        trainingData.push({ input: vector, label });
+      });
+    }
+  });
+  // 데이터가 부족할 경우 더미 데이터 추가
+  if (trainingData.length === 0) {
+    console.log("학습 데이터가 부족하여 더미 데이터를 생성합니다.");
+    trainingData.push(
+      { input: new Float32Array(Array(inputSize).fill(0).map(() => Math.random())), label: [1, 0, 0, 0, 0, 0] },
+      { input: new Float32Array(Array(inputSize).fill(0).map(() => Math.random())), label: [0, 1, 0, 0, 0, 0] },
+      { input: new Float32Array(Array(inputSize).fill(0).map(() => Math.random())), label: [0, 0, 1, 0, 0, 0] }
+    );
+  }
+  return trainingData;
+}
+
+// 활성화 함수
+function relu(x) {
+  return x.map(v => Math.max(0, v));
 }
 
 function softmax(logits) {
-  const maxLogit = Math.max(...logits);
-  const exps = logits.map(l => Math.exp(l - maxLogit));
-  const sumExps = exps.reduce((a, b) => a + b, 0);
-  return exps.map(e => e / sumExps);
+  const exps = logits.map(Math.exp);
+  const sum = exps.reduce((a, b) => a + b);
+  return exps.map(e => e / sum);
+}
+
+// 순전파 함수
+function forward(input) {
+  const z1 = weights1.map((w, i) => w.reduce((sum, wi, j) => sum + wi * input[j], bias1[i]));
+  const a1 = relu(z1);
+  const z2 = weights2.map((w, i) => w.reduce((sum, wi, j) => sum + wi * a1[j], bias2[i]));
+  const a2 = softmax(z2);
+  return { a1, a2 };
+}
+
+// 학습 함수 (역전파)
+function train(input, target, lr = 0.01) {
+  const { a1, a2 } = forward(input);
+  const error = a2.map((o, i) => o - target[i]); // softmax + cross-entropy
+
+  // 출력층 가중치와 편향 업데이트
+  for (let i = 0; i < outputSize; i++) {
+    for (let j = 0; j < hiddenSize; j++) {
+      weights2[i][j] -= lr * error[i] * a1[j];
+    }
+    bias2[i] -= lr * error[i];
+  }
+
+  // 은닉층 오류 계산
+  let hiddenError = Array(hiddenSize).fill(0);
+  for (let j = 0; j < hiddenSize; j++) {
+    for (let i = 0; i < outputSize; i++) {
+      hiddenError[j] += error[i] * weights2[i][j];
+    }
+    hiddenError[j] *= (a1[j] > 0 ? 1 : 0); // ReLU 미분
+  }
+
+  // 입력층 가중치와 편향 업데이트
+  for (let j = 0; j < hiddenSize; j++) {
+    for (let k = 0; k < inputSize; k++) {
+      weights1[j][k] -= lr * hiddenError[j] * input[k];
+    }
+    bias1[j] -= lr * hiddenError[j];
+  }
+}
+
+// 학습 루프
+function trainEpochs(data, epochs = 10) {
+  for (let epoch = 0; epoch < epochs; epoch++) {
+    data.forEach(sample => {
+      train(sample.input, sample.label, 0.01);
+    });
+    console.log(`에포크 ${epoch + 1}/${epochs} 완료`);
+  }
+}
+
+// 모델 저장
+function saveModel() {
+  const model = {
+    weights1: weights1,
+    bias1: bias1,
+    weights2: weights2,
+    bias2: bias2
+  };
+  localStorage.setItem('mlpModel', JSON.stringify(model));
+  console.log("모델이 저장되었습니다.");
+}
+
+// 모델 로드
+function loadModel() {
+  const savedModel = localStorage.getItem('mlpModel');
+  if (savedModel) {
+    const model = JSON.parse(savedModel);
+    weights1 = model.weights1;
+    bias1 = model.bias1;
+    weights2 = model.weights2;
+    bias2 = model.bias2;
+    console.log("모델이 로드되었습니다.");
+  } else {
+    console.log("저장된 모델이 없습니다.");
+  }
+}
+
+/***** 유틸리티 함수 *****/
+function dotProduct(a, b) {
+  return a.reduce((sum, val, i) => sum + val * b[i], 0);
 }
 
 function averageVectors(vectors) {
@@ -367,13 +486,26 @@ function populateRegionDropdown() {
   });
 }
 
-/***** DOM 이벤트 처리 *****/
+/***** DOM 이벤트 처리 및 모델 초기화 *****/
 window.addEventListener("DOMContentLoaded", () => {
   populateRegionDropdown();
   const chatInput = document.getElementById("chat-input");
   if (chatInput) {
     chatInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") sendChat();
+    });
+  }
+
+  // 모델 로드 시도
+  loadModel();
+
+  // 학습 버튼 추가 (선택적)
+  const trainButton = document.getElementById("train-button");
+  if (trainButton) {
+    trainButton.addEventListener("click", () => {
+      const trainingData = generateTrainingData();
+      trainEpochs(trainingData, 10);
+      saveModel(); // 학습 후 모델 저장
     });
   }
 });
