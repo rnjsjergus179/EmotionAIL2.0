@@ -32,7 +32,7 @@ let KEYWORDS = {
 let intentRecognitionGroup = {};
 const API_BASE_URL = 'https://emotionail2-0.onrender.com';
 let historyEmbeddings = [];
-let adaptiveLearningRate = 0.001; // 초기 학습률 (Adam에 적합하도록 낮춤)
+let adaptiveLearningRate = 0.01;
 
 const knowledgeGraph = {
   "넷플릭스": ["드라마", "영화"],
@@ -46,25 +46,17 @@ const apiCache = {};
 
 /***** 학습용 데이터와 모델 정의 *****/
 
-// 모델 파라미터 (심층 신경망: 2개의 은닉층)
-const inputSize = 300; // 입력 벡터 크기
-const hiddenSize1 = 128; // 첫 번째 은닉층 뉴런 수
-const hiddenSize2 = 64;  // 두 번째 은닉층 뉴런 수
+// 모델 파라미터
+const inputSize = 300; // 입력 벡터 크기 (자모 단위 벡터)
+const hiddenSize = 64; // 은닉층 뉴런 수
 const intents = Object.keys(KEYWORDS); // 의도 목록
 const outputSize = intents.length; // 출력 크기 (의도 수)
 
-// 가중치 초기화 (He 초기화 적용)
-function heInit(rows, cols) {
-  const scale = Math.sqrt(2 / cols);
-  return Array(rows).fill().map(() => Array(cols).fill(0).map(() => (Math.random() - 0.5) * scale));
-}
-
-let weights1 = heInit(hiddenSize1, inputSize);
-let bias1 = Array(hiddenSize1).fill(0);
-let weights2 = heInit(hiddenSize2, hiddenSize1);
-let bias2 = Array(hiddenSize2).fill(0);
-let weights3 = heInit(outputSize, hiddenSize2);
-let bias3 = Array(outputSize).fill(0);
+// 가중치 초기화
+let weights1 = Array(hiddenSize).fill().map(() => Array(inputSize).fill(0).map(() => Math.random() - 0.5));
+let bias1 = Array(hiddenSize).fill(0);
+let weights2 = Array(outputSize).fill().map(() => Array(hiddenSize).fill(0).map(() => Math.random() - 0.5));
+let bias2 = Array(outputSize).fill(0);
 
 // 학습용 데이터 생성 함수
 function generateTrainingData() {
@@ -89,13 +81,9 @@ function generateTrainingData() {
   return trainingData;
 }
 
-// 고급 활성화 함수: Leaky ReLU
-function leakyRelu(x, alpha = 0.01) {
-  return x.map(v => v > 0 ? v : alpha * v);
-}
-
-function leakyReluDerivative(x, alpha = 0.01) {
-  return x.map(v => v > 0 ? 1 : alpha);
+// 활성화 함수
+function relu(x) {
+  return x.map(v => Math.max(0, v));
 }
 
 function softmax(logits) {
@@ -104,124 +92,58 @@ function softmax(logits) {
   return exps.map(e => e / sum);
 }
 
-// 순전파 함수 (심층 신경망: 2개의 은닉층)
+// 순전파 함수
 function forward(input) {
   const z1 = weights1.map((w, i) => w.reduce((sum, wi, j) => sum + wi * input[j], bias1[i]));
-  const a1 = leakyRelu(z1);
+  const a1 = relu(z1);
   const z2 = weights2.map((w, i) => w.reduce((sum, wi, j) => sum + wi * a1[j], bias2[i]));
-  const a2 = leakyRelu(z2);
-  const z3 = weights3.map((w, i) => w.reduce((sum, wi, j) => sum + wi * a2[j], bias3[i]));
-  const a3 = softmax(z3);
-  return { a1, a2, z3, a3 };
+  const a2 = softmax(z2);
+  return { a1, z2, a2 };
 }
 
-// 학습 함수 (Adam 옵티마이저 적용)
-let m_weights1 = Array(hiddenSize1).fill().map(() => Array(inputSize).fill(0));
-let v_weights1 = Array(hiddenSize1).fill().map(() => Array(inputSize).fill(0));
-let m_bias1 = Array(hiddenSize1).fill(0);
-let v_bias1 = Array(hiddenSize1).fill(0);
-let m_weights2 = Array(hiddenSize2).fill().map(() => Array(hiddenSize1).fill(0));
-let v_weights2 = Array(hiddenSize2).fill().map(() => Array(hiddenSize1).fill(0));
-let m_bias2 = Array(hiddenSize2).fill(0);
-let v_bias2 = Array(hiddenSize2).fill(0);
-let m_weights3 = Array(outputSize).fill().map(() => Array(hiddenSize2).fill(0));
-let v_weights3 = Array(outputSize).fill().map(() => Array(hiddenSize2).fill(0));
-let m_bias3 = Array(outputSize).fill(0);
-let v_bias3 = Array(outputSize).fill(0);
-
-const beta1 = 0.9;  // Adam 파라미터: 1차 모멘텀 감쇠율
-const beta2 = 0.999; // Adam 파라미터: 2차 모멘텀 감쇠율
-const epsilon = 1e-8; // 분모 0 방지용 작은 값
-
-function train(input, target, lr = 0.001, t = 1) {
-  const { a1, a2, z3, a3 } = forward(input);
-  const error = a3.map((o, i) => o - target[i]);
+// 학습 함수 (손실 계산 추가)
+function train(input, target, lr = 0.01) {
+  const { a1, z2, a2 } = forward(input);
+  const error = a2.map((o, i) => o - target[i]);
 
   // 손실 계산 (평균 제곱 오차)
   const loss = error.reduce((sum, e) => sum + e * e, 0) / outputSize;
 
-  // 출력층 오류
-  const delta3 = error;
-
-  // 두 번째 은닉층 오류
-  let hiddenError2 = Array(hiddenSize2).fill(0);
-  for (let j = 0; j < hiddenSize2; j++) {
-    for (let i = 0; i < outputSize; i++) {
-      hiddenError2[j] += delta3[i] * weights3[i][j];
-    }
-    hiddenError2[j] *= leakyReluDerivative(a2)[j];
-  }
-
-  // 첫 번째 은닉층 오류
-  let hiddenError1 = Array(hiddenSize1).fill(0);
-  for (let j = 0; j < hiddenSize1; j++) {
-    for (let i = 0; i < hiddenSize2; i++) {
-      hiddenError1[j] += hiddenError2[i] * weights2[i][j];
-    }
-    hiddenError1[j] *= leakyReluDerivative(a1)[j];
-  }
-
-  // Adam 업데이트 함수
-  function adamUpdate(w, grad, m, v, t) {
-    m = m.map((mi, i) => beta1 * mi + (1 - beta1) * grad[i]);
-    v = v.map((vi, i) => beta2 * vi + (1 - beta2) * grad[i] * grad[i]);
-    const mHat = m.map(mi => mi / (1 - Math.pow(beta1, t)));
-    const vHat = v.map(vi => vi / (1 - Math.pow(beta2, t)));
-    return { w: w.map((wi, i) => wi - lr * mHat[i] / (Math.sqrt(vHat[i]) + epsilon)), m, v };
-  }
-
   // 출력층 업데이트
   for (let i = 0; i < outputSize; i++) {
-    const grad_w3 = a2.map(a => delta3[i] * a);
-    const { w, m, v } = adamUpdate(weights3[i], grad_w3, m_weights3[i], v_weights3[i], t);
-    weights3[i] = w;
-    m_weights3[i] = m;
-    v_weights3[i] = v;
-    const grad_b3 = delta3[i];
-    const { w: b, m: mb, v: vb } = adamUpdate([bias3[i]], [grad_b3], [m_bias3[i]], [v_bias3[i]], t);
-    bias3[i] = b[0];
-    m_bias3[i] = mb[0];
-    v_bias3[i] = vb[0];
+    for (let j = 0; j < hiddenSize; j++) {
+      weights2[i][j] -= lr * error[i] * a1[j];
+    }
+    bias2[i] -= lr * error[i];
   }
 
-  // 두 번째 은닉층 업데이트
-  for (let i = 0; i < hiddenSize2; i++) {
-    const grad_w2 = a1.map(a => hiddenError2[i] * a);
-    const { w, m, v } = adamUpdate(weights2[i], grad_w2, m_weights2[i], v_weights2[i], t);
-    weights2[i] = w;
-    m_weights2[i] = m;
-    v_weights2[i] = v;
-    const grad_b2 = hiddenError2[i];
-    const { w: b, m: mb, v: vb } = adamUpdate([bias2[i]], [grad_b2], [m_bias2[i]], [v_bias2[i]], t);
-    bias2[i] = b[0];
-    m_bias2[i] = mb[0];
-    v_bias2[i] = vb[0];
+  // 은닉층 오류 계산
+  let hiddenError = Array(hiddenSize).fill(0);
+  for (let j = 0; j < hiddenSize; j++) {
+    for (let i = 0; i < outputSize; i++) {
+      hiddenError[j] += error[i] * weights2[i][j];
+    }
+    hiddenError[j] *= (a1[j] > 0 ? 1 : 0); // ReLU 미분
   }
 
-  // 첫 번째 은닉층 업데이트
-  for (let i = 0; i < hiddenSize1; i++) {
-    const grad_w1 = input.map(a => hiddenError1[i] * a);
-    const { w, m, v } = adamUpdate(weights1[i], grad_w1, m_weights1[i], v_weights1[i], t);
-    weights1[i] = w;
-    m_weights1[i] = m;
-    v_weights1[i] = v;
-    const grad_b1 = hiddenError1[i];
-    const { w: b, m: mb, v: vb } = adamUpdate([bias1[i]], [grad_b1], [m_bias1[i]], [v_bias1[i]], t);
-    bias1[i] = b[0];
-    m_bias1[i] = mb[0];
-    v_bias1[i] = vb[0];
+  // 입력층 업데이트
+  for (let j = 0; j < hiddenSize; j++) {
+    for (let k = 0; k < inputSize; k++) {
+      weights1[j][k] -= lr * hiddenError[j] * input[k];
+    }
+    bias1[j] -= lr * hiddenError[j];
   }
 
   return loss;
 }
 
-// 학습 루프 (에포크별 손실 출력)
-function trainEpochs(data, epochs = 10, lr = 0.001) {
+// 학습 루프 (손실 저장 및 출력)
+function trainEpochs(data, epochs = 10, lr = 0.01) {
   const losses = [];
   for (let epoch = 0; epoch < epochs; epoch++) {
     let totalLoss = 0;
-    data.forEach((sample, idx) => {
-      const loss = train(sample.input, sample.label, lr, epoch + 1);
+    data.forEach(sample => {
+      const loss = train(sample.input, sample.label, lr);
       totalLoss += loss;
     });
     const averageLoss = totalLoss / data.length;
@@ -233,7 +155,7 @@ function trainEpochs(data, epochs = 10, lr = 0.001) {
 
 // 모델 저장
 function saveModel() {
-  const model = { weights1, bias1, weights2, bias2, weights3, bias3 };
+  const model = { weights1, bias1, weights2, bias2 };
   localStorage.setItem('mlpModel', JSON.stringify(model));
   console.log("모델이 저장되었습니다.");
 }
@@ -247,8 +169,6 @@ function loadModel() {
     bias1 = model.bias1;
     weights2 = model.weights2;
     bias2 = model.bias2;
-    weights3 = model.weights3;
-    bias3 = model.bias3;
     console.log("모델이 로드되었습니다.");
   } else {
     console.log("저장된 모델이 없습니다.");
@@ -394,7 +314,6 @@ function updateIntentRecognitionGroup(text) {
   if (!intentRecognitionGroup[intent]) intentRecognitionGroup[intent] = [];
   const binaryVector = new Float32Array(vector);
   intentRecognitionGroup[intent].push(binaryVector);
-  console.log(`Intent '${intent}'에 벡터가 추가되었습니다.`);
 }
 
 /***** 의도 감지 *****/
@@ -461,12 +380,12 @@ async function sendChat() {
   for (const sentence of sentences) {
     const trimmedSentence = sentence.trim();
     await appendToLearningFile(trimmedSentence);
-    updateIntentRecognitionGroup(trimmedSentence); // 키워드 기반 의도 저장
+    updateIntentRecognitionGroup(trimmedSentence);
   }
 
   // 실시간 재학습
   const trainingData = generateTrainingData();
-  const losses = trainEpochs(trainingData, 5, adaptiveLearningRate); // 에포크 수와 학습률 조정 가능
+  const losses = trainEpochs(trainingData, 5, 0.01); // 에포크 수와 학습률 조정 가능
   saveModel();
 
   // 손실 시각화 (콘솔 출력)
@@ -512,14 +431,10 @@ async function sendChat() {
         } else {
           // 모델을 사용한 예측
           const vector = quantizeVector(vectorizeText(trimmedSentence));
-          const { a3 } = forward(vector);
-          const predictedIntentIndex = a3.indexOf(Math.max(...a3));
+          const { a2 } = forward(vector);
+          const predictedIntentIndex = a2.indexOf(Math.max(...a2));
           const predictedIntent = intents[predictedIntentIndex];
-          if (predictedIntent === 'unknown') {
-            response += "의도를 이해하지 못했습니다. 다시 시도해주세요.\n";
-          } else {
-            response += `예측된 의도: ${predictedIntent}\n`;
-          }
+          response += `예측된 의도: ${predictedIntent}\n`;
         }
       }
     }
@@ -598,7 +513,7 @@ window.addEventListener("DOMContentLoaded", () => {
   if (trainButton) {
     trainButton.addEventListener("click", () => {
       const trainingData = generateTrainingData();
-      const losses = trainEpochs(trainingData, 10, adaptiveLearningRate);
+      const losses = trainEpochs(trainingData, 10, 0.01);
       saveModel();
       console.log("학습 손실:", losses);
     });
