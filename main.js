@@ -3,8 +3,8 @@ const RENDER_KEY = localStorage.getItem('RENDER_KEY') || 'default-render-key'; /
 const ALLOWED_ORIGIN = 'https://emotionail2-0-u1qe.onrender.com'; // 허용된 출처
 const 서버_API_URL = `${ALLOWED_ORIGIN}/api`; // 서버 엔드포인트 URL
 
-// 학습용.txt 파일을 위한 localStorage 키
-const 학습용_데이터_키 = '학습용_데이터';
+// 학습용.txt 파일 경로 (깃허브 정적 루트 디렉토리)
+const 학습용_파일_경로 = './학습용.txt';
 
 // 키워드 정의
 let 키워드 = {
@@ -175,8 +175,7 @@ function 모델_저장() {
 }
 
 /***** 백엔드 API 호출 함수 (학습용.txt 관련) *****/
-async function 학습용_데이터_전송() {
-  const 학습_데이터 = 학습_파일_읽기();
+async function 학습용_데이터_전송(데이터) {
   try {
     const 응답 = await fetch(`${서버_API_URL}/save-learning-data`, {
       method: 'POST',
@@ -185,7 +184,7 @@ async function 학습용_데이터_전송() {
         'Authorization': `Bearer ${RENDER_KEY}`, // RENDER_KEY를 헤더에 사용
         'Origin': ALLOWED_ORIGIN // ALLOWED_ORIGIN 설정
       },
-      body: JSON.stringify({ data: 학습_데이터 })
+      body: JSON.stringify({ data: 데이터 })
     });
     if (!응답.ok) throw new Error('학습용 데이터 전송 실패');
     console.log('학습용 데이터가 서버에 전송되었습니다.');
@@ -194,20 +193,38 @@ async function 학습용_데이터_전송() {
   }
 }
 
-/***** 학습용.txt 관리 (localStorage 사용) *****/
-function 학습_파일에_추가(입력) {
+/***** 학습용.txt 파일 관리 (fetch를 사용한 파일 읽기/쓰기) *****/
+async function 학습_파일에_추가(입력) {
   const 타임스탬프 = Date.now();
   const 인코딩 = `${타임스탬프}:${btoa(unescape(encodeURIComponent(입력)))}\n`;
-  let 현재_데이터 = localStorage.getItem(학습용_데이터_키) || '';
+
+  // 학습용.txt 파일을 서버에서 읽어오기
+  let 현재_데이터 = await 학습_파일_읽기();
+
+  // 새로운 데이터 추가
   현재_데이터 += 인코딩;
-  localStorage.setItem(학습용_데이터_키, 현재_데이터);
+
+  // 서버에 업데이트된 데이터 전송
+  await 학습용_데이터_전송(현재_데이터);
   console.log('데이터가 학습용.txt에 추가되었습니다.');
-  // 학습용 데이터를 서버로 전송
-  학습용_데이터_전송();
 }
 
-function 학습_파일_읽기() {
-  return localStorage.getItem(학습용_데이터_키) || '';
+async function 학습_파일_읽기() {
+  try {
+    const 응답 = await fetch(학습용_파일_경로, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${RENDER_KEY}`,
+        'Origin': ALLOWED_ORIGIN
+      }
+    });
+    if (!응답.ok) throw new Error('학습용.txt 파일을 읽지 못했습니다.');
+    const 데이터 = await 응답.text();
+    return 데이터;
+  } catch (error) {
+    console.error('학습용.txt 파일 읽기 중 오류:', error);
+    return '';
+  }
 }
 
 /***** 의도 인식 그룹 업데이트 *****/
@@ -227,19 +244,19 @@ function 텍스트에서_의도_감지(입력) {
 }
 
 /***** 채팅 처리 *****/
-function 채팅_전송() {
+async function 채팅_전송() {
   const 입력_요소 = document.getElementById("chat-input");
   if (!입력_요소 || !입력_요소.value.trim()) return;
   const 입력 = 입력_요소.value.trim();
 
-  // 학습용.txt에 입력 추가 및 서버 전송
-  학습_파일에_추가(입력);
+  // 학습용.txt에 입력 추가 및 서버 업데이트
+  await 학습_파일에_추가(입력);
 
   // 의도 인식 그룹 업데이트
   의도_인식_그룹_업데이트(입력);
 
   // 학습용.txt 데이터를 읽어와 벡터화 및 정제 후 말풍선에 표시
-  const 학습_데이터_텍스트 = 학습_파일_읽기();
+  const 학습_데이터_텍스트 = await 학습_파일_읽기();
   const 학습_데이터_라인 = 학습_데이터_텍스트.split('\n').filter(line => line);
   if (학습_데이터_라인.length > 0) {
     const 최신_라인 = 학습_데이터_라인[학습_데이터_라인.length - 1];
@@ -311,19 +328,19 @@ function 지역_드롭다운_채우기() {
 }
 
 /***** DOM 이벤트 처리 및 모델 초기화 *****/
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
   지역_드롭다운_채우기();
   const 채팅_입력 = document.getElementById("chat-input");
   if (채팅_입력) {
-    채팅_입력.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") 채팅_전송();
+    채팅_입력.addEventListener("keydown", async (e) => {
+      if (e.key === "Enter") await 채팅_전송();
     });
   }
 
   loadModel(); // 저장된 MLP 모델 로드
 
   // 학습용.txt 파일에서 데이터 로드 및 의도_인식_그룹 초기화
-  const 학습_데이터_텍스트 = 학습_파일_읽기();
+  const 학습_데이터_텍스트 = await 학습_파일_읽기();
   const 학습_데이터_라인 = 학습_데이터_텍스트.split('\n');
   학습_데이터_라인.forEach(라인 => {
     if (라인) {
