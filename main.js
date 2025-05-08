@@ -1,6 +1,6 @@
-// API 키와 서버 URL 설정 (현재 저장에 사용되지 않음, 유지됨)
-const API_키 = localStorage.getItem('API_키');
-const 서버_API_URL = 'https://emotionail2-0.onrender.com/api'; // 실제 서버 URL로 교체 필요
+// API 키와 서버 URL 설정
+const API_키 = localStorage.getItem('API_키'); // 프론트엔드에서 인증용 키, RENDER_KEY와 매핑
+const 서버_API_URL = 'https://emotionail2-0.onrender.com/api'; // 백엔드 서버 URL
 
 /***** 사이트 링크와 키워드 정의 *****/
 const 사이트_링크 = {
@@ -32,7 +32,7 @@ let 키워드 = {
 let 의도_인식_그룹 = {};
 let 적응형_학습률 = 0.01;
 
-// 단어 임베딩을 위한 간단한 사전 (예시)
+// 단어 임베딩을 위한 간단한 사전
 const 단어_사전 = {};
 let 단어_인덱스 = 0;
 
@@ -49,7 +49,7 @@ function 단어_토큰화(텍스트) {
   return 텍스트.split(' ').filter(token => token.trim() !== '');
 }
 
-// 텍스트를 벡터화 (단어 임베딩을 사용한 간단한 벡터화)
+// 텍스트를 벡터화 (단어 임베딩 사용)
 function 텍스트_벡터화(텍스트) {
   const 토큰 = 단어_토큰화(텍스트);
   const 벡터 = Array(300).fill(0);
@@ -61,7 +61,7 @@ function 텍스트_벡터화(텍스트) {
 }
 
 /***** 학습용 데이터와 모델 정의 *****/
-const 입력_크기 = 300; // 300차원 벡터로 설정
+const 입력_크기 = 300; // 300차원 벡터
 const 은닉_크기 = 64; // 은닉층 뉴런 수
 const 의도 = Object.keys(키워드); // 의도 목록
 const 출력_크기 = 의도.length; // 출력 크기 (의도 수)
@@ -160,7 +160,7 @@ function 학습(입력, 목표, 학습률 = 0.01) {
   }
 }
 
-// 학습 루프 (서버 전송 제거)
+// 학습 루프
 function 에포크_학습(데이터, 에포크 = 10) {
   for (let epoch = 0; epoch < 에포크; epoch++) {
     데이터.forEach(샘플 => {
@@ -181,6 +181,63 @@ function 모델_저장() {
   };
   localStorage.setItem('mlp모델', JSON.stringify(모델));
   console.log("모델이 저장되었습니다.");
+}
+
+/***** 백엔드 API 호출 함수 *****/
+async function 키와_함께_가져오기(url, 옵션 = {}) {
+  const 헤더 = { 'Content-Type': 'application/json', 'API_키': API_키, ...옵션.headers };
+  return fetch(url, { ...옵션, headers: 헤더 });
+}
+
+// 네이버 검색 결과 가져오기 (백엔드 엔드포인트 호출)
+async function 네이버_검색_결과_가져오기(쿼리) {
+  try {
+    const 응답 = await 키와_함께_가져오기(`${서버_API_URL}/naver-search?q=${encodeURIComponent(쿼리)}`);
+    const 데이터 = await 응답.json();
+    if (데이터.items && 데이터.items.length > 0) {
+      const 결과 = 데이터.items.map(item => item.title.replace(/<[^>]+>/g, '')).join('\n- ');
+      학습_파일에_추가(`네이버:${쿼리}:${결과}`);
+      return 결과;
+    }
+    return "검색 결과가 없습니다.";
+  } catch (error) {
+    console.error("네이버 검색 실패:", error);
+    return "검색 결과를 가져오는데 실패했습니다.";
+  }
+}
+
+// 유튜브 검색 결과 가져오기 (백엔드 엔드포인트 호출)
+async function 유튜브_검색_결과_가져오기(쿼리) {
+  try {
+    const 응답 = await 키와_함께_가져오기(`${서버_API_URL}/youtube-search?q=${encodeURIComponent(쿼리)}`);
+    const 데이터 = await 응답.json();
+    if (데이터.items && 데이터.items.length > 0) {
+      const 결과 = 데이터.items.map(item => item.title.replace(/<[^>]+>/g, '')).join('\n- ');
+      학습_파일에_추가(`유튜브:${쿼리}:${결과}`);
+      return 결과;
+    }
+    return "검색 결과가 없습니다.";
+  } catch (error) {
+    console.error("유튜브 검색 실패:", error);
+    return "검색 결과를 가져오는데 실패했습니다.";
+  }
+}
+
+// 날씨 정보 가져오기 (백엔드 엔드포인트 호출)
+async function 날씨_정보_가져오기(지역) {
+  try {
+    const 응답 = await 키와_함께_가져오기(`${서버_API_URL}/weather?location=${encodeURIComponent(지역)}`);
+    const 데이터 = await 응답.json();
+    if (데이터.weather) {
+      const 결과 = `현재 ${지역} 날씨: ${데이터.weather.description}, 온도: ${데이터.main.temp}°C`;
+      학습_파일에_추가(`날씨:${지역}:${결과}`);
+      return 결과;
+    }
+    return "날씨 정보를 가져올 수 없습니다.";
+  } catch (error) {
+    console.error("날씨 정보 가져오기 실패:", error);
+    return "날씨 정보를 가져오는데 실패했습니다.";
+  }
 }
 
 /***** 유틸리티 함수 *****/
@@ -225,10 +282,33 @@ function 텍스트에서_의도_감지(입력) {
 }
 
 /***** 채팅 처리 *****/
-function 채팅_전송() {
+async function 채팅_전송() {
   const 입력_요소 = document.getElementById("chat-input");
   if (!입력_요소 || !입력_요소.value.trim()) return;
   const 입력 = 입력_요소.value.trim();
+  let 응답 = 입력;
+  let HTML_여부 = false;
+
+  // 사이트 키워드 감지
+  const 사이트 = Object.keys(사이트_링크).find(키 => 입력.includes(키));
+  if (사이트 === "유튜브") {
+    const 쿼리 = 입력.replace(/유튜브|youtube|동영상|비디오|영상/gi, "").trim();
+    const 검색_결과 = 쿼리 ? await 유튜브_검색_결과_가져오기(쿼리) : "유튜브 검색어를 입력해주세요.";
+    응답 = 검색_결과;
+    HTML_여부 = !!쿼리;
+  } else if (사이트 === "네이버") {
+    const 쿼리 = 입력.replace(/네이버|naver|검색|찾기/gi, "").trim();
+    const 검색_결과 = 쿼리 ? await 네이버_검색_결과_가져오기(쿼리) : "검색어를 입력해주세요.";
+    응답 = 검색_결과;
+    HTML_여부 = !!쿼리;
+  } else if (입력.includes("날씨")) {
+    const 지역 = 키워드.지역.find(지역 => 입력.includes(지역)) || "서울";
+    const 날씨_결과 = await 날씨_정보_가져오기(지역);
+    응답 = 날씨_결과;
+    HTML_여부 = true;
+  } else if (사이트) {
+    window.open(사이트_링크[사이트], "_blank");
+  }
 
   // 학습용.txt에 입력 추가
   학습_파일에_추가(입력);
@@ -242,8 +322,8 @@ function 채팅_전송() {
     에포크_학습(학습_데이터, 1); // 1 에포크 학습
   }
 
-  // 말풍선에 입력 표시
-  말풍선_표시(입력);
+  // 말풍선에 응답 표시
+  말풍선_표시(응답);
 
   입력_요소.value = "";
 }
