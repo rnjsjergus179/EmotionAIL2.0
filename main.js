@@ -1,25 +1,12 @@
-// API 키와 서버 URL 설정
-const API_키 = localStorage.getItem('API_키'); // 프론트엔드에서 인증용 키, RENDER_KEY와 매핑
-const 서버_API_URL = 'https://emotionail2-0.onrender.com/api'; // 백엔드 서버 URL
+// 백엔드 환경변수 활용 설정
+const RENDER_KEY = localStorage.getItem('RENDER_KEY') || 'default-render-key'; // 백엔드 인증 키
+const ALLOWED_ORIGIN = 'https://emotionail2-0-u1qe.onrender.com'; // 허용된 출처
+const 서버_API_URL = `${ALLOWED_ORIGIN}/api`; // 서버 엔드포인트 URL
 
-/***** 사이트 링크와 키워드 정의 *****/
-const 사이트_링크 = {
-  "빙": "https://www.bing.com",
-  "네이버": "https://www.naver.com",
-  "다음": "https://www.daum.net",
-  "유튜브": "https://www.youtube.com",
-  "넷플릭스": "https://www.netflix.com",
-  "트위치": "https://www.twitch.tv",
-  "틱톡": "https://www.tiktok.com",
-  "인스타": "https://www.instagram.com",
-  "인스타그램": "https://www.instagram.com",
-  "페이스북": "https://www.facebook.com",
-  "트위터": "https://x.com",
-  "엑스": "https://x.com",
-  "링크드인": "https://www.linkedin.com",
-  "레딧": "https://www.reddit.com"
-};
+// 학습용.txt 파일을 위한 localStorage 키
+const 학습용_데이터_키 = '학습용_데이터';
 
+// 키워드 정의
 let 키워드 = {
   인사: ["안녕", "안녕하세요", "안녕 하세", "안녕하시오", "안녕한갑네", "반가워"],
   취침: ["잘자", "좋은꿈", "좋은 꿈", "잘자요", "잘자시게", "잘자리요", "잘자라니께"],
@@ -30,7 +17,6 @@ let 키워드 = {
 };
 
 let 의도_인식_그룹 = {};
-let 적응형_학습률 = 0.01;
 
 // 단어 임베딩을 위한 간단한 사전
 const 단어_사전 = {};
@@ -188,86 +174,40 @@ function 모델_저장() {
   console.log("모델이 저장되었습니다.");
 }
 
-/***** 백엔드 API 호출 함수 *****/
-async function 키와_함께_가져오기(url, 옵션 = {}) {
-  const 헤더 = { 'Content-Type': 'application/json', 'API_키': API_키, ...옵션.headers };
-  return fetch(url, { ...옵션, headers: 헤더 });
-}
-
-// 네이버 검색 결과 가져오기 (백엔드 엔드포인트 호출)
-async function 네이버_검색_결과_가져오기(쿼리) {
+/***** 백엔드 API 호출 함수 (학습용.txt 관련) *****/
+async function 학습용_데이터_전송() {
+  const 학습_데이터 = 학습_파일_읽기();
   try {
-    const 응답 = await 키와_함께_가져오기(`${서버_API_URL}/naver-search?q=${encodeURIComponent(쿼리)}`);
-    const 데이터 = await 응답.json();
-    if (데이터.items && 데이터.items.length > 0) {
-      const 결과 = 데이터.items.map(item => item.title.replace(/<[^>]+>/g, '')).join('\n- ');
-      학습_파일에_추가(`네이버:${쿼리}:${결과}`);
-      return 결과;
-    }
-    return "검색 결과가 없습니다.";
+    const 응답 = await fetch(`${서버_API_URL}/save-learning-data`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${RENDER_KEY}`, // RENDER_KEY를 헤더에 사용
+        'Origin': ALLOWED_ORIGIN // ALLOWED_ORIGIN 설정
+      },
+      body: JSON.stringify({ data: 학습_데이터 })
+    });
+    if (!응답.ok) throw new Error('학습용 데이터 전송 실패');
+    console.log('학습용 데이터가 서버에 전송되었습니다.');
   } catch (error) {
-    console.error("네이버 검색 실패:", error);
-    return "검색 결과를 가져오는데 실패했습니다.";
+    console.error('학습용 데이터 전송 중 오류:', error);
   }
-}
-
-// 유튜브 검색 결과 가져오기 (백엔드 엔드포인트 호출)
-async function 유튜브_검색_결과_가져오기(쿼리) {
-  try {
-    const 응답 = await 키와_함께_가져오기(`${서버_API_URL}/youtube-search?q=${encodeURIComponent(쿼리)}`);
-    const 데이터 = await 응답.json();
-    if (데이터.items && 데이터.items.length > 0) {
-      const 결과 = 데이터.items.map(item => item.title.replace(/<[^>]+>/g, '')).join('\n- ');
-      학습_파일에_추가(`유튜브:${쿼리}:${결과}`);
-      return 결과;
-    }
-    return "검색 결과가 없습니다.";
-  } catch (error) {
-    console.error("유튜브 검색 실패:", error);
-    return "검색 결과를 가져오는데 실패했습니다.";
-  }
-}
-
-// 날씨 정보 가져오기 (백엔드 엔드포인트 호출)
-async function 날씨_정보_가져오기(지역) {
-  try {
-    const 응답 = await 키와_함께_가져오기(`${서버_API_URL}/weather?location=${encodeURIComponent(지역)}`);
-    const 데이터 = await 응답.json();
-    if (데이터.weather) {
-      const 결과 = `현재 ${지역} 날씨: ${데이터.weather.description}, 온도: ${데이터.main.temp}°C`;
-      학습_파일에_추가(`날씨:${지역}:${결과}`);
-      return 결과;
-    }
-    return "날씨 정보를 가져올 수 없습니다.";
-  } catch (error) {
-    console.error("날씨 정보 가져오기 실패:", error);
-    return "날씨 정보를 가져오는데 실패했습니다.";
-  }
-}
-
-/***** 유틸리티 함수 *****/
-function 내적(a, b) {
-  return a.reduce((sum, val, i) => sum + val * b[i], 0);
-}
-
-function 벡터_평균(벡터들) {
-  if (벡터들.length === 0) return Array(300).fill(0);
-  const 합 = 벡터들.reduce((acc, vec) => acc.map((val, i) => val + vec[i]), Array(벡터들[0].length).fill(0));
-  return 합.map(val => val / 벡터들.length);
 }
 
 /***** 학습용.txt 관리 (localStorage 사용) *****/
 function 학습_파일에_추가(입력) {
   const 타임스탬프 = Date.now();
   const 인코딩 = `${타임스탬프}:${btoa(unescape(encodeURIComponent(입력)))}\n`;
-  let 현재_데이터 = localStorage.getItem('학습용_데이터') || '';
+  let 현재_데이터 = localStorage.getItem(학습용_데이터_키) || '';
   현재_데이터 += 인코딩;
-  localStorage.setItem('학습용_데이터', 현재_데이터);
+  localStorage.setItem(학습용_데이터_키, 현재_데이터);
   console.log('데이터가 학습용.txt에 추가되었습니다.');
+  // 학습용 데이터를 서버로 전송
+  학습용_데이터_전송();
 }
 
 function 학습_파일_읽기() {
-  return localStorage.getItem('학습용_데이터') || '';
+  return localStorage.getItem(학습용_데이터_키) || '';
 }
 
 /***** 의도 인식 그룹 업데이트 *****/
@@ -287,35 +227,12 @@ function 텍스트에서_의도_감지(입력) {
 }
 
 /***** 채팅 처리 *****/
-async function 채팅_전송() {
+function 채팅_전송() {
   const 입력_요소 = document.getElementById("chat-input");
   if (!입력_요소 || !입력_요소.value.trim()) return;
   const 입력 = 입력_요소.value.trim();
-  let 응답 = 입력;
-  let HTML_여부 = false;
 
-  // 사이트 키워드 감지
-  const 사이트 = Object.keys(사이트_링크).find(키 => 입력.includes(키));
-  if (사이트 === "유튜브") {
-    const 쿼리 = 입력.replace(/유튜브|youtube|동영상|비디오|영상/gi, "").trim();
-    const 검색_결과 = 쿼리 ? await 유튜브_검색_결과_가져오기(쿼리) : "유튜브 검색어를 입력해주세요.";
-    응답 = 검색_결과;
-    HTML_여부 = !!쿼리;
-  } else if (사이트 === "네이버") {
-    const 쿼리 = 입력.replace(/네이버|naver|검색|찾기/gi, "").trim();
-    const 검색_결과 = 쿼리 ? await 네이버_검색_결과_가져오기(쿼리) : "검색어를 입력해주세요.";
-    응답 = 검색_결과;
-    HTML_여부 = !!쿼리;
-  } else if (입력.includes("날씨")) {
-    const 지역 = 키워드.지역.find(지역 => 입력.includes(지역)) || "서울";
-    const 날씨_결과 = await 날씨_정보_가져오기(지역);
-    응답 = 날씨_결과;
-    HTML_여부 = true;
-  } else if (사이트) {
-    window.open(사이트_링크[사이트], "_blank");
-  }
-
-  // 학습용.txt에 입력 추가
+  // 학습용.txt에 입력 추가 및 서버 전송
   학습_파일에_추가(입력);
 
   // 의도 인식 그룹 업데이트
